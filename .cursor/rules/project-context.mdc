@@ -1,0 +1,29 @@
+---
+alwaysApply: true
+---
+
+Project Context:
+
+We are building a 2D Virtual Tabletop (VTT) for a TV/Table setup.
+
+Stack: React, TypeScript, Vite, Bun, Zustand, TailwindCSS and shadcn/ui.
+
+Rendering Engine: pixi.js (v7 or v8) and @pixi/react.
+
+Goal: High performance. We need to render a map image and dynamic lighting on top of it.
+
+State: We are keeping state local for now but keeping data structures serializable for a future database.
+
+Key Feature Requirements:
+
+1. Map Layer: Display a large image. Pan/Zoom capabilities.
+
+2. Lighting System: Render a "Darkness" layer (Fog) and "cut out" lights from it.
+
+3. Light Types:
+
+   - Radial: Simple circle around a point.
+
+   - Conic: A cone of light from a source point (x,y) to a target point (targetX, targetY).
+
+4. Presets: Ability to save the current configuration of lights as a "Scene" and switch between them instantly or randomly.
