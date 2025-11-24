@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev:frontend": "vite",
-    "dev:backend": "bun run --watch api/index.ts --port 3001",
+    "dev:backend": "bun run --watch api/server.ts --port 3001",
     "dev": "concurrently \"bun dev:frontend\" \"bun dev:backend\"",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
