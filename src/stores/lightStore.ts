@@ -12,14 +12,24 @@ import {
   type LightUpdate,
   lightSchema,
 } from "@/types/light";
+import {
+  DEFAULT_MIRROR_LENGTH,
+  type Mirror,
+  type MirrorUpdate,
+  mirrorSchema,
+} from "@/types/mirror";
 
 type LightStoreState = {
   lights: Light[];
+  mirrors: Mirror[];
   presets: LightPreset[];
   activePresetId: string | null;
   addLight: (type: LightType, x: number, y: number) => string;
   updateLight: (id: string, partial: LightUpdate) => void;
   removeLight: (id: string) => void;
+  addMirror: (x: number, y: number) => string;
+  updateMirror: (id: string, partial: MirrorUpdate) => void;
+  removeMirror: (id: string) => void;
   savePreset: (name: string) => string;
   updateSavedPreset: (id: string) => void;
   loadPreset: (id: string) => void;
@@ -93,9 +103,22 @@ const buildLight = (type: LightType, x: number, y: number): Light => {
   return lightSchema.parse(candidate);
 };
 
+const buildMirror = (x: number, y: number): Mirror => {
+  const halfLength = DEFAULT_MIRROR_LENGTH / 2;
+  const candidate = {
+    id: createId(),
+    x1: x - halfLength,
+    y1: y,
+    x2: x + halfLength,
+    y2: y,
+  };
+  return mirrorSchema.parse(candidate);
+};
+
 export const useLightStore = create<LightStoreState>()(
   devtools((set, get) => ({
     lights: [],
+    mirrors: [],
     presets: loadPresetsFromStorage(),
     activePresetId: null,
     addLight: (type, x, y) => {
@@ -125,12 +148,40 @@ export const useLightStore = create<LightStoreState>()(
         }
         return { lights: nextLights };
       }),
+    addMirror: (x, y) => {
+      const mirror = buildMirror(x, y);
+      set((state) => ({ mirrors: state.mirrors.concat(mirror) }));
+      return mirror.id;
+    },
+    updateMirror: (id, partial) =>
+      set((state) => {
+        const index = state.mirrors.findIndex((mirror) => mirror.id === id);
+        if (index === -1) {
+          return state;
+        }
+        const nextMirror = mirrorSchema.parse({
+          ...state.mirrors[index],
+          ...partial,
+        });
+        const mirrors = state.mirrors.slice();
+        mirrors[index] = nextMirror;
+        return { mirrors };
+      }),
+    removeMirror: (id) =>
+      set((state) => {
+        const nextMirrors = state.mirrors.filter((mirror) => mirror.id !== id);
+        if (nextMirrors.length === state.mirrors.length) {
+          return state;
+        }
+        return { mirrors: nextMirrors };
+      }),
     savePreset: (name) => {
       const state = get();
       const newPreset: LightPreset = {
         id: createId(),
         name,
         lights: state.lights,
+        mirrors: state.mirrors,
       };
       const nextPresets = [...state.presets, newPreset];
       savePresetsToStorage(nextPresets);
@@ -142,7 +193,11 @@ export const useLightStore = create<LightStoreState>()(
       const index = state.presets.findIndex((p) => p.id === id);
       if (index === -1) return;
 
-      const updatedPreset = { ...state.presets[index], lights: state.lights };
+      const updatedPreset = {
+        ...state.presets[index],
+        lights: state.lights,
+        mirrors: state.mirrors,
+      };
       const nextPresets = [...state.presets];
       nextPresets[index] = updatedPreset;
       savePresetsToStorage(nextPresets);
@@ -152,9 +207,10 @@ export const useLightStore = create<LightStoreState>()(
       const state = get();
       const preset = state.presets.find((p) => p.id === id);
       if (preset) {
-        // Deep copy lights to avoid reference issues if modified
+        // Deep copy lights and mirrors to avoid reference issues if modified
         const lightsCopy = JSON.parse(JSON.stringify(preset.lights));
-        set({ lights: lightsCopy, activePresetId: id });
+        const mirrorsCopy = JSON.parse(JSON.stringify(preset.mirrors ?? []));
+        set({ lights: lightsCopy, mirrors: mirrorsCopy, activePresetId: id });
       }
     },
     randomizePreset: () => {

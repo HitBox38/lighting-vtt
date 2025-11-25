@@ -12,11 +12,16 @@ import {
 
 import FrameCounter from "@/components/FrameCounter";
 import LightToolbar from "@/components/LightToolbar";
+import MirrorToolbar from "@/components/MirrorToolbar";
 import { PresetToolbar } from "@/components/PresetToolbar";
 import LightControls from "@/components/LightControls";
 import LightingLayer from "@/components/LightingLayer";
+import MirrorLayer from "@/components/MirrorLayer";
+import MirrorControls from "@/components/MirrorControls";
 import LightContextMenu, { type LightContextMenuState } from "@/components/LightContextMenu";
+import MirrorContextMenu, { type MirrorContextMenuState } from "@/components/MirrorContextMenu";
 import { useLightManager } from "@/hooks/useLightManager";
+import { useMirrorManager } from "@/hooks/useMirrorManager";
 import type { LightType } from "@/types/light";
 
 extend({ Container: PixiContainer, Sprite: PixiSprite, Graphics: PixiGraphics });
@@ -51,8 +56,13 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
   );
 
   const [mapTexture, setMapTexture] = useState<PixiTexture | null>(null);
-  const [contextMenuState, setContextMenuState] = useState<LightContextMenuState | null>(null);
+  const [lightContextMenuState, setLightContextMenuState] = useState<LightContextMenuState | null>(
+    null
+  );
+  const [mirrorContextMenuState, setMirrorContextMenuState] =
+    useState<MirrorContextMenuState | null>(null);
   const { addLight } = useLightManager();
+  const { addMirror } = useMirrorManager();
   const appRef = useRef<PixiApplication | null>(null);
   const containerRef = useRef<PixiContainer | null>(null);
   const spriteRef = useRef<PixiSprite | null>(null);
@@ -182,6 +192,11 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
     [addLight, getViewportCenterWorld]
   );
 
+  const handleAddMirror = useCallback(() => {
+    const { x, y } = getViewportCenterWorld();
+    addMirror(x, y);
+  }, [addMirror, getViewportCenterWorld]);
+
   const handlePointerDown = useCallback((event: FederatedPointerEvent) => {
     panStateRef.current.dragging = true;
     panStateRef.current.pointerId = event.pointerId;
@@ -280,12 +295,22 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
   const lightingWidth = mapTexture?.width ?? viewportSize.width;
   const lightingHeight = mapTexture?.height ?? viewportSize.height;
 
-  const handleOpenContextMenu = useCallback((state: LightContextMenuState) => {
-    setContextMenuState(state);
+  const handleOpenLightContextMenu = useCallback((state: LightContextMenuState) => {
+    setMirrorContextMenuState(null);
+    setLightContextMenuState(state);
   }, []);
 
-  const handleCloseContextMenu = useCallback(() => {
-    setContextMenuState(null);
+  const handleCloseLightContextMenu = useCallback(() => {
+    setLightContextMenuState(null);
+  }, []);
+
+  const handleOpenMirrorContextMenu = useCallback((state: MirrorContextMenuState) => {
+    setLightContextMenuState(null);
+    setMirrorContextMenuState(state);
+  }, []);
+
+  const handleCloseMirrorContextMenu = useCallback(() => {
+    setMirrorContextMenuState(null);
   }, []);
 
   return (
@@ -298,6 +323,7 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
             onAddConic={() => handleAddLight("conic")}
             onAddLine={() => handleAddLight("line")}
           />
+          <MirrorToolbar onAddMirror={handleAddMirror} />
         </div>
       </div>
       <div className="pointer-events-none absolute right-4 top-4 z-10">
@@ -314,15 +340,32 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
         <pixiContainer ref={containerRef}>
           {mapTexture && <pixiSprite ref={spriteRef} texture={mapTexture} />}
           <LightingLayer width={lightingWidth} height={lightingHeight} isGM={isGM} />
+          <MirrorLayer isGM={isGM} />
           <LightControls
             isGM={isGM}
-            onOpenContextMenu={handleOpenContextMenu}
-            onCloseContextMenu={handleCloseContextMenu}
+            onOpenContextMenu={handleOpenLightContextMenu}
+            onCloseContextMenu={handleCloseLightContextMenu}
+          />
+          <MirrorControls
+            isGM={isGM}
+            onOpenContextMenu={handleOpenMirrorContextMenu}
+            onCloseContextMenu={handleCloseMirrorContextMenu}
           />
         </pixiContainer>
       </Application>
-      {contextMenuState && (
-        <LightContextMenu state={contextMenuState} isGM={isGM} onClose={handleCloseContextMenu} />
+      {lightContextMenuState && (
+        <LightContextMenu
+          state={lightContextMenuState}
+          isGM={isGM}
+          onClose={handleCloseLightContextMenu}
+        />
+      )}
+      {mirrorContextMenuState && (
+        <MirrorContextMenu
+          state={mirrorContextMenuState}
+          isGM={isGM}
+          onClose={handleCloseMirrorContextMenu}
+        />
       )}
     </div>
   );

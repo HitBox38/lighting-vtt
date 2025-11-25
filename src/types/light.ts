@@ -50,7 +50,7 @@ export type RadialLight = z.infer<typeof radialLightSchema>;
 export type ConicLight = z.infer<typeof conicLightSchema>;
 export type LineLight = z.infer<typeof lineLightSchema>;
 export type LightType = Light["type"];
-type LightUpdatableFields = {
+interface LightUpdatableFields {
   type?: LightType;
   x?: number;
   y?: number;
@@ -62,14 +62,17 @@ type LightUpdatableFields = {
   coneAngle?: number;
   targetX?: number;
   targetY?: number;
-};
+}
 
 export type LightUpdate = LightUpdatableFields;
+
+import type { Mirror } from "@/types/mirror";
 
 export type LightPreset = {
   id: string;
   name: string;
   lights: Light[];
+  mirrors: Mirror[];
 };
 
 export const DEFAULT_LIGHT_COLOR = "#ffffff";
