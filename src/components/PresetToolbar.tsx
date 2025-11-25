@@ -90,18 +90,18 @@ export function PresetToolbar() {
             </TooltipContent>
           </Tooltip>
           <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
-            <DialogTrigger asChild>
-              <Tooltip>
-                <TooltipTrigger asChild>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DialogTrigger asChild>
                   <Button size="icon-sm" variant="outline">
                     <FilePlus className="size-4" />
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p>Save As New Preset</p>
-                </TooltipContent>
-              </Tooltip>
-            </DialogTrigger>
+                </DialogTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Save As New Preset</p>
+              </TooltipContent>
+            </Tooltip>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>Save As New Preset</DialogTitle>
@@ -125,18 +125,18 @@ export function PresetToolbar() {
         </>
       ) : (
         <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
-          <DialogTrigger asChild>
-            <Tooltip>
-              <TooltipTrigger asChild>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DialogTrigger asChild>
                 <Button size="icon-sm" variant="outline">
                   <Save className="size-4" />
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>Save New Preset</p>
-              </TooltipContent>
-            </Tooltip>
-          </DialogTrigger>
+              </DialogTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>Save New Preset</p>
+            </TooltipContent>
+          </Tooltip>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Save New Preset</DialogTitle>
