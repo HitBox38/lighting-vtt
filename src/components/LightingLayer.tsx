@@ -63,7 +63,7 @@ export function LightingLayer({ width, height, isGM = true }: Props) {
 
         if (light.type === "radial") {
           graphics.circle(light.x, light.y, light.radius).fill({ color: LIGHT_COLOR, alpha });
-        } else {
+        } else if (light.type === "conic") {
           const baseAngle = Math.atan2(light.targetY - light.y, light.targetX - light.x);
           const halfCone = ((light.coneAngle ?? 0) * Math.PI) / 360;
           const startAngle = baseAngle - halfCone;
@@ -73,6 +73,41 @@ export function LightingLayer({ width, height, isGM = true }: Props) {
             .moveTo(light.x, light.y)
             .arc(light.x, light.y, light.radius, startAngle, endAngle)
             .lineTo(light.x, light.y)
+            .fill({ color: LIGHT_COLOR, alpha });
+        } else {
+          const dx = light.targetX - light.x;
+          const dy = light.targetY - light.y;
+          const distance = Math.hypot(dx, dy);
+          const thickness = Math.max(light.radius ?? 1, 1);
+
+          if (!distance) {
+            graphics.circle(light.x, light.y, thickness).fill({ color: LIGHT_COLOR, alpha });
+            continue;
+          }
+
+          const normX = (-dy / distance) * thickness;
+          const normY = (dx / distance) * thickness;
+
+          const startLeftX = light.x + normX;
+          const startLeftY = light.y + normY;
+          const startRightX = light.x - normX;
+          const startRightY = light.y - normY;
+          const endLeftX = light.targetX + normX;
+          const endLeftY = light.targetY + normY;
+          const endRightX = light.targetX - normX;
+          const endRightY = light.targetY - normY;
+
+          graphics
+            .moveTo(startLeftX, startLeftY)
+            .lineTo(endLeftX, endLeftY)
+            .lineTo(endRightX, endRightY)
+            .lineTo(startRightX, startRightY)
+            .lineTo(startLeftX, startLeftY)
+            .fill({ color: LIGHT_COLOR, alpha });
+
+          graphics.circle(light.x, light.y, thickness).fill({ color: LIGHT_COLOR, alpha });
+          graphics
+            .circle(light.targetX, light.targetY, thickness)
             .fill({ color: LIGHT_COLOR, alpha });
         }
       }

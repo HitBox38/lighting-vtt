@@ -296,6 +296,7 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
           <LightToolbar
             onAddRadial={() => handleAddLight("radial")}
             onAddConic={() => handleAddLight("conic")}
+            onAddLine={() => handleAddLight("line")}
           />
         </div>
       </div>

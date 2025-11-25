@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import type { FederatedPointerEvent, Graphics as PixiGraphics } from "pixi.js";
 
 import { useLightStore } from "@/stores/lightStore";
-import type { ConicLight, Light, LightUpdate } from "@/types/light";
+import type { Light, LightUpdate } from "@/types/light";
 import type { LightContextMenuState } from "@/components/LightContextMenu";
 
 interface Props {
@@ -16,12 +16,14 @@ type DragHandleType = "radial" | "radialRadius" | "source" | "target";
 type DragState = {
   pointerId: number | null;
   lightId: string | null;
+  lightType: Light["type"] | null;
   handle: DragHandleType | null;
   offsetX: number;
   offsetY: number;
   targetDeltaX: number;
   targetDeltaY: number;
   hasTarget: boolean;
+  resizeRadiusWithTarget: boolean;
   sourceX: number;
   sourceY: number;
 };
@@ -33,12 +35,14 @@ const DASH_GAP = 6;
 const createInitialDragState = (): DragState => ({
   pointerId: null,
   lightId: null,
+  lightType: null,
   handle: null,
   offsetX: 0,
   offsetY: 0,
   targetDeltaX: 0,
   targetDeltaY: 0,
   hasTarget: false,
+  resizeRadiusWithTarget: false,
   sourceX: 0,
   sourceY: 0,
 });
@@ -223,7 +227,7 @@ export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: P
       let baseX = light.x;
       let baseY = light.y;
 
-      if (handle === "target" && light.type === "conic") {
+      if (handle === "target" && (light.type === "conic" || light.type === "line")) {
         baseX = light.targetX;
         baseY = light.targetY;
       } else if (handle === "radialRadius" && light.type === "radial") {
@@ -235,12 +239,14 @@ export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: P
       dragRef.current = {
         pointerId: event.pointerId,
         lightId: light.id,
+        lightType: light.type,
         handle,
         offsetX: pointerPosition.x - baseX,
         offsetY: pointerPosition.y - baseY,
-        targetDeltaX: light.type === "conic" ? light.targetX - light.x : 0,
-        targetDeltaY: light.type === "conic" ? light.targetY - light.y : 0,
-        hasTarget: light.type === "conic",
+        targetDeltaX: light.type === "conic" || light.type === "line" ? light.targetX - light.x : 0,
+        targetDeltaY: light.type === "conic" || light.type === "line" ? light.targetY - light.y : 0,
+        hasTarget: light.type === "conic" || light.type === "line",
+        resizeRadiusWithTarget: light.type === "conic",
         sourceX: light.x,
         sourceY: light.y,
       };
@@ -283,12 +289,22 @@ export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: P
 
       if (dragState.handle === "source") {
         if (dragState.hasTarget) {
-          const partial: Partial<Omit<ConicLight, "id">> = {
-            x: nextX,
-            y: nextY,
-            targetX: nextX + dragState.targetDeltaX,
-            targetY: nextY + dragState.targetDeltaY,
-          };
+          const partial: LightUpdate =
+            dragState.lightType === "line"
+              ? {
+                  type: "line",
+                  x: nextX,
+                  y: nextY,
+                  targetX: nextX + dragState.targetDeltaX,
+                  targetY: nextY + dragState.targetDeltaY,
+                }
+              : {
+                  type: "conic",
+                  x: nextX,
+                  y: nextY,
+                  targetX: nextX + dragState.targetDeltaX,
+                  targetY: nextY + dragState.targetDeltaY,
+                };
           scheduleLightUpdate(dragState.lightId, partial);
           return;
         }
@@ -297,14 +313,30 @@ export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: P
         return;
       }
 
-      const partial: Partial<Omit<ConicLight, "id">> = {
-        targetX: nextX,
-        targetY: nextY,
-      };
-      const dx = nextX - dragState.sourceX;
-      const dy = nextY - dragState.sourceY;
-      const nextRadius = Math.max(Math.hypot(dx, dy), 1);
-      scheduleLightUpdate(dragState.lightId, { ...partial, radius: nextRadius });
+      const partial: LightUpdate =
+        dragState.lightType === "line"
+          ? {
+              type: "line",
+              targetX: nextX,
+              targetY: nextY,
+            }
+          : {
+              type: "conic",
+              targetX: nextX,
+              targetY: nextY,
+            };
+      if (dragState.resizeRadiusWithTarget) {
+        const dx = nextX - dragState.sourceX;
+        const dy = nextY - dragState.sourceY;
+        const nextRadius = Math.max(Math.hypot(dx, dy), 1);
+        scheduleLightUpdate(dragState.lightId, {
+          ...partial,
+          radius: nextRadius,
+        });
+        return;
+      }
+
+      scheduleLightUpdate(dragState.lightId, partial);
     },
     [getPointerPosition, scheduleLightUpdate, updateRadialHandleAngle]
   );
@@ -322,7 +354,7 @@ export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: P
 
   const lineDrawers = useMemo(() => {
     return lights.map((light) => {
-      if (light.type === "conic") {
+      if (light.type === "conic" || light.type === "line") {
         return {
           id: light.id,
           draw: (graphics: PixiGraphics) =>

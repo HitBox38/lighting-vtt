@@ -30,13 +30,41 @@ export const conicLightSchema = z
   })
   .strict();
 
-export const lightSchema = z.discriminatedUnion("type", [radialLightSchema, conicLightSchema]);
+export const lineLightSchema = z
+  .object({
+    ...sharedFields,
+    type: z.literal("line"),
+    targetX: z.number(),
+    targetY: z.number(),
+  })
+  .strict();
+
+export const lightSchema = z.discriminatedUnion("type", [
+  radialLightSchema,
+  conicLightSchema,
+  lineLightSchema,
+]);
 
 export type Light = z.infer<typeof lightSchema>;
 export type RadialLight = z.infer<typeof radialLightSchema>;
 export type ConicLight = z.infer<typeof conicLightSchema>;
+export type LineLight = z.infer<typeof lineLightSchema>;
 export type LightType = Light["type"];
-export type LightUpdate = Partial<Omit<Light, "id">>;
+type LightUpdatableFields = {
+  type?: LightType;
+  x?: number;
+  y?: number;
+  radius?: number;
+  color?: string;
+  intensity?: number;
+  locked?: boolean;
+  hidden?: boolean;
+  coneAngle?: number;
+  targetX?: number;
+  targetY?: number;
+};
+
+export type LightUpdate = LightUpdatableFields;
 
 export type LightPreset = {
   id: string;

@@ -68,15 +68,27 @@ const buildLight = (type: LightType, x: number, y: number): Light => {
     intensity: DEFAULT_LIGHT_INTENSITY,
   };
 
-  const candidate =
-    type === "radial"
-      ? base
-      : {
-          ...base,
-          coneAngle: DEFAULT_CONE_ANGLE,
-          targetX: x + DEFAULT_LIGHT_RADIUS,
-          targetY: y,
-        };
+  const candidate = (() => {
+    if (type === "radial") {
+      return base;
+    }
+
+    if (type === "line") {
+      return {
+        ...base,
+        radius: 10,
+        targetX: x + DEFAULT_LIGHT_RADIUS,
+        targetY: y,
+      };
+    }
+
+    return {
+      ...base,
+      coneAngle: DEFAULT_CONE_ANGLE,
+      targetX: x + DEFAULT_LIGHT_RADIUS,
+      targetY: y,
+    };
+  })();
 
   return lightSchema.parse(candidate);
 };
