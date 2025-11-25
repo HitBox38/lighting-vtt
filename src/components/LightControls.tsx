@@ -11,7 +11,7 @@ interface Props {
   onCloseContextMenu: () => void;
 }
 
-type DragHandleType = "radial" | "radialRadius" | "source" | "target";
+type DragHandleType = "radial" | "radialRadius" | "source" | "target" | "conicAngle";
 
 type DragState = {
   pointerId: number | null;
@@ -26,6 +26,7 @@ type DragState = {
   resizeRadiusWithTarget: boolean;
   sourceX: number;
   sourceY: number;
+  baseAngle: number;
 };
 
 const HANDLE_RADIUS = 8;
@@ -45,6 +46,7 @@ const createInitialDragState = (): DragState => ({
   resizeRadiusWithTarget: false,
   sourceX: 0,
   sourceY: 0,
+  baseAngle: 0,
 });
 
 const drawHandle = (graphics: PixiGraphics) => {
@@ -186,6 +188,21 @@ export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: P
     [getRadialHandleAngle]
   );
 
+  const getConicAngleHandlePosition = useCallback((light: Light) => {
+    if (light.type !== "conic") {
+      return { x: light.x, y: light.y };
+    }
+    const baseAngle = Math.atan2(light.targetY - light.y, light.targetX - light.x);
+    const halfCone = ((light.coneAngle ?? 60) * Math.PI) / 360;
+    const angle = baseAngle + halfCone;
+
+    // Place handle at the light's radius
+    return {
+      x: light.x + Math.cos(angle) * light.radius,
+      y: light.y + Math.sin(angle) * light.radius,
+    };
+  }, []);
+
   const resetDragState = useCallback(() => {
     dragRef.current = createInitialDragState();
   }, []);
@@ -227,6 +244,7 @@ export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: P
 
       let baseX = light.x;
       let baseY = light.y;
+      let baseAngle = 0;
 
       if (handle === "target" && (light.type === "conic" || light.type === "line")) {
         baseX = light.targetX;
@@ -235,6 +253,11 @@ export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: P
         const handlePosition = getRadialHandlePosition(light);
         baseX = handlePosition.x;
         baseY = handlePosition.y;
+      } else if (handle === "conicAngle" && light.type === "conic") {
+        const handlePosition = getConicAngleHandlePosition(light);
+        baseX = handlePosition.x;
+        baseY = handlePosition.y;
+        baseAngle = Math.atan2(light.targetY - light.y, light.targetX - light.x);
       }
 
       dragRef.current = {
@@ -250,6 +273,7 @@ export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: P
         resizeRadiusWithTarget: light.type === "conic",
         sourceX: light.x,
         sourceY: light.y,
+        baseAngle,
       };
     },
     [
@@ -257,6 +281,7 @@ export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: P
       flushLightUpdate,
       getPointerPosition,
       getRadialHandlePosition,
+      getConicAngleHandlePosition,
       onCloseContextMenu,
       onOpenContextMenu,
     ]
@@ -285,6 +310,24 @@ export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: P
         const angle = Math.atan2(dy, dx);
         updateRadialHandleAngle(dragState.lightId, angle);
         scheduleLightUpdate(dragState.lightId, { radius: nextRadius });
+        return;
+      }
+
+      if (dragState.handle === "conicAngle") {
+        const dx = nextX - dragState.sourceX;
+        const dy = nextY - dragState.sourceY;
+
+        const currentAngle = Math.atan2(dy, dx);
+        let diff = currentAngle - dragState.baseAngle;
+        while (diff > Math.PI) diff -= 2 * Math.PI;
+        while (diff < -Math.PI) diff += 2 * Math.PI;
+
+        const angleDiff = Math.abs(diff);
+        const coneAngle = Math.max(1, Math.min(360, angleDiff * 2 * (180 / Math.PI)));
+
+        scheduleLightUpdate(dragState.lightId, {
+          coneAngle,
+        });
         return;
       }
 
@@ -355,7 +398,22 @@ export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: P
 
   const lineDrawers = useMemo(() => {
     return lights.map((light) => {
-      if (light.type === "conic" || light.type === "line") {
+      if (light.type === "conic") {
+        const angleHandlePos = getConicAngleHandlePosition(light);
+        return {
+          id: light.id,
+          draw: (graphics: PixiGraphics) => {
+            drawDashedLink(
+              graphics,
+              { x: light.x, y: light.y },
+              { x: light.targetX, y: light.targetY }
+            );
+            drawDashedLink(graphics, { x: light.x, y: light.y }, angleHandlePos);
+          },
+        };
+      }
+
+      if (light.type === "line") {
         return {
           id: light.id,
           draw: (graphics: PixiGraphics) =>
@@ -374,7 +432,7 @@ export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: P
           drawDashedLink(graphics, { x: light.x, y: light.y }, handlePosition),
       };
     });
-  }, [getRadialHandlePosition, lights]);
+  }, [getRadialHandlePosition, getConicAngleHandlePosition, lights]);
 
   if (!isGM || lights.length === 0) {
     return null;
@@ -460,6 +518,24 @@ export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: P
               onPointerOver={() => setHoveredLightId(light.id)}
               onPointerOut={() => setHoveredLightId(null)}
             />
+            {light.type === "conic" && (
+              <pixiGraphics
+                x={getConicAngleHandlePosition(light).x}
+                y={getConicAngleHandlePosition(light).y}
+                draw={drawHandle}
+                eventMode="static"
+                cursor="grab"
+                onPointerDown={(event: FederatedPointerEvent) =>
+                  handlePointerDown(event, light, "conicAngle")
+                }
+                onGlobalPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerUpOutside={handlePointerUp}
+                onPointerCancel={handlePointerUp}
+                onPointerOver={() => setHoveredLightId(light.id)}
+                onPointerOut={() => setHoveredLightId(null)}
+              />
+            )}
           </Fragment>
         );
       })}
