@@ -145,6 +145,7 @@ const useLightUpdateScheduler = (updateLight: (id: string, partial: LightUpdate)
 export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: Props) {
   const lights = useLightStore((state) => state.lights);
   const updateLight = useLightStore((state) => state.updateLight);
+  const setHoveredLightId = useLightStore((state) => state.setHoveredLightId);
   const { schedule: scheduleLightUpdate, flush: flushLightUpdate } =
     useLightUpdateScheduler(updateLight);
   const dragRef = useRef<DragState>(createInitialDragState());
@@ -402,6 +403,8 @@ export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: P
                 onPointerUp={handlePointerUp}
                 onPointerUpOutside={handlePointerUp}
                 onPointerCancel={handlePointerUp}
+                onPointerOver={() => setHoveredLightId(light.id)}
+                onPointerOut={() => setHoveredLightId(null)}
               />
               <pixiGraphics
                 x={radiusHandlePosition.x}
@@ -416,6 +419,8 @@ export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: P
                 onPointerUp={handlePointerUp}
                 onPointerUpOutside={handlePointerUp}
                 onPointerCancel={handlePointerUp}
+                onPointerOver={() => setHoveredLightId(light.id)}
+                onPointerOut={() => setHoveredLightId(null)}
               />
             </Fragment>
           );
@@ -436,6 +441,8 @@ export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: P
               onPointerUp={handlePointerUp}
               onPointerUpOutside={handlePointerUp}
               onPointerCancel={handlePointerUp}
+              onPointerOver={() => setHoveredLightId(light.id)}
+              onPointerOut={() => setHoveredLightId(null)}
             />
             <pixiGraphics
               x={light.targetX}
@@ -450,6 +457,8 @@ export function LightControls({ isGM, onOpenContextMenu, onCloseContextMenu }: P
               onPointerUp={handlePointerUp}
               onPointerUpOutside={handlePointerUp}
               onPointerCancel={handlePointerUp}
+              onPointerOver={() => setHoveredLightId(light.id)}
+              onPointerOut={() => setHoveredLightId(null)}
             />
           </Fragment>
         );

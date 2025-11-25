@@ -12,12 +12,15 @@ interface Props {
 
 const DARKNESS_ALPHA = 0.6;
 const LIGHT_COLOR = 0xffffff;
+const HIGHLIGHT_COLOR = 0x00bfff;
 const BLUR_STRENGTH = 10;
 const REFLECTION_THICKNESS = 8;
+const HIGHLIGHT_STROKE_WIDTH = 3;
 
 export function LightingLayer({ width, height, isGM = true }: Props) {
   const lights = useLightStore((state) => state.lights);
   const mirrors = useLightStore((state) => state.mirrors);
+  const hoveredLightId = useLightStore((state) => state.hoveredLightId);
   const visibleLights = useMemo(
     () => (isGM ? lights : lights.filter((light) => !light.hidden)),
     [isGM, lights]
@@ -28,6 +31,7 @@ export function LightingLayer({ width, height, isGM = true }: Props) {
   );
   const darknessRef = useRef<PixiGraphics | null>(null);
   const lightsRef = useRef<PixiGraphics | null>(null);
+  const highlightRef = useRef<PixiGraphics | null>(null);
 
   const blurFilter = useMemo(() => {
     const filter = new BlurFilter({
@@ -208,6 +212,101 @@ export function LightingLayer({ width, height, isGM = true }: Props) {
     [visibleLights, reflectionData, drawReflectionSegment, drawLineSegment]
   );
 
+  const hoveredLight = useMemo(
+    () => (hoveredLightId ? visibleLights.find((l) => l.id === hoveredLightId) : null),
+    [hoveredLightId, visibleLights]
+  );
+
+  const drawHighlightSegment = useCallback(
+    (graphics: PixiGraphics, segment: RaySegment, thickness: number) => {
+      const dx = segment.end.x - segment.start.x;
+      const dy = segment.end.y - segment.start.y;
+      const distance = Math.hypot(dx, dy);
+
+      if (distance < 1) {
+        graphics.circle(segment.start.x, segment.start.y, thickness);
+        graphics.stroke();
+        return;
+      }
+
+      const normX = (-dy / distance) * thickness;
+      const normY = (dx / distance) * thickness;
+
+      // Draw stroke outline around the segment
+      graphics
+        .moveTo(segment.start.x + normX, segment.start.y + normY)
+        .lineTo(segment.end.x + normX, segment.end.y + normY)
+        .lineTo(segment.end.x - normX, segment.end.y - normY)
+        .lineTo(segment.start.x - normX, segment.start.y - normY)
+        .lineTo(segment.start.x + normX, segment.start.y + normY)
+        .stroke();
+
+      // Add circles at endpoints
+      graphics.circle(segment.start.x, segment.start.y, thickness);
+      graphics.stroke();
+      graphics.circle(segment.end.x, segment.end.y, thickness);
+      graphics.stroke();
+    },
+    []
+  );
+
+  const drawHighlight = useCallback(
+    (graphics: PixiGraphics) => {
+      graphics.clear();
+
+      if (!hoveredLight || !isGM) return;
+
+      graphics.setStrokeStyle({
+        width: HIGHLIGHT_STROKE_WIDTH,
+        color: HIGHLIGHT_COLOR,
+        alpha: 0.9,
+      });
+
+      if (hoveredLight.type === "radial") {
+        graphics.circle(
+          hoveredLight.x,
+          hoveredLight.y,
+          hoveredLight.radius + HIGHLIGHT_STROKE_WIDTH
+        );
+        graphics.stroke();
+      } else if (hoveredLight.type === "conic") {
+        const baseAngle = Math.atan2(
+          hoveredLight.targetY - hoveredLight.y,
+          hoveredLight.targetX - hoveredLight.x
+        );
+        const halfCone = ((hoveredLight.coneAngle ?? 0) * Math.PI) / 360;
+        const startAngle = baseAngle - halfCone;
+        const endAngle = baseAngle + halfCone;
+        const outerRadius = hoveredLight.radius + HIGHLIGHT_STROKE_WIDTH;
+
+        graphics.moveTo(hoveredLight.x, hoveredLight.y);
+        graphics.arc(hoveredLight.x, hoveredLight.y, outerRadius, startAngle, endAngle);
+        graphics.lineTo(hoveredLight.x, hoveredLight.y);
+        graphics.stroke();
+      } else {
+        // Line light - highlight the actual light path (including reflections)
+        const lightReflectionData = reflectionData.get(hoveredLight.id);
+        const hasReflections = lightReflectionData?.hasReflections ?? false;
+        const thickness = Math.max(hoveredLight.radius ?? 1, 1) + HIGHLIGHT_STROKE_WIDTH;
+
+        if (hasReflections && lightReflectionData) {
+          // Draw highlight along all reflection segments
+          for (const segment of lightReflectionData.allSegments) {
+            drawHighlightSegment(graphics, segment, thickness);
+          }
+        } else {
+          // No reflections - draw direct line from source to target
+          const segment: RaySegment = {
+            start: { x: hoveredLight.x, y: hoveredLight.y },
+            end: { x: hoveredLight.targetX, y: hoveredLight.targetY },
+          };
+          drawHighlightSegment(graphics, segment, thickness);
+        }
+      }
+    },
+    [hoveredLight, isGM, reflectionData, drawHighlightSegment]
+  );
+
   useEffect(() => {
     const darkness = darknessRef.current;
     const mask = lightsRef.current;
@@ -230,6 +329,7 @@ export function LightingLayer({ width, height, isGM = true }: Props) {
     <pixiContainer>
       <pixiGraphics ref={darknessRef} draw={drawDarkness} eventMode="none" />
       <pixiGraphics ref={lightsRef} draw={drawLights} filters={[blurFilter]} eventMode="none" />
+      <pixiGraphics ref={highlightRef} draw={drawHighlight} eventMode="none" />
     </pixiContainer>
   );
 }

@@ -24,6 +24,7 @@ type LightStoreState = {
   mirrors: Mirror[];
   presets: LightPreset[];
   activePresetId: string | null;
+  hoveredLightId: string | null;
   addLight: (type: LightType, x: number, y: number) => string;
   updateLight: (id: string, partial: LightUpdate) => void;
   removeLight: (id: string) => void;
@@ -35,6 +36,7 @@ type LightStoreState = {
   loadPreset: (id: string) => void;
   randomizePreset: () => void;
   deletePreset: (id: string) => void;
+  setHoveredLightId: (id: string | null) => void;
 };
 
 const createId = () => {
@@ -121,6 +123,7 @@ export const useLightStore = create<LightStoreState>()(
     mirrors: [],
     presets: loadPresetsFromStorage(),
     activePresetId: null,
+    hoveredLightId: null,
     addLight: (type, x, y) => {
       const light = buildLight(type, x, y);
       set((state) => ({ lights: state.lights.concat(light) }));
@@ -232,6 +235,7 @@ export const useLightStore = create<LightStoreState>()(
       const nextActiveId = state.activePresetId === id ? null : state.activePresetId;
       set({ presets: nextPresets, activePresetId: nextActiveId });
     },
+    setHoveredLightId: (id) => set({ hoveredLightId: id }),
   }))
 );
 
