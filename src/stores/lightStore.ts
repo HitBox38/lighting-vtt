@@ -18,8 +18,24 @@ import {
   type MirrorUpdate,
   mirrorSchema,
 } from "@/types/mirror";
+import {
+  broadcastState,
+  subscribeToStateUpdates,
+  requestState,
+  subscribeToStateRequests,
+  type SyncState,
+} from "@/lib/windowSync";
 
-type LightStoreState = {
+// Check if this is a GM window (defaults to true)
+const getIsGM = (): boolean => {
+  if (typeof window === "undefined") return true;
+  const params = new URLSearchParams(window.location.search);
+  return params.get("isGM") !== "false";
+};
+
+const IS_GM = getIsGM();
+
+interface LightStoreState {
   lights: Light[];
   mirrors: Mirror[];
   presets: LightPreset[];
@@ -37,7 +53,9 @@ type LightStoreState = {
   randomizePreset: () => void;
   deletePreset: (id: string) => void;
   setHoveredLightId: (id: string | null) => void;
-};
+  // Internal method for applying synced state from GM
+  _applySyncedState: (state: SyncState) => void;
+}
 
 const createId = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -236,7 +254,67 @@ export const useLightStore = create<LightStoreState>()(
       set({ presets: nextPresets, activePresetId: nextActiveId });
     },
     setHoveredLightId: (id) => set({ hoveredLightId: id }),
+    _applySyncedState: (syncedState) => {
+      set({
+        lights: syncedState.lights,
+        mirrors: syncedState.mirrors,
+        activePresetId: syncedState.activePresetId,
+      });
+    },
   }))
 );
+
+// Subscribe to state changes and broadcast (GM only)
+if (IS_GM) {
+  useLightStore.subscribe((state, prevState) => {
+    // Only broadcast if lights, mirrors, or activePresetId changed
+    if (
+      state.lights !== prevState.lights ||
+      state.mirrors !== prevState.mirrors ||
+      state.activePresetId !== prevState.activePresetId
+    ) {
+      broadcastState({
+        lights: state.lights,
+        mirrors: state.mirrors,
+        activePresetId: state.activePresetId,
+      });
+    }
+  });
+
+  // Listen for state requests from player windows and respond
+  subscribeToStateRequests(() => {
+    const state = useLightStore.getState();
+    return {
+      lights: state.lights,
+      mirrors: state.mirrors,
+      activePresetId: state.activePresetId,
+    };
+  });
+
+  // Broadcast initial state when GM window is ready
+  if (typeof window !== "undefined") {
+    // Small delay to ensure store is initialized
+    setTimeout(() => {
+      const state = useLightStore.getState();
+      broadcastState({
+        lights: state.lights,
+        mirrors: state.mirrors,
+        activePresetId: state.activePresetId,
+      });
+    }, 100);
+  }
+}
+
+// Subscribe to GM updates (player windows only)
+if (!IS_GM) {
+  subscribeToStateUpdates((syncedState) => {
+    useLightStore.getState()._applySyncedState(syncedState);
+  });
+
+  // Request current state when player window loads
+  if (typeof window !== "undefined") {
+    requestState();
+  }
+}
 
 export type { LightStoreState };

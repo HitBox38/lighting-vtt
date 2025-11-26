@@ -13,6 +13,7 @@ import {
 import FrameCounter from "@/components/FrameCounter";
 import LightToolbar from "@/components/LightToolbar";
 import MirrorToolbar from "@/components/MirrorToolbar";
+import { PlayerViewToolbar } from "@/components/PlayerViewToolbar";
 import { PresetToolbar } from "@/components/PresetToolbar";
 import LightControls from "@/components/LightControls";
 import LightingLayer from "@/components/LightingLayer";
@@ -315,17 +316,20 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
 
   return (
     <div className="relative h-screen w-screen">
-      <div className="pointer-events-none absolute left-4 top-4 z-10">
-        <div className="pointer-events-auto flex flex-row gap-2">
-          <PresetToolbar />
-          <LightToolbar
-            onAddRadial={() => handleAddLight("radial")}
-            onAddConic={() => handleAddLight("conic")}
-            onAddLine={() => handleAddLight("line")}
-          />
-          <MirrorToolbar onAddMirror={handleAddMirror} />
+      {isGM && (
+        <div className="pointer-events-none absolute left-4 top-4 z-10">
+          <div className="pointer-events-auto flex flex-row gap-2">
+            <PresetToolbar />
+            <LightToolbar
+              onAddRadial={() => handleAddLight("radial")}
+              onAddConic={() => handleAddLight("conic")}
+              onAddLine={() => handleAddLight("line")}
+            />
+            <MirrorToolbar onAddMirror={handleAddMirror} />
+            <PlayerViewToolbar />
+          </div>
         </div>
-      </div>
+      )}
       <div className="pointer-events-none absolute right-4 top-4 z-10">
         <FrameCounter appRef={appRef} />
       </div>
