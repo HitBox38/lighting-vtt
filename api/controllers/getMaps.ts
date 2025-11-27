@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import { db } from "../../db";
-import { scenesTable } from "../../db/schema";
+import { db } from "../../db/index.js";
+import { scenesTable } from "../../db/schema.js";
 
 interface Payload {
   creatorId: string;

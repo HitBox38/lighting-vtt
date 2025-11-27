@@ -1,14 +1,14 @@
 import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { createRouteHandler, UTApi } from "uploadthing/server";
-import { saveMap } from "./controllers/saveMap";
-import { getMaps } from "./controllers/getMaps";
-import { getSceneById } from "./controllers/getSceneById";
-import { updateScene } from "./controllers/updateScene";
-import { savePreset } from "./controllers/savePreset";
-import { deletePreset } from "./controllers/deletePreset";
-import { uploadRouter } from "./uploadthing";
-import type { SaveMapPayload, UpdateScenePayload, LightPreset } from "../shared/index";
+import { saveMap } from "./controllers/saveMap.js";
+import { getMaps } from "./controllers/getMaps.js";
+import { getSceneById } from "./controllers/getSceneById.js";
+import { updateScene } from "./controllers/updateScene.js";
+import { savePreset } from "./controllers/savePreset.js";
+import { deletePreset } from "./controllers/deletePreset.js";
+import { uploadRouter } from "./uploadthing.js";
+import type { SaveMapPayload, UpdateScenePayload, LightPreset } from "../shared/index.js";
 import * as dotenv from "dotenv";
 
 dotenv.config({ path: ".env.local" });

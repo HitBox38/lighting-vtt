@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import type { LightPreset } from "../shared/index";
+import type { LightPreset } from "../shared/index.js";
 
 export const scenesTable = sqliteTable("scenes", {
   id: text("id").primaryKey(),

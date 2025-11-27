@@ -4,7 +4,7 @@ import { saveMap } from "./controllers/saveMap.js";
 import { updateScene } from "./controllers/updateScene.js";
 import { savePreset } from "./controllers/savePreset.js";
 import { deletePreset } from "./controllers/deletePreset.js";
-import type { SaveMapPayload, UpdateScenePayload, LightPreset } from "../shared/index";
+import type { SaveMapPayload, UpdateScenePayload, LightPreset } from "../shared/index.js";
 import { getMaps } from "./controllers/getMaps.js";
 import { getSceneById } from "./controllers/getSceneById.js";
 

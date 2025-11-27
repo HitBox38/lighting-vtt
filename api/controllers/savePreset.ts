@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
-import { db } from "../../db";
-import { scenesTable } from "../../db/schema";
-import type { SavePresetPayload, SavePresetResponse, LightPreset } from "../../shared/index";
+import { db } from "../../db/index.js";
+import { scenesTable } from "../../db/schema.js";
+import type { SavePresetPayload, SavePresetResponse, LightPreset } from "../../shared/index.js";
 
 export const savePreset = async (payload?: SavePresetPayload): Promise<SavePresetResponse> => {
   if (!payload) {
