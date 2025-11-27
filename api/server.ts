@@ -11,7 +11,12 @@ import { uploadRouter } from "./uploadthing";
 import type { SaveMapPayload, UpdateScenePayload, LightPreset } from "../shared/index";
 
 // Create UploadThing route handler
-const uploadthingHandler = createRouteHandler({ router: uploadRouter });
+const uploadthingHandler = createRouteHandler({
+  router: uploadRouter,
+  config: {
+    token: process.env.UPLOADTHING_TOKEN,
+  },
+});
 const utapi = new UTApi();
 
 const app = new Elysia({ prefix: "/api" })
