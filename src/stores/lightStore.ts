@@ -11,13 +11,13 @@ import {
   type LightType,
   type LightUpdate,
   lightSchema,
-} from "@/types/light";
-import {
   DEFAULT_MIRROR_LENGTH,
   type Mirror,
   type MirrorUpdate,
   mirrorSchema,
-} from "@/types/mirror";
+  type SavePresetResponse,
+  type DeletePresetResponse,
+} from "@shared/index";
 import {
   broadcastState,
   subscribeToStateUpdates,
@@ -41,6 +41,9 @@ interface LightStoreState {
   presets: LightPreset[];
   activePresetId: string | null;
   hoveredLightId: string | null;
+  sceneId: string | null;
+  creatorId: string | null;
+  initialStateHash: string | null;
   addLight: (type: LightType, x: number, y: number) => string;
   updateLight: (id: string, partial: LightUpdate) => void;
   removeLight: (id: string) => void;
@@ -53,6 +56,14 @@ interface LightStoreState {
   randomizePreset: () => void;
   deletePreset: (id: string) => void;
   setHoveredLightId: (id: string | null) => void;
+  loadScene: (
+    sceneId: string,
+    creatorId: string,
+    lights: Light[],
+    mirrors: Mirror[],
+    presets: LightPreset[]
+  ) => void;
+  getStateHash: () => string;
   // Internal method for applying synced state from GM
   _applySyncedState: (state: SyncState) => void;
 }
@@ -64,26 +75,40 @@ const createId = () => {
   return `id-${Math.random().toString(36).slice(2, 10)}`;
 };
 
-const STORAGE_KEY = "lighting-vtt-presets";
-
-const loadPresetsFromStorage = (): LightPreset[] => {
-  if (typeof window === "undefined") return [];
+// API helper functions for preset operations
+const savePresetToAPI = async (
+  sceneId: string,
+  creatorId: string,
+  preset: LightPreset
+): Promise<SavePresetResponse> => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return [];
-    return JSON.parse(stored) as LightPreset[];
+    const response = await fetch(`/api/scene/${sceneId}/presets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ creatorId, preset }),
+    });
+    return (await response.json()) as SavePresetResponse;
   } catch (error) {
-    console.error("Failed to load presets from storage:", error);
-    return [];
+    console.error("Failed to save preset to API:", error);
+    return { message: "Network error", success: false, payload: null };
   }
 };
 
-const savePresetsToStorage = (presets: LightPreset[]) => {
-  if (typeof window === "undefined") return;
+const deletePresetFromAPI = async (
+  sceneId: string,
+  creatorId: string,
+  presetId: string
+): Promise<DeletePresetResponse> => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(presets));
+    const response = await fetch(`/api/scene/${sceneId}/presets/${presetId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ creatorId }),
+    });
+    return (await response.json()) as DeletePresetResponse;
   } catch (error) {
-    console.error("Failed to save presets to storage:", error);
+    console.error("Failed to delete preset from API:", error);
+    return { message: "Network error", success: false };
   }
 };
 
@@ -135,13 +160,20 @@ const buildMirror = (x: number, y: number): Mirror => {
   return mirrorSchema.parse(candidate);
 };
 
+const computeStateHash = (lights: Light[], mirrors: Mirror[]): string => {
+  return JSON.stringify({ lights, mirrors });
+};
+
 export const useLightStore = create<LightStoreState>()(
   devtools((set, get) => ({
     lights: [],
     mirrors: [],
-    presets: loadPresetsFromStorage(),
+    presets: [],
     activePresetId: null,
     hoveredLightId: null,
+    sceneId: null,
+    creatorId: null,
+    initialStateHash: null,
     addLight: (type, x, y) => {
       const light = buildLight(type, x, y);
       set((state) => ({ lights: state.lights.concat(light) }));
@@ -205,8 +237,13 @@ export const useLightStore = create<LightStoreState>()(
         mirrors: state.mirrors,
       };
       const nextPresets = [...state.presets, newPreset];
-      savePresetsToStorage(nextPresets);
       set({ presets: nextPresets, activePresetId: newPreset.id });
+
+      // Persist to API if we have a scene loaded
+      if (state.sceneId && state.creatorId) {
+        void savePresetToAPI(state.sceneId, state.creatorId, newPreset);
+      }
+
       return newPreset.id;
     },
     updateSavedPreset: (id) => {
@@ -214,15 +251,19 @@ export const useLightStore = create<LightStoreState>()(
       const index = state.presets.findIndex((p) => p.id === id);
       if (index === -1) return;
 
-      const updatedPreset = {
+      const updatedPreset: LightPreset = {
         ...state.presets[index],
         lights: state.lights,
         mirrors: state.mirrors,
       };
       const nextPresets = [...state.presets];
       nextPresets[index] = updatedPreset;
-      savePresetsToStorage(nextPresets);
       set({ presets: nextPresets });
+
+      // Persist to API if we have a scene loaded
+      if (state.sceneId && state.creatorId) {
+        void savePresetToAPI(state.sceneId, state.creatorId, updatedPreset);
+      }
     },
     loadPreset: (id) => {
       const state = get();
@@ -248,12 +289,35 @@ export const useLightStore = create<LightStoreState>()(
     deletePreset: (id) => {
       const state = get();
       const nextPresets = state.presets.filter((p) => p.id !== id);
-      savePresetsToStorage(nextPresets);
 
       const nextActiveId = state.activePresetId === id ? null : state.activePresetId;
       set({ presets: nextPresets, activePresetId: nextActiveId });
+
+      // Persist to API if we have a scene loaded
+      if (state.sceneId && state.creatorId) {
+        void deletePresetFromAPI(state.sceneId, state.creatorId, id);
+      }
     },
     setHoveredLightId: (id) => set({ hoveredLightId: id }),
+    loadScene: (sceneId, creatorId, lights, mirrors, presets) => {
+      const lightsCopy = JSON.parse(JSON.stringify(lights)) as Light[];
+      const mirrorsCopy = JSON.parse(JSON.stringify(mirrors)) as Mirror[];
+      const presetsCopy = JSON.parse(JSON.stringify(presets)) as LightPreset[];
+      const hash = computeStateHash(lightsCopy, mirrorsCopy);
+      set({
+        sceneId,
+        creatorId,
+        lights: lightsCopy,
+        mirrors: mirrorsCopy,
+        presets: presetsCopy,
+        initialStateHash: hash,
+        activePresetId: null,
+      });
+    },
+    getStateHash: () => {
+      const state = get();
+      return computeStateHash(state.lights, state.mirrors);
+    },
     _applySyncedState: (syncedState) => {
       set({
         lights: syncedState.lights,

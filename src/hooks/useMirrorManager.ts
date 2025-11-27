@@ -1,5 +1,5 @@
 import { useLightStore } from "@/stores/lightStore";
-import type { Mirror, MirrorUpdate } from "@/types/mirror";
+import type { Mirror, MirrorUpdate } from "@shared/index";
 
 export type { Mirror, MirrorUpdate };
 

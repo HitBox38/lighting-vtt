@@ -1,5 +1,5 @@
 import { useLightStore } from "@/stores/lightStore";
-import type { Light, LightPreset, LightType, LightUpdate } from "@/types/light";
+import type { Light, LightPreset, LightType, LightUpdate } from "@shared/index";
 
 export type { Light, LightPreset, LightType, LightUpdate };
 

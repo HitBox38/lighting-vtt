@@ -23,7 +23,8 @@ import LightContextMenu, { type LightContextMenuState } from "@/components/Light
 import MirrorContextMenu, { type MirrorContextMenuState } from "@/components/MirrorContextMenu";
 import { useLightManager } from "@/hooks/useLightManager";
 import { useMirrorManager } from "@/hooks/useMirrorManager";
-import type { LightType } from "@/types/light";
+import type { LightType } from "@shared/index";
+import { UserToolbar } from "@/components/UserToolbar";
 
 extend({ Container: PixiContainer, Sprite: PixiSprite, Graphics: PixiGraphics });
 
@@ -80,12 +81,14 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
 
     const loadTexture = async () => {
       try {
-        // Check if the URL is a blob URL
+        // Check if the URL is a blob URL or UploadThing URL
         const isBlob = mapUrl.startsWith("blob:");
+        const isUploadThing = mapUrl.includes(".ufs.sh/f/");
+        const needsParser = isBlob || isUploadThing;
+
         const texture = await Assets.load({
           src: mapUrl,
-          parser: isBlob ? "loadTextures" : undefined,
-          format: isBlob ? "png" : undefined, // Hint format for blobs if needed, though usually detected
+          parser: needsParser ? "loadTextures" : undefined,
         });
 
         if (isMounted) {
@@ -327,10 +330,11 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
             />
             <MirrorToolbar onAddMirror={handleAddMirror} />
             <PlayerViewToolbar />
+            <UserToolbar />
           </div>
         </div>
       )}
-      <div className="pointer-events-none absolute right-4 top-4 z-10">
+      <div className="pointer-events-none absolute right-4 bottom-4 z-10">
         <FrameCounter appRef={appRef} />
       </div>
       <Application

@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef } from "react";
 import type { FederatedPointerEvent, Graphics as PixiGraphics } from "pixi.js";
 
 import { useLightStore } from "@/stores/lightStore";
-import type { Mirror, MirrorUpdate } from "@/types/mirror";
+import type { Mirror, MirrorUpdate } from "@shared/index";
 import type { MirrorContextMenuState } from "@/components/MirrorContextMenu";
 
 interface Props {

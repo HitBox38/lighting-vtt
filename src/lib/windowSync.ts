@@ -1,5 +1,4 @@
-import type { Light } from "@/types/light";
-import type { Mirror } from "@/types/mirror";
+import type { Light, Mirror } from "@shared/index";
 
 const CHANNEL_NAME = "lighting-vtt-sync";
 

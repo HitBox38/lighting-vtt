@@ -1,64 +1,105 @@
 import GameCanvas from "@/components/GameCanvas";
-import { ImageUploadButton } from "@/components/ImageUploadButton";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { SaveStatusIndicator } from "@/components/SaveStatusIndicator";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { useLightStore } from "@/stores/lightStore";
+import { useUser } from "@clerk/clerk-react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-
-const MAP_URL_STORAGE_KEY = "lighting-vtt-map-url";
+import type { GetSceneResponse, Light, Mirror, LightPreset } from "@shared/index";
 
 export function ScenePage() {
   const [searchParams] = useSearchParams();
+  const { user } = useUser();
+  const loadScene = useLightStore((state) => state.loadScene);
 
   const isGM = useMemo(() => searchParams.get("isGM") !== "false", [searchParams]);
+  const sceneId = searchParams.get("id");
 
-  const [mapUrl, setMapUrl] = useState<string | null>(() => {
-    if (typeof window === "undefined") {
-      return null;
-    }
-    if (!isGM) {
-      return localStorage.getItem(MAP_URL_STORAGE_KEY);
-    }
-    return null;
+  const [scene, setScene] = useState<GetSceneResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [sceneLoaded, setSceneLoaded] = useState(false);
+
+  // Auto-save hook - only enabled for GM who is the creator
+  const { status: saveStatus, canSave } = useAutoSave({
+    sceneId: sceneId,
+    creatorId: scene?.payload?.creatorId ?? null,
+    userId: user?.id ?? null,
+    enabled: isGM && sceneLoaded,
   });
 
-  const handleMapUrlChange = useCallback(
-    (url: string) => {
-      setMapUrl(url);
-      if (isGM) {
-        localStorage.setItem(MAP_URL_STORAGE_KEY, url);
-      }
-    },
-    [isGM]
-  );
-
-  // Player windows should listen for storage events to know when GM loads a map.
   useEffect(() => {
-    if (isGM || typeof window === "undefined") {
-      return;
-    }
+    const fetchScene = async () => {
+      if (!sceneId) {
+        setError("No scene ID provided");
+        setIsLoading(false);
+        return;
+      }
 
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === MAP_URL_STORAGE_KEY && event.newValue) {
-        setMapUrl(event.newValue);
+      try {
+        setIsLoading(true);
+        setSceneLoaded(false);
+        const response = await fetch(`/api/scene/${sceneId}`);
+        const data = (await response.json()) as GetSceneResponse;
+
+        if (!data.payload) {
+          setError(data.message || "Scene not found");
+        } else {
+          setScene(data);
+          setError(null);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to fetch scene");
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, [isGM]);
+    void fetchScene();
+  }, [sceneId]);
+
+  // Load scene data into the store when scene is fetched
+  useEffect(() => {
+    if (!scene?.payload || !sceneId || sceneLoaded) {
+      return;
+    }
+
+    // Parse lights, mirrors, and presets from scene state
+    const lightsState = scene.payload.lightsState as { lights?: Light[] } | null;
+    const mirrorsState = scene.payload.mirrorsState as { mirrors?: Mirror[] } | null;
+
+    const lights = lightsState?.lights ?? [];
+    const mirrors = mirrorsState?.mirrors ?? [];
+    const presets: LightPreset[] = scene.payload.presets ?? [];
+
+    loadScene(sceneId, scene.payload.creatorId, lights, mirrors, presets);
+    setSceneLoaded(true);
+  }, [scene, sceneId, loadScene, sceneLoaded]);
+
+  if (isLoading) {
+    return (
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-center">
+        <p>Loading scene...</p>
+      </div>
+    );
+  }
+
+  if (error || !scene?.payload) {
+    return (
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-center">
+        <p className="text-red-500">{error || "Scene not found"}</p>
+      </div>
+    );
+  }
 
   return (
     <>
-      {!mapUrl && isGM && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-          <ImageUploadButton onImageSelected={handleMapUrlChange} />
+      <GameCanvas mapUrl={scene.payload.mapUrl} isGM={isGM} />
+      {isGM && canSave && (
+        <div className="pointer-events-none absolute right-4 top-4 z-10">
+          <SaveStatusIndicator status={saveStatus} />
         </div>
       )}
-      {!mapUrl && !isGM && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-center">
-          <p>Waiting for GM to load a map...</p>
-        </div>
-      )}
-      {mapUrl && <GameCanvas mapUrl={mapUrl} isGM={isGM} />}
     </>
   );
 }

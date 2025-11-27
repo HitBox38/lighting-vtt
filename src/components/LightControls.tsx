@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import type { FederatedPointerEvent, Graphics as PixiGraphics } from "pixi.js";
 
 import { useLightStore } from "@/stores/lightStore";
-import type { Light, LightUpdate } from "@/types/light";
+import type { Light, LightUpdate } from "@shared/index";
 import type { LightContextMenuState } from "@/components/LightContextMenu";
 
 interface Props {

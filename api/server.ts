@@ -1,11 +1,58 @@
 import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
-import { saveMap, type SaveMapPayload } from "./controllers/saveMap.js";
+import { createRouteHandler, UTApi } from "uploadthing/server";
+import { saveMap } from "./controllers/saveMap";
+import { getMaps } from "./controllers/getMaps";
+import { getSceneById } from "./controllers/getSceneById";
+import { updateScene } from "./controllers/updateScene";
+import { savePreset } from "./controllers/savePreset";
+import { deletePreset } from "./controllers/deletePreset";
+import { uploadRouter } from "./uploadthing";
+import type { SaveMapPayload, UpdateScenePayload, LightPreset } from "../shared/index";
+
+// Create UploadThing route handler
+const uploadthingHandler = createRouteHandler({ router: uploadRouter });
+const utapi = new UTApi();
 
 const app = new Elysia({ prefix: "/api" })
   .use(cors())
   .get("/", () => "lighting-vtt is running ⚔️")
-  .post("/save", ({ body }) => saveMap(body as SaveMapPayload));
+  .get("/maps", ({ query }) => getMaps({ creatorId: query.creatorId as string }))
+  .get("/scene/:id", ({ params }) => getSceneById({ id: params.id }))
+  .patch("/scene/:id", ({ params, body }) =>
+    updateScene({ ...(body as Omit<UpdateScenePayload, "sceneId">), sceneId: params.id })
+  )
+  .post("/save", ({ body }) => saveMap(body as SaveMapPayload))
+  // Preset routes
+  .post("/scene/:id/presets", ({ params, body }) => {
+    const { creatorId, preset } = body as { creatorId: string; preset: LightPreset };
+    return savePreset({ sceneId: params.id, creatorId, preset });
+  })
+  .patch("/scene/:id/presets", ({ params, body }) => {
+    const { creatorId, preset } = body as { creatorId: string; preset: LightPreset };
+    return savePreset({ sceneId: params.id, creatorId, preset });
+  })
+  .delete("/scene/:id/presets/:presetId", ({ params, body }) => {
+    const { creatorId } = body as { creatorId: string };
+    return deletePreset({ sceneId: params.id, creatorId, presetId: params.presetId });
+  })
+  .get("/uploadthing", (ctx) => uploadthingHandler(ctx.request))
+  .post("/uploadthing", (ctx) => uploadthingHandler(ctx.request))
+  .post("/uploadthing/delete", async ({ body, set }) => {
+    const { key } = (body ?? {}) as { key?: string };
+    if (!key) {
+      set.status = 400;
+      return { message: "Missing file key" };
+    }
+    try {
+      await utapi.deleteFiles(key);
+      return { message: "File deleted" };
+    } catch (error) {
+      console.error("Failed to delete UploadThing file", error);
+      set.status = 500;
+      return { message: "Failed to delete file" };
+    }
+  });
 
 const resolvePort = () => {
   const envPort = Number(process.env.PORT);
