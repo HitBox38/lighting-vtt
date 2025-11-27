@@ -9,6 +9,9 @@ import { savePreset } from "./controllers/savePreset";
 import { deletePreset } from "./controllers/deletePreset";
 import { uploadRouter } from "./uploadthing";
 import type { SaveMapPayload, UpdateScenePayload, LightPreset } from "../shared/index";
+import * as dotenv from "dotenv";
+
+dotenv.config({ path: ".env.local" });
 
 // Create UploadThing route handler
 const uploadthingHandler = createRouteHandler({

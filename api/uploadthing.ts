@@ -1,5 +1,8 @@
 import { createUploadthing, type FileRouter } from "uploadthing/server";
 import { createRouteHandler } from "uploadthing/server";
+import * as dotenv from "dotenv";
+
+dotenv.config({ path: ".env.local" });
 
 export const config = {
   runtime: "edge",
