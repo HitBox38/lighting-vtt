@@ -33,5 +33,6 @@ export default createRouteHandler({
   router: uploadRouter,
   config: {
     token: process.env.UPLOADTHING_TOKEN,
+    isDev: process.env.NODE_ENV === "development",
   },
 });
