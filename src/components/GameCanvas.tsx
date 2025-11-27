@@ -320,17 +320,22 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
   return (
     <div className="relative h-screen w-screen">
       {isGM && (
-        <div className="pointer-events-none absolute left-4 top-4 z-10">
-          <div className="pointer-events-auto flex flex-row gap-2">
-            <PresetToolbar />
-            <LightToolbar
-              onAddRadial={() => handleAddLight("radial")}
-              onAddConic={() => handleAddLight("conic")}
-              onAddLine={() => handleAddLight("line")}
-            />
-            <MirrorToolbar onAddMirror={handleAddMirror} />
-            <PlayerViewToolbar />
-            <UserToolbar />
+        <div className="pointer-events-none absolute left-0 top-4 z-10 w-full px-4">
+          <div className="flex flex-row justify-between">
+            <div className="pointer-events-auto flex flex-row gap-2">
+              <PresetToolbar />
+              <LightToolbar
+                onAddRadial={() => handleAddLight("radial")}
+                onAddConic={() => handleAddLight("conic")}
+                onAddLine={() => handleAddLight("line")}
+              />
+              <MirrorToolbar onAddMirror={handleAddMirror} />
+              <PlayerViewToolbar />
+            </div>
+
+            <div className="pointer-events-auto">
+              <UserToolbar />
+            </div>
           </div>
         </div>
       )}
