@@ -1,14 +1,16 @@
 import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { createRouteHandler, UTApi } from "uploadthing/server";
-import { saveMap } from "./controllers/saveMap.js";
-import { getMaps } from "./controllers/getMaps.js";
-import { getSceneById } from "./controllers/getSceneById.js";
-import { updateScene } from "./controllers/updateScene.js";
-import { savePreset } from "./controllers/savePreset.js";
-import { deletePreset } from "./controllers/deletePreset.js";
-import { uploadRouter } from "./uploadthing.js";
+import { saveMap } from "../server/controllers/saveMap.js";
+import { getMaps } from "../server/controllers/getMaps.js";
+import { getSceneById } from "../server/controllers/getSceneById.js";
+import { updateScene } from "../server/controllers/updateScene.js";
+import { savePreset } from "../server/controllers/savePreset.js";
+import { deletePreset } from "../server/controllers/deletePreset.js";
+import { uploadRouter } from "../server/uploadthing.js";
 import type { SaveMapPayload, UpdateScenePayload, LightPreset } from "../shared/index.js";
+import { db } from "../db/index.js";
+import { scenesTable } from "../db/schema.js";
 
 // Vercel Serverless Function configuration (Node.js)
 export const config = {
@@ -30,6 +32,19 @@ const utapi = new UTApi();
 const app = new Elysia({ prefix: "/api" })
   .use(cors())
   .get("/", () => "lighting-vtt is running ⚔️")
+  .get("/health", async () => {
+    try {
+      await db.select().from(scenesTable).limit(1);
+      return { status: "ok", database: "connected" };
+    } catch (error) {
+      console.error("Health check failed:", error);
+      return {
+        status: "error",
+        message: error instanceof Error ? error.message : "Unknown error",
+        database: "disconnected",
+      };
+    }
+  })
   .get("/maps", ({ query }) => getMaps({ creatorId: query.creatorId as string }))
   .get("/scene/:id", ({ params }) => getSceneById({ id: params.id }))
   .patch("/scene/:id", ({ params, body }) =>
