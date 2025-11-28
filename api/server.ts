@@ -10,11 +10,9 @@ import { deletePreset } from "./deletePreset.js";
 import { uploadRouter } from "./uploadthing.js";
 import type { SaveMapPayload, UpdateScenePayload, LightPreset } from "../shared/index.js";
 
-// Vercel Serverless Function configuration (Node.js)
+// Run on Vercel Edge so we get the Fetch API-compatible runtime that Elysia expects.
 export const config = {
-  api: {
-    bodyParser: false, // Disable Vercel's body parser so Elysia can handle it
-  },
+  runtime: "edge",
 };
 
 // Create UploadThing route handler
@@ -90,7 +88,10 @@ const resolvePort = () => {
   return 3001;
 };
 
-if (import.meta.main) {
+const isBunRuntime = typeof (globalThis as Record<string, unknown>).Bun !== "undefined";
+const isDirectExecution = Boolean((import.meta as { main?: boolean }).main);
+
+if (isBunRuntime && isDirectExecution) {
   const port = resolvePort();
   app.listen({ port });
 
