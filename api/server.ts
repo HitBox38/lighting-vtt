@@ -10,9 +10,11 @@ import { deletePreset } from "./controllers/deletePreset.js";
 import { uploadRouter } from "./uploadthing.js";
 import type { SaveMapPayload, UpdateScenePayload, LightPreset } from "../shared/index.js";
 
-// Vercel Edge Runtime configuration
+// Vercel Serverless Function configuration (Node.js)
 export const config = {
-  runtime: "edge",
+  api: {
+    bodyParser: false, // Disable Vercel's body parser so Elysia can handle it
+  },
 };
 
 // Create UploadThing route handler
