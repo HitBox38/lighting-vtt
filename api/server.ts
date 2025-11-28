@@ -17,6 +17,8 @@ export const config = {
   },
 };
 
+console.log(process.env.UPLOADTHING_TOKEN);
+
 // Create UploadThing route handler
 const uploadthingHandler = createRouteHandler({
   router: uploadRouter,
