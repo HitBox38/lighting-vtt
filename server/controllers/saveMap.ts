@@ -1,6 +1,6 @@
-import { db } from "../../db/index.ts";
-import { scenesTable } from "../../db/schema.ts";
-import type { SaveMapPayload } from "../../shared/index.ts";
+import { db } from "../../db/index.js";
+import { scenesTable } from "../../db/schema.js";
+import type { SaveMapPayload } from "../../shared/index.js";
 
 export const saveMap = async (payload?: SaveMapPayload) => {
   if (!payload) {

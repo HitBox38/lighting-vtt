@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import { db } from "../../db/index.ts";
-import { scenesTable } from "../../db/schema.ts";
+import { db } from "../../db/index.js";
+import { scenesTable } from "../../db/schema.js";
 
 interface Payload {
   id: string;
