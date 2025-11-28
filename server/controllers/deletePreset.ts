@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
-import { db } from "../../db/index.js";
-import { scenesTable } from "../../db/schema.js";
-import type { DeletePresetPayload, DeletePresetResponse, LightPreset } from "../../shared/index.js";
+import { db } from "../../db/index.ts";
+import { scenesTable } from "../../db/schema.ts";
+import type { DeletePresetPayload, DeletePresetResponse, LightPreset } from "../../shared/index.ts";
 
 export const deletePreset = async (
   payload?: DeletePresetPayload
