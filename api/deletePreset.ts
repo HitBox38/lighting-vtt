@@ -1,24 +1,24 @@
 import { eq } from "drizzle-orm";
-import { db } from "../../db/index.js";
-import { scenesTable } from "../../db/schema.js";
-import type { SavePresetPayload, SavePresetResponse, LightPreset } from "../../shared/index.js";
+import { db } from "../db/index.ts";
+import { scenesTable } from "../db/schema.ts";
+import type { DeletePresetPayload, DeletePresetResponse, LightPreset } from "../shared/index.ts";
 
-export const savePreset = async (payload?: SavePresetPayload): Promise<SavePresetResponse> => {
+export const deletePreset = async (
+  payload?: DeletePresetPayload
+): Promise<DeletePresetResponse> => {
   if (!payload) {
     return {
       message: "No payload provided",
       success: false,
-      payload: null,
     };
   }
 
-  const { sceneId, creatorId, preset } = payload;
+  const { sceneId, creatorId, presetId } = payload;
 
-  if (!sceneId || !creatorId || !preset) {
+  if (!sceneId || !creatorId || !presetId) {
     return {
       message: "Missing required fields",
       success: false,
-      payload: null,
     };
   }
 
@@ -33,7 +33,6 @@ export const savePreset = async (payload?: SavePresetPayload): Promise<SavePrese
     return {
       message: "Scene not found",
       success: false,
-      payload: null,
     };
   }
 
@@ -41,23 +40,17 @@ export const savePreset = async (payload?: SavePresetPayload): Promise<SavePrese
     return {
       message: "Unauthorized: Only the scene creator can modify presets",
       success: false,
-      payload: null,
     };
   }
 
   const currentPresets: LightPreset[] = existingScene[0].presets ?? [];
+  const updatedPresets = currentPresets.filter((p) => p.id !== presetId);
 
-  // Check if preset with this ID already exists (update) or is new (create)
-  const existingPresetIndex = currentPresets.findIndex((p) => p.id === preset.id);
-
-  let updatedPresets: LightPreset[];
-  if (existingPresetIndex >= 0) {
-    // Update existing preset
-    updatedPresets = [...currentPresets];
-    updatedPresets[existingPresetIndex] = preset;
-  } else {
-    // Add new preset
-    updatedPresets = [...currentPresets, preset];
+  if (updatedPresets.length === currentPresets.length) {
+    return {
+      message: "Preset not found",
+      success: false,
+    };
   }
 
   await db
@@ -69,9 +62,7 @@ export const savePreset = async (payload?: SavePresetPayload): Promise<SavePrese
     .where(eq(scenesTable.id, sceneId));
 
   return {
-    message:
-      existingPresetIndex >= 0 ? "Preset updated successfully" : "Preset created successfully",
+    message: "Preset deleted successfully",
     success: true,
-    payload: { presetId: preset.id },
   };
 };
