@@ -1,13 +1,13 @@
 import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { createRouteHandler, UTApi } from "uploadthing/server";
-import { saveMap } from "./saveMap.ts";
-import { getMaps } from "./getMaps.ts";
-import { getSceneById } from "./getSceneById.ts";
-import { updateScene } from "./updateScene.ts";
-import { savePreset } from "./savePreset.ts";
-import { deletePreset } from "./deletePreset.ts";
-import { uploadRouter } from "./uploadthing.ts";
+import { saveMap } from "./saveMap.js";
+import { getMaps } from "./getMaps.js";
+import { getSceneById } from "./getSceneById.js";
+import { updateScene } from "./updateScene.js";
+import { savePreset } from "./savePreset.js";
+import { deletePreset } from "./deletePreset.js";
+import { uploadRouter } from "./uploadthing.js";
 import type { SaveMapPayload, UpdateScenePayload, LightPreset } from "../shared/index.js";
 
 // Vercel Serverless Function configuration (Node.js)

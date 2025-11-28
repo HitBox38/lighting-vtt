@@ -1,7 +1,7 @@
 import { eq, and } from "drizzle-orm";
-import { db } from "../db/index.ts";
-import { scenesTable } from "../db/schema.ts";
-import type { UpdateScenePayload, UpdateSceneResponse } from "../shared/index.ts";
+import { db } from "../db/index.js";
+import { scenesTable } from "../db/schema.js";
+import type { UpdateScenePayload, UpdateSceneResponse } from "../shared/index.js";
 
 export const updateScene = async (payload?: UpdateScenePayload): Promise<UpdateSceneResponse> => {
   if (!payload) {
