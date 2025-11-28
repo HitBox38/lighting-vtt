@@ -11,9 +11,10 @@ import { deletePreset } from "./deletePreset.js";
 import { uploadRouter } from "./uploadthing.js";
 import type { SaveMapPayload, UpdateScenePayload, LightPreset } from "../shared/index.js";
 
-// Target the Node.js serverless runtime on Vercel and let Elysia handle parsing.
+// Use the Node.js runtime on Vercel (Bun enabled via bunVersion in vercel.json).
+// Disable Vercel's body parser so Elysia can handle parsing.
 export const config = {
-  runtime: "nodejs20.x",
+  runtime: "nodejs",
   api: {
     bodyParser: false,
   },
