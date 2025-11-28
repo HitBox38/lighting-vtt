@@ -17,8 +17,6 @@ export const config = {
   },
 };
 
-console.log(process.env.UPLOADTHING_TOKEN);
-
 // Create UploadThing route handler
 const uploadthingHandler = createRouteHandler({
   router: uploadRouter,
@@ -26,6 +24,7 @@ const uploadthingHandler = createRouteHandler({
     token: process.env.UPLOADTHING_TOKEN,
   },
 });
+
 const utapi = new UTApi();
 
 const app = new Elysia({ prefix: "/api" })
@@ -51,7 +50,12 @@ const app = new Elysia({ prefix: "/api" })
     return deletePreset({ sceneId: params.id, creatorId, presetId: params.presetId });
   })
   .get("/uploadthing", (ctx) => uploadthingHandler(ctx.request))
-  .post("/uploadthing", (ctx) => uploadthingHandler(ctx.request))
+  .post("/uploadthing", (ctx) => {
+    console.log("uploadthing", ctx.request);
+    console.log("uploadthing token", process.env.UPLOADTHING_TOKEN);
+
+    return uploadthingHandler(ctx.request);
+  })
   .post("/uploadthing/delete", async ({ body, set }) => {
     const { key } = (body ?? {}) as { key?: string };
     if (!key) {
