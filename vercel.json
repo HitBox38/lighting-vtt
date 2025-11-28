@@ -1,7 +1,6 @@
 {
   "rewrites": [
-    { "source": "/api/uploadthing", "destination": "/api/uploadthing.ts" },
-    { "source": "/api/(.*)", "destination": "/api/index.ts" },
+    { "source": "/api/(.*)", "destination": "/api/server.ts" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "$schema": "https://openapi.vercel.sh/vercel.json"

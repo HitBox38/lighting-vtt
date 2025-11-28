@@ -9,9 +9,11 @@ import { savePreset } from "./controllers/savePreset.js";
 import { deletePreset } from "./controllers/deletePreset.js";
 import { uploadRouter } from "./uploadthing.js";
 import type { SaveMapPayload, UpdateScenePayload, LightPreset } from "../shared/index.js";
-import * as dotenv from "dotenv";
 
-dotenv.config({ path: ".env.local" });
+// Vercel Edge Runtime configuration
+export const config = {
+  runtime: "edge",
+};
 
 // Create UploadThing route handler
 const uploadthingHandler = createRouteHandler({
