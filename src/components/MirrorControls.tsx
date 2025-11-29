@@ -13,7 +13,7 @@ interface Props {
 
 type DragHandleType = "endpoint1" | "endpoint2" | "midpoint";
 
-type DragState = {
+interface DragState {
   pointerId: number | null;
   mirrorId: string | null;
   handle: DragHandleType | null;
@@ -24,7 +24,12 @@ type DragState = {
   endpoint1OffsetY: number;
   endpoint2OffsetX: number;
   endpoint2OffsetY: number;
-};
+  // For fixed width dragging
+  fixedWidth: boolean;
+  fixedLength: number;
+  otherEndpointX: number;
+  otherEndpointY: number;
+}
 
 const HANDLE_RADIUS = 8;
 const DASH_LENGTH = 14;
@@ -40,6 +45,10 @@ const createInitialDragState = (): DragState => ({
   endpoint1OffsetY: 0,
   endpoint2OffsetX: 0,
   endpoint2OffsetY: 0,
+  fixedWidth: false,
+  fixedLength: 0,
+  otherEndpointX: 0,
+  otherEndpointY: 0,
 });
 
 const drawHandle = (graphics: PixiGraphics) => {
@@ -206,6 +215,21 @@ export function MirrorControls({ isGM, onOpenContextMenu, onCloseContextMenu }: 
       }
 
       const pointerPosition = getPointerPosition(event);
+      const isFixedWidth = mirror.fixedWidth ?? false;
+      let otherX = 0;
+      let otherY = 0;
+      let length = 0;
+
+      if (isFixedWidth) {
+        length = Math.hypot(mirror.x2 - mirror.x1, mirror.y2 - mirror.y1);
+        if (handle === "endpoint1") {
+          otherX = mirror.x2;
+          otherY = mirror.y2;
+        } else if (handle === "endpoint2") {
+          otherX = mirror.x1;
+          otherY = mirror.y1;
+        }
+      }
 
       if (handle === "endpoint1") {
         dragRef.current = {
@@ -218,6 +242,10 @@ export function MirrorControls({ isGM, onOpenContextMenu, onCloseContextMenu }: 
           endpoint1OffsetY: 0,
           endpoint2OffsetX: 0,
           endpoint2OffsetY: 0,
+          fixedWidth: isFixedWidth,
+          fixedLength: length,
+          otherEndpointX: otherX,
+          otherEndpointY: otherY,
         };
       } else if (handle === "endpoint2") {
         dragRef.current = {
@@ -230,6 +258,10 @@ export function MirrorControls({ isGM, onOpenContextMenu, onCloseContextMenu }: 
           endpoint1OffsetY: 0,
           endpoint2OffsetX: 0,
           endpoint2OffsetY: 0,
+          fixedWidth: isFixedWidth,
+          fixedLength: length,
+          otherEndpointX: otherX,
+          otherEndpointY: otherY,
         };
       } else {
         // Midpoint dragging
@@ -244,6 +276,10 @@ export function MirrorControls({ isGM, onOpenContextMenu, onCloseContextMenu }: 
           endpoint1OffsetY: mirror.y1 - midpoint.y,
           endpoint2OffsetX: mirror.x2 - midpoint.x,
           endpoint2OffsetY: mirror.y2 - midpoint.y,
+          fixedWidth: false,
+          fixedLength: 0,
+          otherEndpointX: 0,
+          otherEndpointY: 0,
         };
       }
     },
@@ -269,9 +305,29 @@ export function MirrorControls({ isGM, onOpenContextMenu, onCloseContextMenu }: 
       const nextY = pointerPosition.y - dragState.offsetY;
 
       if (dragState.handle === "endpoint1") {
-        scheduleMirrorUpdate(dragState.mirrorId, { x1: nextX, y1: nextY });
+        let finalX = nextX;
+        let finalY = nextY;
+
+        if (dragState.fixedWidth) {
+          const dx = nextX - dragState.otherEndpointX;
+          const dy = nextY - dragState.otherEndpointY;
+          const angle = Math.atan2(dy, dx);
+          finalX = dragState.otherEndpointX + Math.cos(angle) * dragState.fixedLength;
+          finalY = dragState.otherEndpointY + Math.sin(angle) * dragState.fixedLength;
+        }
+        scheduleMirrorUpdate(dragState.mirrorId, { x1: finalX, y1: finalY });
       } else if (dragState.handle === "endpoint2") {
-        scheduleMirrorUpdate(dragState.mirrorId, { x2: nextX, y2: nextY });
+        let finalX = nextX;
+        let finalY = nextY;
+
+        if (dragState.fixedWidth) {
+          const dx = nextX - dragState.otherEndpointX;
+          const dy = nextY - dragState.otherEndpointY;
+          const angle = Math.atan2(dy, dx);
+          finalX = dragState.otherEndpointX + Math.cos(angle) * dragState.fixedLength;
+          finalY = dragState.otherEndpointY + Math.sin(angle) * dragState.fixedLength;
+        }
+        scheduleMirrorUpdate(dragState.mirrorId, { x2: finalX, y2: finalY });
       } else {
         // Midpoint - move entire mirror
         scheduleMirrorUpdate(dragState.mirrorId, {

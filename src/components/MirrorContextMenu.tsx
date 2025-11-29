@@ -46,6 +46,11 @@ export function MirrorContextMenu({ state, isGM, onClose }: Props) {
     onClose();
   };
 
+  const handleFixedWidthToggle = (fixedWidth: boolean) => {
+    updateMirror(mirror.id, { fixedWidth });
+    onClose();
+  };
+
   const handleVisibilityToggle = (hidden: boolean) => {
     updateMirror(mirror.id, { hidden });
     onClose();
@@ -90,6 +95,23 @@ export function MirrorContextMenu({ state, isGM, onClose }: Props) {
               handleLockToggle(true);
             }}>
             Lock
+          </DropdownMenuItem>
+        )}
+        {mirror.fixedWidth ? (
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault();
+              handleFixedWidthToggle(false);
+            }}>
+            Unlock Width
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault();
+              handleFixedWidthToggle(true);
+            }}>
+            Lock Width
           </DropdownMenuItem>
         )}
         {hideOptionVisible && (

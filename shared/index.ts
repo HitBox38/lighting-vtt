@@ -82,6 +82,7 @@ export const mirrorSchema = z
     x2: z.number(),
     y2: z.number(),
     locked: z.boolean().optional().default(false),
+    fixedWidth: z.boolean().optional().default(false),
     hidden: z.boolean().optional().default(false),
   })
   .strict();
@@ -94,6 +95,7 @@ interface MirrorUpdatableFields {
   x2?: number;
   y2?: number;
   locked?: boolean;
+  fixedWidth?: boolean;
   hidden?: boolean;
 }
 
