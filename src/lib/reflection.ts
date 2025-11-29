@@ -163,7 +163,7 @@ export const traceRay = (
 /**
  * Generate rays for a radial light
  */
-const generateRadialRays = (light: Light, numRays: number = 64): Ray[] => {
+const generateRadialRays = (light: Light, numRays: number = 128): Ray[] => {
   const rays: Ray[] = [];
   const origin = { x: light.x, y: light.y };
 
@@ -181,7 +181,7 @@ const generateRadialRays = (light: Light, numRays: number = 64): Ray[] => {
 /**
  * Generate rays for a conic light
  */
-const generateConicRays = (light: Light, numRays: number = 32): Ray[] => {
+const generateConicRays = (light: Light, numRays: number = 64): Ray[] => {
   if (light.type !== "conic") return [];
 
   const rays: Ray[] = [];
@@ -216,12 +216,6 @@ const generateLineRays = (light: Light): Ray[] => {
   return [{ origin, direction }];
 };
 
-export type ReflectedPath = {
-  segments: RaySegment[];
-  lightId: string;
-  intensity: number;
-};
-
 /**
  * Calculate the max distance for a light's rays
  */
@@ -234,81 +228,79 @@ const getLightMaxDistance = (light: Light): number => {
   return light.radius;
 };
 
-/**
- * Trace all light paths with reflections for a given set of lights and mirrors
- */
-export const traceLightPaths = (lights: Light[], mirrors: Mirror[]): ReflectedPath[] => {
-  const paths: ReflectedPath[] = [];
-  const visibleMirrors = mirrors.filter((m) => !m.hidden);
-
-  if (visibleMirrors.length === 0) {
-    return paths;
-  }
-
-  for (const light of lights) {
-    if (light.hidden) continue;
-
-    const intensity = light.intensity ?? 1;
-    let rays: Ray[] = [];
-
-    if (light.type === "radial") {
-      rays = generateRadialRays(light, 64);
-    } else if (light.type === "conic") {
-      rays = generateConicRays(light, 32);
-    } else if (light.type === "line") {
-      rays = generateLineRays(light);
-    }
-
-    const maxDist = getLightMaxDistance(light);
-
-    for (const ray of rays) {
-      const segments = traceRay(ray, visibleMirrors, maxDist, intensity);
-
-      // Only include paths that have reflections (more than one segment)
-      if (segments.length > 1) {
-        paths.push({
-          segments,
-          lightId: light.id,
-          intensity,
-        });
-      }
-    }
-  }
-
-  return paths;
-};
-
 export interface LightReflectionData {
-  /** All segments including the first (for line lights that need full path rendering) */
+  /** All reflection segments (bounces 1+) */
+  reflectionSegments: RaySegment[];
+  /** All segments including primary (used for line lights) */
   allSegments: RaySegment[];
   /** Whether this light has any reflections */
   hasReflections: boolean;
+  /** The polygon points representing the primary light shape (clipped by mirrors) */
+  primaryPolygon: Point[];
 }
 
 /**
- * Get reflection data for all lights
- * Returns data needed to render both direct and reflected light paths
+ * Get reflection and geometry data for all lights
  */
 export const getReflectionData = (
   lights: Light[],
   mirrors: Mirror[]
 ): Map<string, LightReflectionData> => {
   const result = new Map<string, LightReflectionData>();
-  const paths = traceLightPaths(lights, mirrors);
+  const visibleMirrors = mirrors.filter((m) => !m.hidden);
 
-  // Initialize all lights with no reflections
   for (const light of lights) {
-    result.set(light.id, { allSegments: [], hasReflections: false });
-  }
-
-  for (const path of paths) {
-    const existing = result.get(path.lightId);
-    if (existing) {
-      result.set(path.lightId, {
-        allSegments: [...existing.allSegments, ...path.segments],
-        hasReflections: true,
+    if (light.hidden) {
+      result.set(light.id, {
+        reflectionSegments: [],
+        allSegments: [],
+        hasReflections: false,
+        primaryPolygon: [],
       });
+      continue;
     }
+
+    const intensity = light.intensity ?? 1;
+    let rays: Ray[] = [];
+
+    if (light.type === "radial") {
+      rays = generateRadialRays(light, 128);
+    } else if (light.type === "conic") {
+      rays = generateConicRays(light, 64);
+    } else if (light.type === "line") {
+      rays = generateLineRays(light);
+    }
+
+    const maxDist = getLightMaxDistance(light);
+    const reflectionSegments: RaySegment[] = [];
+    const allSegments: RaySegment[] = []; // All segments of all rays
+    const primaryPolygonPoints: Point[] = [];
+
+    for (const ray of rays) {
+      const segments = traceRay(ray, visibleMirrors, maxDist, intensity);
+
+      // Collect all segments
+      allSegments.push(...segments);
+
+      // Primary polygon construction
+      if (segments.length > 0) {
+        primaryPolygonPoints.push(segments[0].end);
+      }
+
+      // Reflection segments (indices 1+)
+      if (segments.length > 1) {
+        for (let i = 1; i < segments.length; i++) {
+          reflectionSegments.push(segments[i]);
+        }
+      }
+    }
+
+    result.set(light.id, {
+      reflectionSegments,
+      allSegments, // This now includes primary segments too, which is fine, but we mostly use reflectionSegments for drawing reflections
+      hasReflections: reflectionSegments.length > 0,
+      primaryPolygon: primaryPolygonPoints,
+    });
   }
 
   return result;

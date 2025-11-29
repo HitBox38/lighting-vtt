@@ -142,45 +142,63 @@ export function LightingLayer({ width, height, isGM = true }: Props) {
       for (const light of visibleLights) {
         const alpha = light.intensity ?? 1;
         const lightReflectionData = reflectionData.get(light.id);
-        const hasReflections = lightReflectionData?.hasReflections ?? false;
+        // Using the primaryPolygon from reflection data allows lights to be properly occluded by mirrors
+        // even before they reflect
+        const primaryPolygon = lightReflectionData?.primaryPolygon ?? [];
+        const reflectionSegments = lightReflectionData?.reflectionSegments ?? [];
+        const allSegments = lightReflectionData?.allSegments ?? [];
 
         if (light.type === "radial") {
-          graphics.circle(light.x, light.y, light.radius).fill({ color: LIGHT_COLOR, alpha });
-          // Draw all reflected path segments (the direct circle already covers the source area)
-          if (hasReflections && lightReflectionData) {
-            for (const segment of lightReflectionData.allSegments) {
-              drawReflectionSegment(graphics, segment, alpha * 0.8);
+          if (primaryPolygon.length > 2) {
+            graphics.moveTo(primaryPolygon[0].x, primaryPolygon[0].y);
+            for (let i = 1; i < primaryPolygon.length; i++) {
+              graphics.lineTo(primaryPolygon[i].x, primaryPolygon[i].y);
             }
+            graphics.lineTo(primaryPolygon[0].x, primaryPolygon[0].y);
+            graphics.fill({ color: LIGHT_COLOR, alpha });
+          } else {
+            // Fallback if no reflection data available (e.g. no mirrors)
+            graphics.circle(light.x, light.y, light.radius).fill({ color: LIGHT_COLOR, alpha });
+          }
+
+          for (const segment of reflectionSegments) {
+            drawReflectionSegment(graphics, segment, alpha * 0.8);
           }
         } else if (light.type === "conic") {
-          const baseAngle = Math.atan2(light.targetY - light.y, light.targetX - light.x);
-          const halfCone = ((light.coneAngle ?? 0) * Math.PI) / 360;
-          const startAngle = baseAngle - halfCone;
-          const endAngle = baseAngle + halfCone;
-
-          graphics
-            .moveTo(light.x, light.y)
-            .arc(light.x, light.y, light.radius, startAngle, endAngle)
-            .lineTo(light.x, light.y)
-            .fill({ color: LIGHT_COLOR, alpha });
-
-          // Draw reflected segments for conic lights
-          if (hasReflections && lightReflectionData) {
-            for (const segment of lightReflectionData.allSegments) {
-              drawReflectionSegment(graphics, segment, alpha * 0.8);
+          if (primaryPolygon.length > 1) {
+            graphics.moveTo(light.x, light.y);
+            for (const p of primaryPolygon) {
+              graphics.lineTo(p.x, p.y);
             }
+            graphics.lineTo(light.x, light.y);
+            graphics.fill({ color: LIGHT_COLOR, alpha });
+          } else {
+            // Fallback
+            const baseAngle = Math.atan2(light.targetY - light.y, light.targetX - light.x);
+            const halfCone = ((light.coneAngle ?? 0) * Math.PI) / 360;
+            const startAngle = baseAngle - halfCone;
+            const endAngle = baseAngle + halfCone;
+
+            graphics
+              .moveTo(light.x, light.y)
+              .arc(light.x, light.y, light.radius, startAngle, endAngle)
+              .lineTo(light.x, light.y)
+              .fill({ color: LIGHT_COLOR, alpha });
+          }
+
+          for (const segment of reflectionSegments) {
+            drawReflectionSegment(graphics, segment, alpha * 0.8);
           }
         } else {
           // Line light
           const thickness = Math.max(light.radius ?? 1, 1);
 
-          if (hasReflections && lightReflectionData) {
-            // For line lights with reflections, draw the entire traced path
-            for (const segment of lightReflectionData.allSegments) {
+          if (allSegments.length > 0) {
+            for (const segment of allSegments) {
               drawLineSegment(graphics, segment, thickness, alpha);
             }
           } else {
-            // No reflections - draw direct line from source to target
+            // Fallback
             const dx = light.targetX - light.x;
             const dy = light.targetY - light.y;
             const distance = Math.hypot(dx, dy);
