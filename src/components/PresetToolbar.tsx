@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FilePlus, Save, Shuffle, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, FilePlus, Save, Shuffle, Trash2 } from "lucide-react";
 import { useLightManager } from "@/hooks/useLightManager";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,6 +55,28 @@ export function PresetToolbar() {
   const handleDelete = () => {
     if (activePresetId) {
       deletePreset(activePresetId);
+    }
+  };
+
+  const handlePreviousPreset = () => {
+    if (activePresetId) {
+      const previousPresetId = presets.findIndex((preset) => preset.id === activePresetId) - 1;
+      if (previousPresetId >= 0) {
+        loadPreset(presets[previousPresetId].id);
+      } else {
+        loadPreset(presets[presets.length - 1].id);
+      }
+    }
+  };
+
+  const handleNextPreset = () => {
+    if (activePresetId) {
+      const nextPresetId = presets.findIndex((preset) => preset.id === activePresetId) + 1;
+      if (nextPresetId < presets.length) {
+        loadPreset(presets[nextPresetId].id);
+      } else {
+        loadPreset(presets[0].id);
+      }
     }
   };
 
@@ -164,6 +186,21 @@ export function PresetToolbar() {
           <Button
             size="icon-sm"
             variant="outline"
+            disabled={!activePresetId || presets.length < 2}
+            onClick={handlePreviousPreset}>
+            <ArrowLeft className="size-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p>Go to previous preset</p>
+        </TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="icon-sm"
+            variant="outline"
             onClick={randomizePreset}
             disabled={presets.length < 2}>
             <Shuffle className="size-4" />
@@ -171,6 +208,21 @@ export function PresetToolbar() {
         </TooltipTrigger>
         <TooltipContent side="bottom">
           <p>Randomize Preset</p>
+        </TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="icon-sm"
+            variant="outline"
+            disabled={!activePresetId || presets.length < 2}
+            onClick={handleNextPreset}>
+            <ArrowRight className="size-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p>Go to next preset</p>
         </TooltipContent>
       </Tooltip>
 
