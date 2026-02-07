@@ -18,11 +18,11 @@ import {
   UserButton,
   useUser,
 } from "@clerk/clerk-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { Suspense, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
-import type { GetMapsResponse, SaveMapPayload, SaveMapResponse } from "@shared/index";
 import { Loader2, Plus, ImageIcon } from "lucide-react";
 
 interface NewSceneFormData {
@@ -33,7 +33,6 @@ interface NewSceneFormData {
 export const LibraryPage = () => {
   const { user } = useUser();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<{ url: string; key: string } | null>(null);
@@ -59,49 +58,12 @@ export const LibraryPage = () => {
     name: "imageUrl",
   });
 
-  const getMaps = async (creatorId: string) => {
-    const response = await fetch(`/api/maps?creatorId=${creatorId}`);
-    const data = (await response.json()) as GetMapsResponse;
-    return data;
-  };
+  const scenes = useQuery(
+    api.scenes.getByCreatorId,
+    user?.id ? { creatorId: user.id } : "skip",
+  );
 
-  const { data } = useQuery<GetMapsResponse>({
-    queryKey: ["maps", user?.id ?? ""],
-    queryFn: () => getMaps(user?.id ?? ""),
-    enabled: !!user?.id,
-  });
-
-  const saveSceneMutation = useMutation<SaveMapResponse, Error, SaveMapPayload>({
-    mutationFn: async (payload) => {
-      const response = await fetch("/api/save", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to save scene");
-      }
-
-      return (await response.json()) as SaveMapResponse;
-    },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["maps", variables.creatorId] });
-      setIsDialogOpen(false);
-      reset();
-      setUploadedFile(null);
-      if (data.payload?.id) {
-        navigate(`/scene?id=${encodeURIComponent(data.payload.id)}`);
-      }
-    },
-    onError: (error) => {
-      setError("root", {
-        message: error.message || "An error occurred",
-      });
-    },
-  });
+  const createScene = useMutation(api.scenes.create);
 
   const deleteCurrentUpload = async () => {
     if (!uploadedFile?.key) {
@@ -111,11 +73,10 @@ export const LibraryPage = () => {
     const keyToDelete = uploadedFile.key;
     setUploadedFile(null);
     try {
-      await fetch("/api/uploadthing/delete", {
+      const convexUrl = import.meta.env.VITE_CONVEX_URL as string;
+      await fetch(`${convexUrl}/api/uploadthing/delete`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: keyToDelete }),
       });
     } catch (error) {
@@ -137,18 +98,21 @@ export const LibraryPage = () => {
       return;
     }
 
-    const payload: SaveMapPayload = {
-      creatorId: user.id,
-      name: data.name.trim(),
-      mapUrl: data.imageUrl,
-      lightsState: {},
-      mirrorsState: {},
-    };
-
     try {
-      await saveSceneMutation.mutateAsync(payload);
-    } catch {
-      // Error handling is managed in onError
+      const newId = await createScene({
+        creatorId: user.id,
+        name: data.name.trim(),
+        mapUrl: data.imageUrl,
+      });
+
+      setIsDialogOpen(false);
+      reset();
+      setUploadedFile(null);
+      navigate(`/scene?id=${encodeURIComponent(newId)}`);
+    } catch (error) {
+      setError("root", {
+        message: error instanceof Error ? error.message : "An error occurred",
+      });
     }
   };
 
@@ -171,7 +135,6 @@ export const LibraryPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
         <div className="flex h-14 items-center justify-between px-6">
           <div className="flex items-center gap-6">
@@ -210,7 +173,6 @@ export const LibraryPage = () => {
             <div className="flex flex-col gap-4">
               <h2 className="text-2xl font-semibold tracking-tight">Your Maps</h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-                {/* New Scene Card */}
                 <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
                   <DialogTrigger asChild>
                     <Card className="cursor-pointer border-dashed border-2 hover:border-primary/50 hover:bg-muted/50 transition-colors h-full">
@@ -232,7 +194,6 @@ export const LibraryPage = () => {
                       <DialogTitle>Create New Scene</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
-                      {/* Name Input */}
                       <div className="grid gap-2">
                         <label htmlFor="scene-name" className="text-sm font-medium">
                           Scene Name
@@ -254,7 +215,6 @@ export const LibraryPage = () => {
                         )}
                       </div>
 
-                      {/* Image Upload */}
                       <div className="grid gap-2">
                         <label className="text-sm font-medium">Map Image</label>
                         <input
@@ -304,12 +264,10 @@ export const LibraryPage = () => {
                         )}
                       </div>
 
-                      {/* Root Error Message */}
                       {errors.root && (
                         <p className="text-sm text-destructive">{errors.root.message}</p>
                       )}
 
-                      {/* Submit Button */}
                       <div className="flex justify-end gap-2">
                         <Button
                           type="button"
@@ -332,28 +290,25 @@ export const LibraryPage = () => {
                     </form>
                   </DialogContent>
                 </Dialog>
-                {data?.payload?.map((map) => (
+                {scenes?.map((scene) => (
                   <Card
-                    key={map.id}
-                    onClick={() => navigate(`/scene?id=${encodeURIComponent(map.id)}`)}
+                    key={scene._id}
+                    onClick={() => navigate(`/scene?id=${encodeURIComponent(scene._id)}`)}
                     className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border border-border/50 p-0 gap-0">
-                    {/* Image Container with Aspect Ratio */}
                     <div className="relative aspect-video overflow-hidden bg-muted">
                       <img
-                        src={map.mapUrl}
-                        alt={map.name}
+                        src={scene.mapUrl}
+                        alt={scene.name}
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
-                      {/* Gradient Overlay on Hover */}
                       <div className="absolute inset-0 bg-linear-to-t from-background/80 via-background/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     </div>
 
-                    {/* Title Bar */}
                     <div className="p-3 bg-card">
                       <h3
                         className="text-xl font-semibold tracking-tight truncate"
-                        title={map.name}>
-                        {map.name}
+                        title={scene.name}>
+                        {scene.name}
                       </h3>
                     </div>
                   </Card>

@@ -1,0 +1,92 @@
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+// ---------------------------------------------------------------------------
+// Reusable validators -- exported so convex functions can reference them in
+// their `args` and `returns` declarations.
+// ---------------------------------------------------------------------------
+
+/** Shared fields present on every light variant. */
+const lightBase = {
+  id: v.string(),
+  x: v.number(),
+  y: v.number(),
+  radius: v.number(),
+  color: v.string(),
+  intensity: v.number(),
+  locked: v.optional(v.boolean()),
+  hidden: v.optional(v.boolean()),
+};
+
+/** Discriminated union matching the `Light` type in shared/index.ts. */
+export const lightValidator = v.union(
+  v.object({
+    ...lightBase,
+    type: v.literal("radial"),
+  }),
+  v.object({
+    ...lightBase,
+    type: v.literal("conic"),
+    coneAngle: v.number(),
+    targetX: v.number(),
+    targetY: v.number(),
+  }),
+  v.object({
+    ...lightBase,
+    type: v.literal("line"),
+    targetX: v.number(),
+    targetY: v.number(),
+  }),
+);
+
+/** Matches the `Mirror` type in shared/index.ts. */
+export const mirrorValidator = v.object({
+  id: v.string(),
+  x1: v.number(),
+  y1: v.number(),
+  x2: v.number(),
+  y2: v.number(),
+  locked: v.optional(v.boolean()),
+  fixedWidth: v.optional(v.boolean()),
+  hidden: v.optional(v.boolean()),
+});
+
+/** Matches the `LightPreset` type in shared/index.ts. */
+export const presetValidator = v.object({
+  id: v.string(),
+  name: v.string(),
+  lights: v.array(lightValidator),
+  mirrors: v.array(mirrorValidator),
+});
+
+/**
+ * Full scene document validator *including* system fields.
+ * Useful as a `returns` validator on queries that return a scene doc.
+ */
+export const sceneDocValidator = v.object({
+  _id: v.id("scenes"),
+  _creationTime: v.number(),
+  creatorId: v.string(),
+  name: v.string(),
+  mapUrl: v.string(),
+  lights: v.array(lightValidator),
+  mirrors: v.array(mirrorValidator),
+  presets: v.array(presetValidator),
+  updatedAt: v.number(),
+});
+
+// ---------------------------------------------------------------------------
+// Schema
+// ---------------------------------------------------------------------------
+
+export default defineSchema({
+  scenes: defineTable({
+    creatorId: v.string(),
+    name: v.string(),
+    mapUrl: v.string(),
+    lights: v.array(lightValidator),
+    mirrors: v.array(mirrorValidator),
+    presets: v.array(presetValidator),
+    updatedAt: v.number(),
+  }).index("by_creatorId", ["creatorId"]),
+});

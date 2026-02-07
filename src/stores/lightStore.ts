@@ -15,8 +15,6 @@ import {
   type Mirror,
   type MirrorUpdate,
   mirrorSchema,
-  type SavePresetResponse,
-  type DeletePresetResponse,
 } from "@shared/index";
 import {
   broadcastState,
@@ -25,8 +23,10 @@ import {
   subscribeToStateRequests,
   type SyncState,
 } from "@/lib/windowSync";
+import { convexClient } from "@/lib/convex";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 
-// Check if this is a GM window (defaults to true)
 const getIsGM = (): boolean => {
   if (typeof window === "undefined") return true;
   const params = new URLSearchParams(window.location.search);
@@ -61,10 +61,9 @@ interface LightStoreState {
     creatorId: string,
     lights: Light[],
     mirrors: Mirror[],
-    presets: LightPreset[]
+    presets: LightPreset[],
   ) => void;
   getStateHash: () => string;
-  // Internal method for applying synced state from GM
   _applySyncedState: (state: SyncState) => void;
 }
 
@@ -75,41 +74,28 @@ const createId = () => {
   return `id-${Math.random().toString(36).slice(2, 10)}`;
 };
 
-// API helper functions for preset operations
-const savePresetToAPI = async (
-  sceneId: string,
-  creatorId: string,
-  preset: LightPreset
-): Promise<SavePresetResponse> => {
-  try {
-    const response = await fetch(`/api/scene/${sceneId}/presets`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ creatorId, preset }),
+const persistPreset = (sceneId: string, creatorId: string, preset: LightPreset): void => {
+  convexClient
+    .mutation(api.scenes.savePreset, {
+      id: sceneId as Id<"scenes">,
+      creatorId,
+      preset,
+    })
+    .catch((error) => {
+      console.error("Failed to persist preset:", error);
     });
-    return (await response.json()) as SavePresetResponse;
-  } catch (error) {
-    console.error("Failed to save preset to API:", error);
-    return { message: "Network error", success: false, payload: null };
-  }
 };
 
-const deletePresetFromAPI = async (
-  sceneId: string,
-  creatorId: string,
-  presetId: string
-): Promise<DeletePresetResponse> => {
-  try {
-    const response = await fetch(`/api/scene/${sceneId}/presets/${presetId}`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ creatorId }),
+const removePreset = (sceneId: string, creatorId: string, presetId: string): void => {
+  convexClient
+    .mutation(api.scenes.deletePreset, {
+      id: sceneId as Id<"scenes">,
+      creatorId,
+      presetId,
+    })
+    .catch((error) => {
+      console.error("Failed to delete preset:", error);
     });
-    return (await response.json()) as DeletePresetResponse;
-  } catch (error) {
-    console.error("Failed to delete preset from API:", error);
-    return { message: "Network error", success: false };
-  }
 };
 
 const buildLight = (type: LightType, x: number, y: number): Light => {
@@ -239,9 +225,8 @@ export const useLightStore = create<LightStoreState>()(
       const nextPresets = [...state.presets, newPreset];
       set({ presets: nextPresets, activePresetId: newPreset.id });
 
-      // Persist to API if we have a scene loaded
       if (state.sceneId && state.creatorId) {
-        void savePresetToAPI(state.sceneId, state.creatorId, newPreset);
+        persistPreset(state.sceneId, state.creatorId, newPreset);
       }
 
       return newPreset.id;
@@ -260,16 +245,14 @@ export const useLightStore = create<LightStoreState>()(
       nextPresets[index] = updatedPreset;
       set({ presets: nextPresets });
 
-      // Persist to API if we have a scene loaded
       if (state.sceneId && state.creatorId) {
-        void savePresetToAPI(state.sceneId, state.creatorId, updatedPreset);
+        persistPreset(state.sceneId, state.creatorId, updatedPreset);
       }
     },
     loadPreset: (id) => {
       const state = get();
       const preset = state.presets.find((p) => p.id === id);
       if (preset) {
-        // Deep copy lights and mirrors to avoid reference issues if modified
         const lightsCopy = JSON.parse(JSON.stringify(preset.lights));
         const mirrorsCopy = JSON.parse(JSON.stringify(preset.mirrors ?? []));
         set({ lights: lightsCopy, mirrors: mirrorsCopy, activePresetId: id });
@@ -283,7 +266,6 @@ export const useLightStore = create<LightStoreState>()(
       const randomIndex = Math.floor(Math.random() * availablePresets.length);
       const randomPreset = availablePresets[randomIndex];
 
-      // Reuse loadPreset logic
       get().loadPreset(randomPreset.id);
     },
     deletePreset: (id) => {
@@ -293,9 +275,8 @@ export const useLightStore = create<LightStoreState>()(
       const nextActiveId = state.activePresetId === id ? null : state.activePresetId;
       set({ presets: nextPresets, activePresetId: nextActiveId });
 
-      // Persist to API if we have a scene loaded
       if (state.sceneId && state.creatorId) {
-        void deletePresetFromAPI(state.sceneId, state.creatorId, id);
+        removePreset(state.sceneId, state.creatorId, id);
       }
     },
     setHoveredLightId: (id) => set({ hoveredLightId: id }),
@@ -325,13 +306,11 @@ export const useLightStore = create<LightStoreState>()(
         activePresetId: syncedState.activePresetId,
       });
     },
-  }))
+  })),
 );
 
-// Subscribe to state changes and broadcast (GM only)
 if (IS_GM) {
   useLightStore.subscribe((state, prevState) => {
-    // Only broadcast if lights, mirrors, or activePresetId changed
     if (
       state.lights !== prevState.lights ||
       state.mirrors !== prevState.mirrors ||
@@ -345,7 +324,6 @@ if (IS_GM) {
     }
   });
 
-  // Listen for state requests from player windows and respond
   subscribeToStateRequests(() => {
     const state = useLightStore.getState();
     return {
@@ -355,9 +333,7 @@ if (IS_GM) {
     };
   });
 
-  // Broadcast initial state when GM window is ready
   if (typeof window !== "undefined") {
-    // Small delay to ensure store is initialized
     setTimeout(() => {
       const state = useLightStore.getState();
       broadcastState({
@@ -369,13 +345,11 @@ if (IS_GM) {
   }
 }
 
-// Subscribe to GM updates (player windows only)
 if (!IS_GM) {
   subscribeToStateUpdates((syncedState) => {
     useLightStore.getState()._applySyncedState(syncedState);
   });
 
-  // Request current state when player window loads
   if (typeof window !== "undefined") {
     requestState();
   }
