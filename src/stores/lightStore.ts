@@ -26,6 +26,7 @@ import {
 import { convexClient } from "@/lib/convex";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import type { SaveStatus } from "@/components/SaveStatusIndicator";
 
 const getIsGM = (): boolean => {
   if (typeof window === "undefined") return true;
@@ -44,6 +45,7 @@ interface LightStoreState {
   sceneId: string | null;
   creatorId: string | null;
   initialStateHash: string | null;
+  saveStatus: SaveStatus;
   addLight: (type: LightType, x: number, y: number) => string;
   updateLight: (id: string, partial: LightUpdate) => void;
   removeLight: (id: string) => void;
@@ -160,6 +162,7 @@ export const useLightStore = create<LightStoreState>()(
     sceneId: null,
     creatorId: null,
     initialStateHash: null,
+    saveStatus: "idle",
     addLight: (type, x, y) => {
       const light = buildLight(type, x, y);
       set((state) => ({ lights: state.lights.concat(light) }));
@@ -343,6 +346,67 @@ if (IS_GM) {
       });
     }, 100);
   }
+
+  const DEBOUNCE_DELAY = 2000;
+  const SAVED_DISPLAY_DURATION = 2000;
+
+  let persistTimer: ReturnType<typeof setTimeout> | null = null;
+  let savedDisplayTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastPersistedHash: string | null = null;
+
+  useLightStore.subscribe((state, prevState) => {
+    if (state.lights === prevState.lights && state.mirrors === prevState.mirrors) {
+      return;
+    }
+
+    if (!state.sceneId || !state.creatorId) {
+      return;
+    }
+
+    if (persistTimer) {
+      clearTimeout(persistTimer);
+    }
+
+    const { sceneId, creatorId } = state;
+
+    persistTimer = setTimeout(() => {
+      const current = useLightStore.getState();
+      const currentHash = computeStateHash(current.lights, current.mirrors);
+
+      if (currentHash === lastPersistedHash) {
+        return;
+      }
+
+      if (currentHash === current.initialStateHash && lastPersistedHash === null) {
+        return;
+      }
+
+      useLightStore.setState({ saveStatus: "saving" });
+
+      convexClient
+        .mutation(api.scenes.update, {
+          id: sceneId as Id<"scenes">,
+          creatorId,
+          lights: current.lights,
+          mirrors: current.mirrors,
+        })
+        .then(() => {
+          lastPersistedHash = currentHash;
+          useLightStore.setState({ saveStatus: "saved" });
+
+          if (savedDisplayTimer) {
+            clearTimeout(savedDisplayTimer);
+          }
+          savedDisplayTimer = setTimeout(() => {
+            useLightStore.setState({ saveStatus: "idle" });
+          }, SAVED_DISPLAY_DURATION);
+        })
+        .catch((error) => {
+          console.error("Auto-save failed:", error);
+          useLightStore.setState({ saveStatus: "error" });
+        });
+    }, DEBOUNCE_DELAY);
+  });
 }
 
 if (!IS_GM) {

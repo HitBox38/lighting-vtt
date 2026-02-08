@@ -1,12 +1,11 @@
 import GameCanvas from "@/components/GameCanvas";
 import { SaveStatusIndicator } from "@/components/SaveStatusIndicator";
-import { useAutoSave } from "@/hooks/useAutoSave";
 import { useLightStore } from "@/stores/lightStore";
 import { useUser } from "@clerk/clerk-react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Light, Mirror, LightPreset } from "@shared/index";
 
@@ -14,7 +13,9 @@ export function ScenePage() {
   const [searchParams] = useSearchParams();
   const { user } = useUser();
   const loadScene = useLightStore((state) => state.loadScene);
+  const applySyncedState = useLightStore((state) => state._applySyncedState);
   const storeSceneId = useLightStore((state) => state.sceneId);
+  const saveStatus = useLightStore((state) => state.saveStatus);
 
   const isGM = useMemo(() => searchParams.get("isGM") !== "false", [searchParams]);
   const sceneId = searchParams.get("id");
@@ -23,12 +24,9 @@ export function ScenePage() {
 
   const sceneLoaded = storeSceneId === sceneId;
 
-  const { status: saveStatus, canSave } = useAutoSave({
-    sceneId: sceneId,
-    creatorId: scene?.creatorId ?? null,
-    userId: user?.id ?? null,
-    enabled: isGM && sceneLoaded,
-  });
+  const canSave = isGM && sceneLoaded && !!user?.id && user.id === scene?.creatorId;
+
+  const lastAppliedUpdatedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!scene || !sceneId || sceneLoaded) {
@@ -40,7 +38,25 @@ export function ScenePage() {
     const presets: LightPreset[] = (scene.presets ?? []) as LightPreset[];
 
     loadScene(sceneId, scene.creatorId, lights, mirrors, presets);
+    lastAppliedUpdatedAtRef.current = scene.updatedAt ?? null;
   }, [scene, sceneId, loadScene, sceneLoaded]);
+
+  useEffect(() => {
+    if (isGM || !sceneLoaded || !scene) {
+      return;
+    }
+
+    const incomingUpdatedAt = scene.updatedAt ?? null;
+
+    if (incomingUpdatedAt !== null && incomingUpdatedAt !== lastAppliedUpdatedAtRef.current) {
+      lastAppliedUpdatedAtRef.current = incomingUpdatedAt;
+      applySyncedState({
+        lights: (scene.lights ?? []) as Light[],
+        mirrors: (scene.mirrors ?? []) as Mirror[],
+        activePresetId: null,
+      });
+    }
+  }, [isGM, sceneLoaded, scene, applySyncedState]);
 
   if (scene === undefined) {
     return (
