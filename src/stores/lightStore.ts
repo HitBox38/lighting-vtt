@@ -15,6 +15,12 @@ import {
   type Mirror,
   type MirrorUpdate,
   mirrorSchema,
+  type TokenInstance,
+  type TokenInstanceUpdate,
+  tokenInstanceSchema,
+  type TokenTemplate,
+  type TokenTemplateUpdate,
+  tokenTemplateSchema,
 } from "@shared/index";
 import {
   broadcastState,
@@ -39,8 +45,11 @@ const IS_GM = getIsGM();
 interface LightStoreState {
   lights: Light[];
   mirrors: Mirror[];
+  tokenTemplates: TokenTemplate[];
+  tokens: TokenInstance[];
   presets: LightPreset[];
   activePresetId: string | null;
+  placementTemplateId: string | null;
   hoveredLightId: string | null;
   sceneId: string | null;
   creatorId: string | null;
@@ -52,6 +61,13 @@ interface LightStoreState {
   addMirror: (x: number, y: number) => string;
   updateMirror: (id: string, partial: MirrorUpdate) => void;
   removeMirror: (id: string) => void;
+  addTokenTemplate: (template: Omit<TokenTemplate, "id">) => string;
+  updateTokenTemplate: (id: string, partial: TokenTemplateUpdate) => void;
+  removeTokenTemplate: (id: string) => void;
+  addTokenInstance: (templateId: string, x: number, y: number) => string;
+  updateTokenInstance: (id: string, partial: TokenInstanceUpdate) => void;
+  removeTokenInstance: (id: string) => void;
+  setPlacementTemplateId: (id: string | null) => void;
   savePreset: (name: string) => string;
   updateSavedPreset: (id: string) => void;
   loadPreset: (id: string) => void;
@@ -63,6 +79,8 @@ interface LightStoreState {
     creatorId: string,
     lights: Light[],
     mirrors: Mirror[],
+    tokenTemplates: TokenTemplate[],
+    tokens: TokenInstance[],
     presets: LightPreset[],
   ) => void;
   getStateHash: () => string;
@@ -148,16 +166,42 @@ const buildMirror = (x: number, y: number): Mirror => {
   return mirrorSchema.parse(candidate);
 };
 
-const computeStateHash = (lights: Light[], mirrors: Mirror[]): string => {
-  return JSON.stringify({ lights, mirrors });
+const buildTokenTemplate = (template: Omit<TokenTemplate, "id">): TokenTemplate => {
+  const candidate = {
+    id: createId(),
+    ...template,
+  };
+  return tokenTemplateSchema.parse(candidate);
+};
+
+const buildTokenInstance = (templateId: string, x: number, y: number): TokenInstance => {
+  const candidate = {
+    id: createId(),
+    templateId,
+    x,
+    y,
+  };
+  return tokenInstanceSchema.parse(candidate);
+};
+
+const computeStateHash = (
+  lights: Light[],
+  mirrors: Mirror[],
+  tokenTemplates: TokenTemplate[],
+  tokens: TokenInstance[]
+): string => {
+  return JSON.stringify({ lights, mirrors, tokenTemplates, tokens });
 };
 
 export const useLightStore = create<LightStoreState>()(
   devtools((set, get) => ({
     lights: [],
     mirrors: [],
+    tokenTemplates: [],
+    tokens: [],
     presets: [],
     activePresetId: null,
+    placementTemplateId: null,
     hoveredLightId: null,
     sceneId: null,
     creatorId: null,
@@ -217,6 +261,71 @@ export const useLightStore = create<LightStoreState>()(
         }
         return { mirrors: nextMirrors };
       }),
+    addTokenTemplate: (template) => {
+      const tokenTemplate = buildTokenTemplate(template);
+      set((state) => ({ tokenTemplates: state.tokenTemplates.concat(tokenTemplate) }));
+      return tokenTemplate.id;
+    },
+    updateTokenTemplate: (id, partial) =>
+      set((state) => {
+        const index = state.tokenTemplates.findIndex((template) => template.id === id);
+        if (index === -1) {
+          return state;
+        }
+        const nextTemplate = tokenTemplateSchema.parse({
+          ...state.tokenTemplates[index],
+          ...partial,
+        });
+        const tokenTemplates = state.tokenTemplates.slice();
+        tokenTemplates[index] = nextTemplate;
+        return { tokenTemplates };
+      }),
+    removeTokenTemplate: (id) =>
+      set((state) => {
+        const nextTokenTemplates = state.tokenTemplates.filter((template) => template.id !== id);
+        if (nextTokenTemplates.length === state.tokenTemplates.length) {
+          return state;
+        }
+        const nextTokens = state.tokens.filter((token) => token.templateId !== id);
+        const placementTemplateId = state.placementTemplateId === id ? null : state.placementTemplateId;
+        return {
+          tokenTemplates: nextTokenTemplates,
+          tokens: nextTokens,
+          placementTemplateId,
+        };
+      }),
+    addTokenInstance: (templateId, x, y) => {
+      const templateExists = get().tokenTemplates.some((template) => template.id === templateId);
+      if (!templateExists) {
+        return "";
+      }
+      const token = buildTokenInstance(templateId, x, y);
+      set((state) => ({ tokens: state.tokens.concat(token) }));
+      return token.id;
+    },
+    updateTokenInstance: (id, partial) =>
+      set((state) => {
+        const index = state.tokens.findIndex((token) => token.id === id);
+        if (index === -1) {
+          return state;
+        }
+        const nextToken = tokenInstanceSchema.parse({
+          ...state.tokens[index],
+          ...partial,
+        });
+        const tokens = state.tokens.slice();
+        tokens[index] = nextToken;
+        return { tokens };
+      }),
+    removeTokenInstance: (id) =>
+      set((state) => {
+        const nextTokens = state.tokens.filter((token) => token.id !== id);
+        if (nextTokens.length === state.tokens.length) {
+          return state;
+        }
+        return { tokens: nextTokens };
+      }),
+    setPlacementTemplateId: (placementTemplateId) => set({ placementTemplateId }),
     savePreset: (name) => {
       const state = get();
       const newPreset: LightPreset = {
@@ -283,29 +392,36 @@ export const useLightStore = create<LightStoreState>()(
       }
     },
     setHoveredLightId: (id) => set({ hoveredLightId: id }),
-    loadScene: (sceneId, creatorId, lights, mirrors, presets) => {
+    loadScene: (sceneId, creatorId, lights, mirrors, tokenTemplates, tokens, presets) => {
       const lightsCopy = JSON.parse(JSON.stringify(lights)) as Light[];
       const mirrorsCopy = JSON.parse(JSON.stringify(mirrors)) as Mirror[];
+      const tokenTemplatesCopy = JSON.parse(JSON.stringify(tokenTemplates)) as TokenTemplate[];
+      const tokensCopy = JSON.parse(JSON.stringify(tokens)) as TokenInstance[];
       const presetsCopy = JSON.parse(JSON.stringify(presets)) as LightPreset[];
-      const hash = computeStateHash(lightsCopy, mirrorsCopy);
+      const hash = computeStateHash(lightsCopy, mirrorsCopy, tokenTemplatesCopy, tokensCopy);
       set({
         sceneId,
         creatorId,
         lights: lightsCopy,
         mirrors: mirrorsCopy,
+        tokenTemplates: tokenTemplatesCopy,
+        tokens: tokensCopy,
         presets: presetsCopy,
         initialStateHash: hash,
         activePresetId: null,
+        placementTemplateId: null,
       });
     },
     getStateHash: () => {
       const state = get();
-      return computeStateHash(state.lights, state.mirrors);
+      return computeStateHash(state.lights, state.mirrors, state.tokenTemplates, state.tokens);
     },
     _applySyncedState: (syncedState) => {
       set({
         lights: syncedState.lights,
         mirrors: syncedState.mirrors,
+        tokenTemplates: syncedState.tokenTemplates,
+        tokens: syncedState.tokens,
         activePresetId: syncedState.activePresetId,
       });
     },
@@ -317,11 +433,15 @@ if (IS_GM) {
     if (
       state.lights !== prevState.lights ||
       state.mirrors !== prevState.mirrors ||
+      state.tokenTemplates !== prevState.tokenTemplates ||
+      state.tokens !== prevState.tokens ||
       state.activePresetId !== prevState.activePresetId
     ) {
       broadcastState({
         lights: state.lights,
         mirrors: state.mirrors,
+        tokenTemplates: state.tokenTemplates,
+        tokens: state.tokens,
         activePresetId: state.activePresetId,
       });
     }
@@ -332,6 +452,8 @@ if (IS_GM) {
     return {
       lights: state.lights,
       mirrors: state.mirrors,
+      tokenTemplates: state.tokenTemplates,
+      tokens: state.tokens,
       activePresetId: state.activePresetId,
     };
   });
@@ -342,6 +464,8 @@ if (IS_GM) {
       broadcastState({
         lights: state.lights,
         mirrors: state.mirrors,
+        tokenTemplates: state.tokenTemplates,
+        tokens: state.tokens,
         activePresetId: state.activePresetId,
       });
     }, 100);
@@ -355,7 +479,12 @@ if (IS_GM) {
   let lastPersistedHash: string | null = null;
 
   useLightStore.subscribe((state, prevState) => {
-    if (state.lights === prevState.lights && state.mirrors === prevState.mirrors) {
+    if (
+      state.lights === prevState.lights &&
+      state.mirrors === prevState.mirrors &&
+      state.tokenTemplates === prevState.tokenTemplates &&
+      state.tokens === prevState.tokens
+    ) {
       return;
     }
 
@@ -371,7 +500,12 @@ if (IS_GM) {
 
     persistTimer = setTimeout(() => {
       const current = useLightStore.getState();
-      const currentHash = computeStateHash(current.lights, current.mirrors);
+      const currentHash = computeStateHash(
+        current.lights,
+        current.mirrors,
+        current.tokenTemplates,
+        current.tokens
+      );
 
       if (currentHash === lastPersistedHash) {
         return;
@@ -389,6 +523,8 @@ if (IS_GM) {
           creatorId,
           lights: current.lights,
           mirrors: current.mirrors,
+          tokenTemplates: current.tokenTemplates,
+          tokens: current.tokens,
         })
         .then(() => {
           lastPersistedHash = currentHash;

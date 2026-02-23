@@ -7,7 +7,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { Light, Mirror, LightPreset } from "@shared/index";
+import type { Light, Mirror, LightPreset, TokenInstance, TokenTemplate } from "@shared/index";
 
 export function ScenePage() {
   const [searchParams] = useSearchParams();
@@ -35,9 +35,11 @@ export function ScenePage() {
 
     const lights: Light[] = (scene.lights ?? []) as Light[];
     const mirrors: Mirror[] = (scene.mirrors ?? []) as Mirror[];
+    const tokenTemplates: TokenTemplate[] = (scene.tokenTemplates ?? []) as TokenTemplate[];
+    const tokens: TokenInstance[] = (scene.tokens ?? []) as TokenInstance[];
     const presets: LightPreset[] = (scene.presets ?? []) as LightPreset[];
 
-    loadScene(sceneId, scene.creatorId, lights, mirrors, presets);
+    loadScene(sceneId, scene.creatorId, lights, mirrors, tokenTemplates, tokens, presets);
     lastAppliedUpdatedAtRef.current = scene.updatedAt ?? null;
   }, [scene, sceneId, loadScene, sceneLoaded]);
 
@@ -53,6 +55,8 @@ export function ScenePage() {
       applySyncedState({
         lights: (scene.lights ?? []) as Light[],
         mirrors: (scene.mirrors ?? []) as Mirror[],
+        tokenTemplates: (scene.tokenTemplates ?? []) as TokenTemplate[],
+        tokens: (scene.tokens ?? []) as TokenInstance[],
         activePresetId: null,
       });
     }

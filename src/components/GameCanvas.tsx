@@ -21,8 +21,13 @@ import MirrorLayer from "@/components/MirrorLayer";
 import MirrorControls from "@/components/MirrorControls";
 import LightContextMenu, { type LightContextMenuState } from "@/components/LightContextMenu";
 import MirrorContextMenu, { type MirrorContextMenuState } from "@/components/MirrorContextMenu";
+import TokenContextMenu, { type TokenContextMenuState } from "@/components/TokenContextMenu";
+import TokenLayer from "@/components/TokenLayer";
+import TokenControls from "@/components/TokenControls";
+import TokenToolbar from "@/components/TokenToolbar";
 import { useLightManager } from "@/hooks/useLightManager";
 import { useMirrorManager } from "@/hooks/useMirrorManager";
+import { useTokenManager } from "@/hooks/useTokenManager";
 import type { LightType } from "@shared/index";
 import { UserToolbar } from "@/components/UserToolbar";
 
@@ -63,18 +68,32 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
   );
   const [mirrorContextMenuState, setMirrorContextMenuState] =
     useState<MirrorContextMenuState | null>(null);
+  const [tokenContextMenuState, setTokenContextMenuState] = useState<TokenContextMenuState | null>(
+    null
+  );
   const { addLight } = useLightManager();
   const { addMirror } = useMirrorManager();
+  const { placementTemplateId, addTokenInstance } = useTokenManager();
   const appRef = useRef<PixiApplication | null>(null);
   const containerRef = useRef<PixiContainer | null>(null);
   const spriteRef = useRef<PixiSprite | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const placementTemplateIdRef = useRef<string | null>(null);
+  const addTokenInstanceRef = useRef(addTokenInstance);
   const panStateRef = useRef({
     dragging: false,
     pointerId: null as number | null,
     lastX: 0,
     lastY: 0,
   });
+
+  useEffect(() => {
+    placementTemplateIdRef.current = placementTemplateId;
+  }, [placementTemplateId]);
+
+  useEffect(() => {
+    addTokenInstanceRef.current = addTokenInstance;
+  }, [addTokenInstance]);
 
   useEffect(() => {
     let isMounted = true;
@@ -201,12 +220,31 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
     addMirror(x, y);
   }, [addMirror, getViewportCenterWorld]);
 
-  const handlePointerDown = useCallback((event: FederatedPointerEvent) => {
-    panStateRef.current.dragging = true;
-    panStateRef.current.pointerId = event.pointerId;
-    panStateRef.current.lastX = event.global.x;
-    panStateRef.current.lastY = event.global.y;
-  }, []);
+  const handlePointerDown = useCallback(
+    (event: FederatedPointerEvent) => {
+      if (event.button !== 0) {
+        return;
+      }
+
+      const activeTemplateId = placementTemplateIdRef.current;
+      if (isGM && activeTemplateId) {
+        event.stopPropagation();
+        const container = containerRef.current;
+        if (!container) {
+          return;
+        }
+        const worldPosition = event.getLocalPosition(container);
+        addTokenInstanceRef.current(activeTemplateId, worldPosition.x, worldPosition.y);
+        return;
+      }
+
+      panStateRef.current.dragging = true;
+      panStateRef.current.pointerId = event.pointerId;
+      panStateRef.current.lastX = event.global.x;
+      panStateRef.current.lastY = event.global.y;
+    },
+    [isGM]
+  );
 
   const handlePointerMove = useCallback((event: FederatedPointerEvent) => {
     const state = panStateRef.current;
@@ -300,6 +338,7 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
   const lightingHeight = mapTexture?.height ?? viewportSize.height;
 
   const handleOpenLightContextMenu = useCallback((state: LightContextMenuState) => {
+    setTokenContextMenuState(null);
     setMirrorContextMenuState(null);
     setLightContextMenuState(state);
   }, []);
@@ -309,12 +348,23 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
   }, []);
 
   const handleOpenMirrorContextMenu = useCallback((state: MirrorContextMenuState) => {
+    setTokenContextMenuState(null);
     setLightContextMenuState(null);
     setMirrorContextMenuState(state);
   }, []);
 
   const handleCloseMirrorContextMenu = useCallback(() => {
     setMirrorContextMenuState(null);
+  }, []);
+
+  const handleOpenTokenContextMenu = useCallback((state: TokenContextMenuState) => {
+    setLightContextMenuState(null);
+    setMirrorContextMenuState(null);
+    setTokenContextMenuState(state);
+  }, []);
+
+  const handleCloseTokenContextMenu = useCallback(() => {
+    setTokenContextMenuState(null);
   }, []);
 
   return (
@@ -330,6 +380,7 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
                 onAddLine={() => handleAddLight("line")}
               />
               <MirrorToolbar onAddMirror={handleAddMirror} />
+              <TokenToolbar />
               <PlayerViewToolbar />
             </div>
 
@@ -354,6 +405,7 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
           {mapTexture && <pixiSprite ref={spriteRef} texture={mapTexture} />}
           <LightingLayer width={lightingWidth} height={lightingHeight} isGM={isGM} />
           <MirrorLayer isGM={isGM} />
+          <TokenLayer isGM={isGM} />
           <LightControls
             isGM={isGM}
             onOpenContextMenu={handleOpenLightContextMenu}
@@ -363,6 +415,11 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
             isGM={isGM}
             onOpenContextMenu={handleOpenMirrorContextMenu}
             onCloseContextMenu={handleCloseMirrorContextMenu}
+          />
+          <TokenControls
+            isGM={isGM}
+            onOpenContextMenu={handleOpenTokenContextMenu}
+            onCloseContextMenu={handleCloseTokenContextMenu}
           />
         </pixiContainer>
       </Application>
@@ -378,6 +435,13 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
           state={mirrorContextMenuState}
           isGM={isGM}
           onClose={handleCloseMirrorContextMenu}
+        />
+      )}
+      {tokenContextMenuState && (
+        <TokenContextMenu
+          state={tokenContextMenuState}
+          isGM={isGM}
+          onClose={handleCloseTokenContextMenu}
         />
       )}
     </div>

@@ -5,6 +5,8 @@ import {
   mirrorValidator,
   presetValidator,
   sceneDocValidator,
+  tokenTemplateValidator,
+  tokenInstanceValidator,
 } from "./schema";
 
 // ---------------------------------------------------------------------------
@@ -52,6 +54,8 @@ export const create = mutation({
       lights: [],
       mirrors: [],
       presets: [],
+      tokenTemplates: [],
+      tokens: [],
       updatedAt: Date.now(),
     });
   },
@@ -67,6 +71,8 @@ export const update = mutation({
     creatorId: v.string(),
     lights: v.array(lightValidator),
     mirrors: v.array(mirrorValidator),
+    tokenTemplates: v.array(tokenTemplateValidator),
+    tokens: v.array(tokenInstanceValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -81,6 +87,8 @@ export const update = mutation({
     await ctx.db.patch(args.id, {
       lights: args.lights,
       mirrors: args.mirrors,
+      tokenTemplates: args.tokenTemplates,
+      tokens: args.tokens,
       updatedAt: Date.now(),
     });
 

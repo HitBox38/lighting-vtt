@@ -59,6 +59,24 @@ export const presetValidator = v.object({
   mirrors: v.array(mirrorValidator),
 });
 
+/** Matches the `TokenTemplate` type in shared/index.ts. */
+export const tokenTemplateValidator = v.object({
+  id: v.string(),
+  name: v.string(),
+  imageUrl: v.string(),
+  imageKey: v.string(),
+  borderColor: v.string(),
+});
+
+/** Matches the `TokenInstance` type in shared/index.ts. */
+export const tokenInstanceValidator = v.object({
+  id: v.string(),
+  templateId: v.string(),
+  x: v.number(),
+  y: v.number(),
+  hidden: v.optional(v.boolean()),
+});
+
 /**
  * Full scene document validator *including* system fields.
  * Useful as a `returns` validator on queries that return a scene doc.
@@ -72,6 +90,8 @@ export const sceneDocValidator = v.object({
   lights: v.array(lightValidator),
   mirrors: v.array(mirrorValidator),
   presets: v.array(presetValidator),
+  tokenTemplates: v.optional(v.array(tokenTemplateValidator)),
+  tokens: v.optional(v.array(tokenInstanceValidator)),
   updatedAt: v.number(),
 });
 
@@ -87,6 +107,8 @@ export default defineSchema({
     lights: v.array(lightValidator),
     mirrors: v.array(mirrorValidator),
     presets: v.array(presetValidator),
+    tokenTemplates: v.optional(v.array(tokenTemplateValidator)),
+    tokens: v.optional(v.array(tokenInstanceValidator)),
     updatedAt: v.number(),
   }).index("by_creatorId", ["creatorId"]),
 });

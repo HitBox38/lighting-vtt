@@ -103,6 +103,50 @@ export type MirrorUpdate = MirrorUpdatableFields;
 
 export const DEFAULT_MIRROR_LENGTH = 200;
 
+// --- TOKENS ---
+
+export const tokenTemplateSchema = z
+  .object({
+    id: z.string().min(1, "Token template id is required"),
+    name: z.string().min(1, "Token template name is required"),
+    imageUrl: z.string().url("Token image must be a valid URL"),
+    imageKey: z.string().min(1, "Token image key is required"),
+    borderColor: z.string().regex(HEX_COLOR, "Border color must be a hex string like #RRGGBB"),
+  })
+  .strict();
+
+export type TokenTemplate = z.infer<typeof tokenTemplateSchema>;
+
+interface TokenTemplateUpdatableFields {
+  name?: string;
+  imageUrl?: string;
+  imageKey?: string;
+  borderColor?: string;
+}
+
+export type TokenTemplateUpdate = TokenTemplateUpdatableFields;
+
+export const tokenInstanceSchema = z
+  .object({
+    id: z.string().min(1, "Token instance id is required"),
+    templateId: z.string().min(1, "Token template id is required"),
+    x: z.number(),
+    y: z.number(),
+    hidden: z.boolean().optional().default(false),
+  })
+  .strict();
+
+export type TokenInstance = z.infer<typeof tokenInstanceSchema>;
+
+interface TokenInstanceUpdatableFields {
+  templateId?: string;
+  x?: number;
+  y?: number;
+  hidden?: boolean;
+}
+
+export type TokenInstanceUpdate = TokenInstanceUpdatableFields;
+
 // --- SCENES / PRESETS ---
 
 export type LightPreset = {
