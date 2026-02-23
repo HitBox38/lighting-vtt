@@ -1,4 +1,6 @@
 import { useMemo, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { Loader2, Plus, Upload, X } from "lucide-react";
 
 import { useTokenManager } from "@/hooks/useTokenManager";
@@ -13,7 +15,22 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
-const DEFAULT_BORDER_COLOR = "#ffffff";
+const HEX_COLOR = /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+
+const createTokenFormSchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  borderColor: z
+    .string()
+    .regex(HEX_COLOR, "Border color must be a valid hex string")
+    .optional(),
+});
+
+type CreateTokenFormValues = z.infer<typeof createTokenFormSchema>;
+
+const defaultFormValues: CreateTokenFormValues = {
+  name: "",
+  borderColor: "#ffffff",
+};
 
 async function deleteUploadedFile(key: string): Promise<void> {
   const convexUrl = import.meta.env.VITE_CONVEX_URL as string;
@@ -35,15 +52,23 @@ export function TokenToolbar() {
   } = useTokenManager();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [borderColor, setBorderColor] = useState(DEFAULT_BORDER_COLOR);
   const [imageUrl, setImageUrl] = useState("");
   const [imageKey, setImageKey] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setError,
+    clearErrors,
+    formState: { errors },
+  } = useForm<CreateTokenFormValues>({
+    defaultValues: defaultFormValues,
+  });
+
   const resetForm = () => {
-    setName("");
-    setBorderColor(DEFAULT_BORDER_COLOR);
+    reset(defaultFormValues);
     setImageUrl("");
     setImageKey("");
   };
@@ -76,16 +101,39 @@ export function TokenToolbar() {
     void startUpload([file]);
   };
 
-  const handleCreate = () => {
-    const trimmedName = name.trim();
-    if (!trimmedName || !imageUrl || !imageKey) {
+  const onSubmit = (data: CreateTokenFormValues) => {
+    const validationResult = createTokenFormSchema.safeParse(data);
+    if (!validationResult.success) {
+      const nameIssue = validationResult.error.issues.find((issue) => issue.path[0] === "name");
+      const borderColorIssue = validationResult.error.issues.find(
+        (issue) => issue.path[0] === "borderColor"
+      );
+
+      if (nameIssue?.message) {
+        setError("name", { type: "manual", message: nameIssue.message });
+      }
+      if (borderColorIssue?.message) {
+        setError("borderColor", { type: "manual", message: borderColorIssue.message });
+      }
       return;
     }
+
+    clearErrors(["name", "borderColor"]);
+
+    if (!imageUrl || !imageKey) {
+      return;
+    }
+    const trimmedName = validationResult.data.name;
+    const borderColor =
+      validationResult.data.borderColor && validationResult.data.borderColor.trim() !== ""
+        ? validationResult.data.borderColor.trim()
+        : undefined;
+
     addTokenTemplate({
       name: trimmedName,
       imageUrl,
       imageKey,
-      borderColor,
+      ...(borderColor !== undefined && { borderColor }),
     });
     resetForm();
     setIsDialogOpen(false);
@@ -124,15 +172,17 @@ export function TokenToolbar() {
     return counts;
   }, [tokens]);
 
+  const canSubmit = imageUrl.length > 0 && imageKey.length > 0 && !isUploading;
+
   return (
     <div className="inline-flex gap-2 rounded-lg bg-background/80 p-2 shadow-lg ring-1 ring-border backdrop-blur">
       <Dialog
         open={isDialogOpen}
         onOpenChange={(open) => {
-          setIsDialogOpen(open);
           if (!open) {
             resetForm();
           }
+          setIsDialogOpen(open);
         }}>
         <DialogTrigger asChild>
           <Button size="sm" variant="outline">
@@ -144,29 +194,40 @@ export function TokenToolbar() {
           <DialogHeader>
             <DialogTitle>Create Token Template</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-2">
+          <form
+            onSubmit={(e) => void handleSubmit(onSubmit)(e)}
+            className="grid gap-4 py-2">
             <div className="grid gap-2">
               <label htmlFor="token-name" className="text-sm font-medium">
                 Name
               </label>
               <Input
                 id="token-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
                 placeholder="Goblin, Chest, Hero..."
+                aria-invalid={Boolean(errors.name)}
+                {...register("name")}
               />
+              {errors.name && (
+                <p className="text-sm text-destructive" role="alert">
+                  {errors.name.message}
+                </p>
+              )}
             </div>
             <div className="grid gap-2">
               <label htmlFor="token-border-color" className="text-sm font-medium">
-                Border Color
+                Border Color <span className="text-muted-foreground">(optional)</span>
               </label>
               <Input
                 id="token-border-color"
                 type="color"
-                value={borderColor}
-                onChange={(event) => setBorderColor(event.target.value)}
-                className="h-10 w-16 p-1"
+                className="h-10 w-16 cursor-pointer p-1"
+                {...register("borderColor")}
               />
+              {errors.borderColor && (
+                <p className="text-sm text-destructive" role="alert">
+                  {errors.borderColor.message}
+                </p>
+              )}
             </div>
             <div className="grid gap-2">
               <label className="text-sm font-medium">Token Image</label>
@@ -179,7 +240,11 @@ export function TokenToolbar() {
               />
               {imageUrl ? (
                 <div className="relative h-24 w-24 overflow-hidden rounded-full ring-2 ring-border">
-                  <img src={imageUrl} alt="Token preview" className="h-full w-full object-cover" />
+                  <img
+                    src={imageUrl}
+                    alt="Token preview"
+                    className="h-full w-full object-cover"
+                  />
                   <Button
                     type="button"
                     size="icon-sm"
@@ -221,14 +286,11 @@ export function TokenToolbar() {
                 }}>
                 Cancel
               </Button>
-              <Button
-                type="button"
-                disabled={!name.trim() || !imageUrl || !imageKey || isUploading}
-                onClick={handleCreate}>
+              <Button type="submit" disabled={!canSubmit}>
                 Create
               </Button>
             </div>
-          </div>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -253,12 +315,16 @@ export function TokenToolbar() {
                 />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-medium">{template.name}</p>
-                  <p className="text-[11px] text-muted-foreground">{placedCount} placed</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {placedCount} placed
+                  </p>
                 </div>
                 <Button
                   size="sm"
                   variant={isPlacing ? "secondary" : "outline"}
-                  onClick={() => setPlacementTemplateId(isPlacing ? null : template.id)}>
+                  onClick={() =>
+                    setPlacementTemplateId(isPlacing ? null : template.id)
+                  }>
                   {isPlacing ? "Cancel" : "Place"}
                 </Button>
                 <Button
@@ -272,7 +338,10 @@ export function TokenToolbar() {
                     try {
                       await deleteUploadedFile(template.imageKey);
                     } catch (error) {
-                      console.error("Failed to delete token template image:", error);
+                      console.error(
+                        "Failed to delete token template image:",
+                        error
+                      );
                     }
                   }}>
                   Delete

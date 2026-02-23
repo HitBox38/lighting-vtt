@@ -18,10 +18,11 @@ export interface TokenContextMenuState {
 interface Props {
   state: TokenContextMenuState;
   isGM: boolean;
+  onEditSize: (tokenId: string) => void;
   onClose: () => void;
 }
 
-export function TokenContextMenu({ state, isGM, onClose }: Props) {
+export function TokenContextMenu({ state, isGM, onEditSize, onClose }: Props) {
   const token = useTokenStore((store) => store.tokens.find((candidate) => candidate.id === state.tokenId));
   const updateTokenInstance = useTokenStore((store) => store.updateTokenInstance);
   const removeTokenInstance = useTokenStore((store) => store.removeTokenInstance);
@@ -63,13 +64,23 @@ export function TokenContextMenu({ state, isGM, onClose }: Props) {
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-48" align="start">
         {isGM && (
-          <DropdownMenuItem
-            onSelect={(event) => {
-              event.preventDefault();
-              handleVisibilityToggle(!token.hidden);
-            }}>
-            {token.hidden ? "Show" : "Hide"}
-          </DropdownMenuItem>
+          <>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                handleVisibilityToggle(!token.hidden);
+              }}>
+              {token.hidden ? "Show" : "Hide"}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                onEditSize(token.id);
+                onClose();
+              }}>
+              Edit Size
+            </DropdownMenuItem>
+          </>
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem

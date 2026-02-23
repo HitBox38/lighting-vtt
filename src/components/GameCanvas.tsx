@@ -71,6 +71,7 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
   const [tokenContextMenuState, setTokenContextMenuState] = useState<TokenContextMenuState | null>(
     null
   );
+  const [sizeEditTokenId, setSizeEditTokenId] = useState<string | null>(null);
   const { addLight } = useLightManager();
   const { addMirror } = useMirrorManager();
   const { placementTemplateId, addTokenInstance } = useTokenManager();
@@ -338,6 +339,7 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
   const lightingHeight = mapTexture?.height ?? viewportSize.height;
 
   const handleOpenLightContextMenu = useCallback((state: LightContextMenuState) => {
+    setSizeEditTokenId(null);
     setTokenContextMenuState(null);
     setMirrorContextMenuState(null);
     setLightContextMenuState(state);
@@ -348,6 +350,7 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
   }, []);
 
   const handleOpenMirrorContextMenu = useCallback((state: MirrorContextMenuState) => {
+    setSizeEditTokenId(null);
     setTokenContextMenuState(null);
     setLightContextMenuState(null);
     setMirrorContextMenuState(state);
@@ -358,6 +361,7 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
   }, []);
 
   const handleOpenTokenContextMenu = useCallback((state: TokenContextMenuState) => {
+    setSizeEditTokenId(null);
     setLightContextMenuState(null);
     setMirrorContextMenuState(null);
     setTokenContextMenuState(state);
@@ -365,6 +369,14 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
 
   const handleCloseTokenContextMenu = useCallback(() => {
     setTokenContextMenuState(null);
+  }, []);
+
+  const handleStartTokenSizeEdit = useCallback((tokenId: string) => {
+    setSizeEditTokenId(tokenId);
+  }, []);
+
+  const handleCloseTokenSizeEdit = useCallback(() => {
+    setSizeEditTokenId(null);
   }, []);
 
   return (
@@ -418,6 +430,8 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
           />
           <TokenControls
             isGM={isGM}
+            sizeEditTokenId={sizeEditTokenId}
+            onCloseSizeEdit={handleCloseTokenSizeEdit}
             onOpenContextMenu={handleOpenTokenContextMenu}
             onCloseContextMenu={handleCloseTokenContextMenu}
           />
@@ -441,6 +455,7 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
         <TokenContextMenu
           state={tokenContextMenuState}
           isGM={isGM}
+          onEditSize={handleStartTokenSizeEdit}
           onClose={handleCloseTokenContextMenu}
         />
       )}

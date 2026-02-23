@@ -84,15 +84,16 @@ export function TokenLayer({ isGM = true }: Props) {
         if (!texture) {
           continue;
         }
+        const radius = token.size ?? TOKEN_RADIUS;
         const alpha = token.hidden ? 0.45 : 1;
         const borderColor = toHexNumber(template.borderColor);
-        graphics.circle(token.x, token.y, TOKEN_RADIUS).fill({ texture, alpha });
+        graphics.circle(token.x, token.y, radius).fill({ texture, alpha });
         graphics.setStrokeStyle({
           width: BORDER_WIDTH,
           color: borderColor,
           alpha,
         });
-        graphics.circle(token.x, token.y, TOKEN_RADIUS).stroke();
+        graphics.circle(token.x, token.y, radius).stroke();
       }
     },
     [templateById, textures, visibleTokens]

@@ -10,11 +10,16 @@ import {
   tokenTemplateSchema,
 } from "@shared/index";
 
+/** Input for creating a template; borderColor is optional and defaults to #ffffff. */
+export type TokenTemplateCreateInput = Omit<TokenTemplate, "id" | "borderColor"> & {
+  borderColor?: string;
+};
+
 interface TokenStoreState {
   tokenTemplates: TokenTemplate[];
   tokens: TokenInstance[];
   placementTemplateId: string | null;
-  addTokenTemplate: (template: Omit<TokenTemplate, "id">) => string;
+  addTokenTemplate: (template: TokenTemplateCreateInput) => string;
   updateTokenTemplate: (id: string, partial: TokenTemplateUpdate) => void;
   removeTokenTemplate: (id: string) => void;
   addTokenInstance: (templateId: string, x: number, y: number) => string;
@@ -32,7 +37,9 @@ const createId = () => {
   return `id-${Math.random().toString(36).slice(2, 10)}`;
 };
 
-const buildTokenTemplate = (template: Omit<TokenTemplate, "id">): TokenTemplate => {
+const buildTokenTemplate = (
+  template: TokenTemplateCreateInput
+): TokenTemplate => {
   const candidate = {
     id: createId(),
     ...template,

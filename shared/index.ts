@@ -111,7 +111,11 @@ export const tokenTemplateSchema = z
     name: z.string().min(1, "Token template name is required"),
     imageUrl: z.string().url("Token image must be a valid URL"),
     imageKey: z.string().min(1, "Token image key is required"),
-    borderColor: z.string().regex(HEX_COLOR, "Border color must be a hex string like #RRGGBB"),
+    borderColor: z
+      .string()
+      .regex(HEX_COLOR, "Border color must be a hex string like #RRGGBB")
+      .optional()
+      .default("#ffffff"),
   })
   .strict();
 
@@ -132,6 +136,7 @@ export const tokenInstanceSchema = z
     templateId: z.string().min(1, "Token template id is required"),
     x: z.number(),
     y: z.number(),
+    size: z.number().positive().optional().default(22),
     hidden: z.boolean().optional().default(false),
   })
   .strict();
@@ -142,6 +147,7 @@ interface TokenInstanceUpdatableFields {
   templateId?: string;
   x?: number;
   y?: number;
+  size?: number;
   hidden?: boolean;
 }
 
