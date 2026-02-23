@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useLightStore } from "@/stores/lightStore";
+import { useTokenStore } from "@/stores/tokenStore";
 
 export interface TokenContextMenuState {
   tokenId: string;
@@ -22,9 +22,9 @@ interface Props {
 }
 
 export function TokenContextMenu({ state, isGM, onClose }: Props) {
-  const token = useLightStore((store) => store.tokens.find((candidate) => candidate.id === state.tokenId));
-  const updateTokenInstance = useLightStore((store) => store.updateTokenInstance);
-  const removeTokenInstance = useLightStore((store) => store.removeTokenInstance);
+  const token = useTokenStore((store) => store.tokens.find((candidate) => candidate.id === state.tokenId));
+  const updateTokenInstance = useTokenStore((store) => store.updateTokenInstance);
+  const removeTokenInstance = useTokenStore((store) => store.removeTokenInstance);
 
   useEffect(() => {
     if (!token) {

@@ -1,6 +1,7 @@
 import GameCanvas from "@/components/GameCanvas";
 import { SaveStatusIndicator } from "@/components/SaveStatusIndicator";
 import { useLightStore } from "@/stores/lightStore";
+import { useTokenStore } from "@/stores/tokenStore";
 import { useUser } from "@clerk/clerk-react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -14,6 +15,7 @@ export function ScenePage() {
   const { user } = useUser();
   const loadScene = useLightStore((state) => state.loadScene);
   const applySyncedState = useLightStore((state) => state._applySyncedState);
+  const loadSceneTokens = useTokenStore((state) => state.loadSceneTokens);
   const storeSceneId = useLightStore((state) => state.sceneId);
   const saveStatus = useLightStore((state) => state.saveStatus);
 
@@ -40,8 +42,9 @@ export function ScenePage() {
     const presets: LightPreset[] = (scene.presets ?? []) as LightPreset[];
 
     loadScene(sceneId, scene.creatorId, lights, mirrors, tokenTemplates, tokens, presets);
+    loadSceneTokens(tokenTemplates, tokens);
     lastAppliedUpdatedAtRef.current = scene.updatedAt ?? null;
-  }, [scene, sceneId, loadScene, sceneLoaded]);
+  }, [scene, sceneId, loadScene, loadSceneTokens, sceneLoaded]);
 
   useEffect(() => {
     if (isGM || !sceneLoaded || !scene) {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { FederatedPointerEvent, Graphics as PixiGraphics } from "pixi.js";
 
-import { useLightStore } from "@/stores/lightStore";
+import { useTokenStore } from "@/stores/tokenStore";
 import type { TokenInstanceUpdate } from "@shared/index";
 import type { TokenContextMenuState } from "@/components/TokenContextMenu";
 
@@ -83,8 +83,8 @@ const useTokenUpdateScheduler = (updateTokenInstance: (id: string, partial: Toke
 };
 
 export function TokenControls({ isGM, onOpenContextMenu, onCloseContextMenu }: Props) {
-  const tokens = useLightStore((state) => state.tokens);
-  const updateTokenInstance = useLightStore((state) => state.updateTokenInstance);
+  const tokens = useTokenStore((state) => state.tokens);
+  const updateTokenInstance = useTokenStore((state) => state.updateTokenInstance);
   const { schedule, flush } = useTokenUpdateScheduler(updateTokenInstance);
   const dragRef = useRef<DragState>(createInitialDragState());
 

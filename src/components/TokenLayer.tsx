@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Assets, Graphics as PixiGraphics, Texture as PixiTexture } from "pixi.js";
 
-import { useLightStore } from "@/stores/lightStore";
+import { useTokenStore } from "@/stores/tokenStore";
 
 interface Props {
   isGM?: boolean;
@@ -17,8 +17,8 @@ const toHexNumber = (color: string): number => {
 };
 
 export function TokenLayer({ isGM = true }: Props) {
-  const templates = useLightStore((state) => state.tokenTemplates);
-  const tokens = useLightStore((state) => state.tokens);
+  const templates = useTokenStore((state) => state.tokenTemplates);
+  const tokens = useTokenStore((state) => state.tokens);
   const [textures, setTextures] = useState<Record<string, PixiTexture>>({});
 
   const visibleTokens = useMemo(
