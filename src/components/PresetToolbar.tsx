@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function PresetToolbar() {
   const {
@@ -101,29 +101,33 @@ export function PresetToolbar() {
 
       {activePresetId ? (
         <>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button size="icon-sm" variant="outline" onClick={handleUpdateCurrent}>
-                <Save className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <p>Update Current Preset</p>
-            </TooltipContent>
-          </Tooltip>
-          <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
+          <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <DialogTrigger asChild>
-                  <Button size="icon-sm" variant="outline">
-                    <FilePlus className="size-4" />
-                  </Button>
-                </DialogTrigger>
+                <Button size="icon-sm" variant="outline" onClick={handleUpdateCurrent}>
+                  <Save className="size-4" />
+                </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                <p>Save As New Preset</p>
+                <p>Update Current Preset</p>
               </TooltipContent>
             </Tooltip>
+          </TooltipProvider>
+          <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DialogTrigger asChild>
+                    <Button size="icon-sm" variant="outline">
+                      <FilePlus className="size-4" />
+                    </Button>
+                  </DialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Save As New Preset</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>Save As New Preset</DialogTitle>
@@ -147,18 +151,20 @@ export function PresetToolbar() {
         </>
       ) : (
         <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DialogTrigger asChild>
-                <Button size="icon-sm" variant="outline">
-                  <Save className="size-4" />
-                </Button>
-              </DialogTrigger>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <p>Save New Preset</p>
-            </TooltipContent>
-          </Tooltip>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DialogTrigger asChild>
+                  <Button size="icon-sm" variant="outline">
+                    <Save className="size-4" />
+                  </Button>
+                </DialogTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Save New Preset</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Save New Preset</DialogTitle>
@@ -180,66 +186,70 @@ export function PresetToolbar() {
           </DialogContent>
         </Dialog>
       )}
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon-sm"
-            variant="outline"
-            disabled={!activePresetId || presets.length < 2}
-            onClick={handlePreviousPreset}>
-            <ArrowLeft className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p>Go to previous preset</p>
-        </TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon-sm"
-            variant="outline"
-            onClick={randomizePreset}
-            disabled={presets.length < 2}>
-            <Shuffle className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p>Randomize Preset</p>
-        </TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon-sm"
-            variant="outline"
-            disabled={!activePresetId || presets.length < 2}
-            onClick={handleNextPreset}>
-            <ArrowRight className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p>Go to next preset</p>
-        </TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon-sm"
-            variant="destructive"
-            onClick={handleDelete}
-            disabled={!activePresetId}>
-            <Trash2 className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p>Delete Current Preset</p>
-        </TooltipContent>
-      </Tooltip>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon-sm"
+              variant="outline"
+              disabled={!activePresetId || presets.length < 2}
+              onClick={handlePreviousPreset}>
+              <ArrowLeft className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Go to previous preset</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon-sm"
+              variant="outline"
+              onClick={randomizePreset}
+              disabled={presets.length < 2}>
+              <Shuffle className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Randomize Preset</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon-sm"
+              variant="outline"
+              disabled={!activePresetId || presets.length < 2}
+              onClick={handleNextPreset}>
+              <ArrowRight className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Go to next preset</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon-sm"
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={!activePresetId}>
+              <Trash2 className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Delete Current Preset</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 }

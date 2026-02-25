@@ -2,9 +2,9 @@ import { Monitor } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-export function PlayerViewToolbar() {
+export const PlayerViewToolbar = () => {
   const location = useLocation();
 
   const handleOpenPlayerView = () => {
@@ -17,19 +17,21 @@ export function PlayerViewToolbar() {
 
   return (
     <div className="inline-flex gap-2 rounded-lg bg-background/80 p-2 shadow-lg ring-1 ring-border backdrop-blur items-center">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button size="sm" variant="outline" onClick={handleOpenPlayerView}>
-            <Monitor className="size-4 mr-2" />
-            Player View
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p>Open player view in new window</p>
-        </TooltipContent>
-      </Tooltip>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button size="sm" variant="outline" onClick={handleOpenPlayerView}>
+              <Monitor className="size-4 mr-2" />
+              Player View
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Open player view in new window</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
-}
+};
 
 export default PlayerViewToolbar;
