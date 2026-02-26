@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Loader2, Plus, Upload, X } from "lucide-react";
+import { Loader2, Plus, Search, Trash2, Upload, X } from "lucide-react";
 
 import { useTokenManager } from "@/hooks/useTokenManager";
 import { useUploadThing } from "@/utils/uploadthing";
@@ -15,6 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 const HEX_COLOR = /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
@@ -55,7 +56,11 @@ export function TokenToolbar() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
   const [imageKey, setImageKey] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isAutocompleteOpen, setIsAutocompleteOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const autocompleteId = useId();
 
   const {
     register,
@@ -173,10 +178,115 @@ export function TokenToolbar() {
     return counts;
   }, [tokens]);
 
+  const activePlacementTemplate = useMemo(() => {
+    if (!placementTemplateId) {
+      return null;
+    }
+    return tokenTemplates.find((template) => template.id === placementTemplateId) ?? null;
+  }, [placementTemplateId, tokenTemplates]);
+
+  const filteredTemplates = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return tokenTemplates;
+    }
+
+    return tokenTemplates.filter((template) => template.name.toLowerCase().includes(normalizedQuery));
+  }, [searchQuery, tokenTemplates]);
+
   const canSubmit = imageUrl.length > 0 && imageKey.length > 0 && !isUploading;
+  const hasTemplates = tokenTemplates.length > 0;
+  const hasSearchResults = filteredTemplates.length > 0;
+  const showAutocompleteResults = isAutocompleteOpen;
+  const listboxId = `${autocompleteId}-token-template-listbox`;
+  const normalizedHighlightedIndex =
+    filteredTemplates.length === 0
+      ? -1
+      : Math.min(Math.max(highlightedIndex, 0), filteredTemplates.length - 1);
+  const highlightedTemplate =
+    normalizedHighlightedIndex >= 0 ? filteredTemplates[normalizedHighlightedIndex] : null;
+  const activeDescendantId = highlightedTemplate
+    ? `${autocompleteId}-token-template-option-${highlightedTemplate.id}`
+    : undefined;
+  const searchPlaceholder = hasTemplates
+    ? activePlacementTemplate
+      ? `Placing: ${activePlacementTemplate.name}`
+      : "Search token template…"
+    : "No token templates yet";
+
+  const handleSelectTemplate = (templateId: string) => {
+    setPlacementTemplateId(templateId);
+    setSearchQuery("");
+    setIsAutocompleteOpen(false);
+    setHighlightedIndex(0);
+  };
+
+  const handleClearPlacement = () => {
+    setPlacementTemplateId(null);
+    setSearchQuery("");
+    setIsAutocompleteOpen(false);
+    setHighlightedIndex(0);
+  };
+
+  const handleDeleteTemplate = async (templateId: string, imageKeyToDelete: string) => {
+    if (placementTemplateId === templateId) {
+      setPlacementTemplateId(null);
+    }
+    removeTokenTemplate(templateId);
+
+    try {
+      await deleteUploadedFile(imageKeyToDelete);
+    } catch (error) {
+      console.error("Failed to delete token template image:", error);
+    }
+  };
+
+  const handleAutocompleteKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") {
+      setIsAutocompleteOpen(false);
+      return;
+    }
+
+    if (filteredTemplates.length === 0) {
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setIsAutocompleteOpen(true);
+      setHighlightedIndex((current) => {
+        if (current < 0) {
+          return 0;
+        }
+        return (current + 1) % filteredTemplates.length;
+      });
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setIsAutocompleteOpen(true);
+      setHighlightedIndex((current) => {
+        if (current < 0) {
+          return filteredTemplates.length - 1;
+        }
+        return (current - 1 + filteredTemplates.length) % filteredTemplates.length;
+      });
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const selectionIndex = normalizedHighlightedIndex >= 0 ? normalizedHighlightedIndex : 0;
+      const selectedTemplate = filteredTemplates[selectionIndex];
+      if (selectedTemplate) {
+        handleSelectTemplate(selectedTemplate.id);
+      }
+    }
+  };
 
   return (
-    <HudSurface className="items-start">
+    <HudSurface className="items-center">
       <Dialog
         open={isDialogOpen}
         onOpenChange={(open) => {
@@ -295,61 +405,114 @@ export function TokenToolbar() {
         </DialogContent>
       </Dialog>
 
-      <div className="max-h-28 min-w-64 space-y-2 overflow-y-auto pr-1">
-        {tokenTemplates.length === 0 ? (
-          <div className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
-            No token templates yet
-          </div>
-        ) : (
-          tokenTemplates.map((template) => {
-            const isPlacing = placementTemplateId === template.id;
-            const placedCount = tokenCountByTemplateId.get(template.id) ?? 0;
-            return (
-              <div
-                key={template.id}
-                className="flex items-center gap-2 rounded-md border bg-background/60 px-2 py-1.5">
-                <img
-                  src={template.imageUrl}
-                  alt={template.name}
-                  className="size-8 rounded-full object-cover"
-                  style={{ border: `2px solid ${template.borderColor}` }}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium">{template.name}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {placedCount} placed
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  variant={isPlacing ? "secondary" : "outline"}
-                  onClick={() =>
-                    setPlacementTemplateId(isPlacing ? null : template.id)
-                  }>
-                  {isPlacing ? "Cancel" : "Place"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={async () => {
-                    if (isPlacing) {
-                      setPlacementTemplateId(null);
-                    }
-                    removeTokenTemplate(template.id);
-                    try {
-                      await deleteUploadedFile(template.imageKey);
-                    } catch (error) {
-                      console.error(
-                        "Failed to delete token template image:",
-                        error
-                      );
-                    }
-                  }}>
-                  Delete
-                </Button>
+      <div className="relative w-72 max-w-72">
+        <Search
+          className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <Input
+          id={`${autocompleteId}-token-template-input`}
+          name="tokenTemplateSearch"
+          type="text"
+          value={searchQuery}
+          onChange={(event) => {
+            setSearchQuery(event.target.value);
+            setIsAutocompleteOpen(true);
+            setHighlightedIndex(0);
+          }}
+          onFocus={() => setIsAutocompleteOpen(true)}
+          onBlur={() => setIsAutocompleteOpen(false)}
+          onKeyDown={handleAutocompleteKeyDown}
+          disabled={!hasTemplates}
+          placeholder={searchPlaceholder}
+          autoComplete="off"
+          className="h-8 pr-8 pl-8"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={showAutocompleteResults}
+          aria-controls={listboxId}
+          aria-activedescendant={activeDescendantId}
+          aria-label="Search token templates"
+        />
+        {placementTemplateId && (
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={handleClearPlacement}
+            aria-label="Clear active token placement">
+            <X className="size-3" aria-hidden="true" />
+          </Button>
+        )}
+
+        {showAutocompleteResults && (
+          <div
+            id={listboxId}
+            role="listbox"
+            className="absolute top-[calc(100%+0.4rem)] right-0 left-0 z-40 max-h-64 space-y-1 overflow-y-auto rounded-lg border border-border/80 bg-background/95 p-1 shadow-xl backdrop-blur-md">
+            {!hasTemplates ? (
+              <div className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                No token templates yet
               </div>
-            );
-          })
+            ) : hasSearchResults ? (
+              filteredTemplates.map((template, index) => {
+                const isPlacing = placementTemplateId === template.id;
+                const isHighlighted = index === normalizedHighlightedIndex;
+                const placedCount = tokenCountByTemplateId.get(template.id) ?? 0;
+
+                return (
+                  <div key={template.id} className="flex items-center gap-1">
+                    <button
+                      id={`${autocompleteId}-token-template-option-${template.id}`}
+                      type="button"
+                      role="option"
+                      aria-selected={isPlacing}
+                      className={cn(
+                        "flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent",
+                        isHighlighted && "bg-accent/80",
+                        isPlacing && "ring-1 ring-primary/40"
+                      )}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onMouseEnter={() => setHighlightedIndex(index)}
+                      onClick={() => handleSelectTemplate(template.id)}>
+                      <img
+                        src={template.imageUrl}
+                        alt={template.name}
+                        className="size-8 rounded-full object-cover"
+                        style={{ border: `2px solid ${template.borderColor ?? "#ffffff"}` }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-medium">{template.name}</p>
+                        <p className="text-[11px] text-muted-foreground">{placedCount} placed</p>
+                      </div>
+                      {isPlacing && (
+                        <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                          Active
+                        </span>
+                      )}
+                    </button>
+
+                    <Button
+                      type="button"
+                      size="icon-xs"
+                      variant="ghost"
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => void handleDeleteTemplate(template.id, template.imageKey)}
+                      aria-label={`Delete token template ${template.name}`}>
+                      <Trash2 className="size-3.5" aria-hidden="true" />
+                    </Button>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="rounded-md px-3 py-2 text-xs text-muted-foreground">
+                No token templates match your search.
+              </div>
+            )}
+          </div>
         )}
       </div>
     </HudSurface>
