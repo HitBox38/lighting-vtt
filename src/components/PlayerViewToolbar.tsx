@@ -1,6 +1,7 @@
 import { Monitor } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
+import { HudSurface } from "@/components/hud/HudSurface";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -16,7 +17,7 @@ export const PlayerViewToolbar = () => {
   };
 
   return (
-    <div className="inline-flex gap-2 rounded-lg bg-background/80 p-2 shadow-lg ring-1 ring-border backdrop-blur items-center">
+    <HudSurface className="items-center">
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -30,7 +31,7 @@ export const PlayerViewToolbar = () => {
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
-    </div>
+    </HudSurface>
   );
 };
 

@@ -85,7 +85,7 @@ export function ScenePage() {
     <>
       <GameCanvas mapUrl={scene.mapUrl} isGM={isGM} />
       {isGM && canSave && (
-        <div className="pointer-events-none absolute left-4 bottom-4 z-10">
+        <div className="pointer-events-none absolute right-4 top-16 z-30">
           <SaveStatusIndicator status={saveStatus} />
         </div>
       )}

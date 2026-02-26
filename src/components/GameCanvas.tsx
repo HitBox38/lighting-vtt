@@ -380,29 +380,32 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
   }, []);
 
   return (
-    <div className="relative h-screen w-screen">
+    <div className="relative h-screen w-screen overflow-hidden">
       {isGM && (
-        <div className="pointer-events-none absolute left-0 top-4 z-10 w-full px-4">
-          <div className="flex flex-row justify-between">
-            <div className="pointer-events-auto flex flex-row gap-2">
-              <PresetToolbar />
-              <LightToolbar
-                onAddRadial={() => handleAddLight("radial")}
-                onAddConic={() => handleAddLight("conic")}
-                onAddLine={() => handleAddLight("line")}
-              />
-              <MirrorToolbar onAddMirror={handleAddMirror} />
-              <TokenToolbar />
-              <PlayerViewToolbar />
-            </div>
+        <>
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-linear-to-b from-black/35 via-black/20 to-transparent dark:from-black/55 dark:via-black/30" />
+          <div className="pointer-events-none absolute inset-x-0 top-3 z-20 px-3 sm:px-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="pointer-events-auto flex min-w-0 flex-1 flex-wrap items-start gap-2">
+                <PresetToolbar />
+                <LightToolbar
+                  onAddRadial={() => handleAddLight("radial")}
+                  onAddConic={() => handleAddLight("conic")}
+                  onAddLine={() => handleAddLight("line")}
+                />
+                <MirrorToolbar onAddMirror={handleAddMirror} />
+                <TokenToolbar />
+                <PlayerViewToolbar />
+              </div>
 
-            <div className="pointer-events-auto">
-              <UserToolbar />
+              <div className="pointer-events-auto shrink-0">
+                <UserToolbar />
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
-      <div className="pointer-events-none absolute right-4 bottom-4 z-10">
+      <div className="pointer-events-none absolute right-4 bottom-4 z-20">
         <FrameCounter appRef={appRef} />
       </div>
       <Application

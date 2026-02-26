@@ -1,11 +1,12 @@
 import { SignedIn, SignInButton, SignedOut, UserButton } from "@clerk/clerk-react";
+import { HudSurface } from "@/components/hud/HudSurface";
 import { Button } from "./ui/button";
 import { ThemeToggle } from "./ThemeToggle";
 import { Link } from "react-router-dom";
 import { LibraryIcon } from "lucide-react";
 
 export const UserToolbar = () => (
-  <div className="inline-flex gap-2 rounded-lg bg-background/80 p-2 shadow-lg ring-1 ring-border backdrop-blur items-center">
+  <HudSurface className="items-center">
     <Button asChild>
       <Link to="/library">
         <LibraryIcon className="size-4" />
@@ -21,5 +22,5 @@ export const UserToolbar = () => (
         <Button>Sign in</Button>
       </SignInButton>
     </SignedOut>
-  </div>
+  </HudSurface>
 );

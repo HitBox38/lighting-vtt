@@ -6,6 +6,7 @@ import { Loader2, Plus, Upload, X } from "lucide-react";
 import { useTokenManager } from "@/hooks/useTokenManager";
 import { useUploadThing } from "@/utils/uploadthing";
 import { Button } from "@/components/ui/button";
+import { HudSurface } from "@/components/hud/HudSurface";
 import {
   Dialog,
   DialogContent,
@@ -175,7 +176,7 @@ export function TokenToolbar() {
   const canSubmit = imageUrl.length > 0 && imageKey.length > 0 && !isUploading;
 
   return (
-    <div className="inline-flex gap-2 rounded-lg bg-background/80 p-2 shadow-lg ring-1 ring-border backdrop-blur">
+    <HudSurface className="items-start">
       <Dialog
         open={isDialogOpen}
         onOpenChange={(open) => {
@@ -351,7 +352,7 @@ export function TokenToolbar() {
           })
         )}
       </div>
-    </div>
+    </HudSurface>
   );
 }
 
