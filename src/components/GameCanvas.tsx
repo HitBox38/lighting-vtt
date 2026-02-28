@@ -34,7 +34,6 @@ import { InitiativeSidebar } from "@/components/InitiativeSidebar";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { useUIPreferencesStore } from "@/stores/uiPreferencesStore";
 import { PlayersSheet } from "@/components/PlayersSheet";
-import { useLightStore } from "@/stores/lightStore";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";

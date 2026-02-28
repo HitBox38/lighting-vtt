@@ -6,7 +6,7 @@ import { useUser } from "@clerk/clerk-react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Light, Mirror, LightPreset, TokenInstance, TokenTemplate } from "@shared/index";
 import { RemotePlayerHud } from "@/components/RemotePlayerHud";
@@ -117,12 +117,25 @@ export function ScenePage() {
     };
   }, [isRemotePlayer, scene, remotePlayerId]);
 
-  const dmOnline = useMemo(() => {
-    if (!scene) return false;
-    const dmLastSeen = (scene as Record<string, unknown>).dmLastSeen as number | undefined;
-    if (typeof dmLastSeen !== "number") return false;
-    return Date.now() - dmLastSeen < 45_000;
+  const dmLastSeenTimestamp = useMemo(() => {
+    if (!scene) return undefined;
+    return (scene as Record<string, unknown>).dmLastSeen as number | undefined;
   }, [scene]);
+
+  const [dmOnline, setDmOnline] = useState(false);
+
+  useEffect(() => {
+    const check = () => {
+      if (typeof dmLastSeenTimestamp !== "number") {
+        setDmOnline(false);
+        return;
+      }
+      setDmOnline(Date.now() - dmLastSeenTimestamp < 45_000);
+    };
+    check();
+    const interval = setInterval(check, 10_000);
+    return () => clearInterval(interval);
+  }, [dmLastSeenTimestamp]);
 
   if (scene === undefined) {
     return (
