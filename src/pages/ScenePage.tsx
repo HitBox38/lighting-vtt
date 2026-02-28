@@ -71,6 +71,35 @@ export function ScenePage() {
     }
   }, [isNonGMView, sceneLoaded, scene, applySyncedState]);
 
+  const updateTokenInstance = useTokenStore((state) => state.updateTokenInstance);
+
+  useEffect(() => {
+    if (!isGM || isRemotePlayer || !sceneLoaded || !scene) return;
+
+    const players = (scene as Record<string, unknown>).players as
+      | Array<{ id: string; tokenInstanceIds: string[] }>
+      | undefined;
+    if (!players || players.length === 0) return;
+
+    const playerTokenIds = new Set(players.flatMap((p) => p.tokenInstanceIds));
+    if (playerTokenIds.size === 0) return;
+
+    const incomingTokens = (scene.tokens ?? []) as TokenInstance[];
+    const localTokens = useTokenStore.getState().tokens;
+
+    for (const incomingToken of incomingTokens) {
+      if (!playerTokenIds.has(incomingToken.id)) continue;
+      const localToken = localTokens.find((t) => t.id === incomingToken.id);
+      if (!localToken) continue;
+      if (localToken.x !== incomingToken.x || localToken.y !== incomingToken.y) {
+        updateTokenInstance(incomingToken.id, {
+          x: incomingToken.x,
+          y: incomingToken.y,
+        });
+      }
+    }
+  }, [isGM, isRemotePlayer, sceneLoaded, scene, updateTokenInstance]);
+
   const remotePlayerInfo = useMemo(() => {
     if (!isRemotePlayer || !scene) return null;
     const players = (scene as Record<string, unknown>).players as Array<{

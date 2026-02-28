@@ -15,6 +15,7 @@ import { SceneList } from "./components/SceneList";
 import { EmptyState } from "./components/EmptyState";
 import { NoResultsState } from "./components/NoResultsState";
 import { SignedOutState } from "./components/SignedOutState";
+import { PlayerScenesSection } from "./components/PlayerScenesSection";
 
 export const LibraryPage = () => {
   const { user } = useUser();
@@ -107,6 +108,8 @@ export const LibraryPage = () => {
               ) : (
                 <SceneList scenes={filteredScenes} />
               )}
+
+              {user?.id && <PlayerScenesSection clerkUserId={user.id} />}
             </div>
           </Suspense>
         </SignedIn>

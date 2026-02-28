@@ -11,6 +11,9 @@ interface Props {
   onCloseSizeEdit: () => void;
   onOpenContextMenu: (state: TokenContextMenuState) => void;
   onCloseContextMenu: () => void;
+  remotePlayerId?: string | null;
+  allowedTokenIds?: Set<string>;
+  onRemoteTokenMove?: (tokenId: string, x: number, y: number) => void;
 }
 
 type DragState = {
@@ -157,7 +160,11 @@ export function TokenControls({
   onCloseSizeEdit,
   onOpenContextMenu,
   onCloseContextMenu,
+  remotePlayerId,
+  allowedTokenIds,
+  onRemoteTokenMove,
 }: Props) {
+  const isRemotePlayer = !!remotePlayerId;
   const tokens = useTokenStore((state) => state.tokens);
   const updateTokenInstance = useTokenStore((state) => state.updateTokenInstance);
   const setHoveredTokenId = useTokenStore((state) => state.setHoveredTokenId);
@@ -269,10 +276,18 @@ export function TokenControls({
       if (dragRef.current.pointerId !== event.pointerId) {
         return;
       }
+      const movedTokenId = dragRef.current.tokenId;
       flush();
       resetDragState();
+
+      if (isRemotePlayer && movedTokenId && onRemoteTokenMove) {
+        const token = useTokenStore.getState().tokens.find((t) => t.id === movedTokenId);
+        if (token) {
+          onRemoteTokenMove(movedTokenId, token.x, token.y);
+        }
+      }
     },
-    [flush, resetDragState]
+    [flush, resetDragState, isRemotePlayer, onRemoteTokenMove]
   );
 
   const handleSizePointerDown = useCallback(
@@ -358,16 +373,21 @@ export function TokenControls({
       }));
   }, [getSizeHandlePosition, sizeEditTokenId, tokens]);
 
-  if (!isGM || tokens.length === 0) {
+  const canInteract = isGM || isRemotePlayer;
+  if (!canInteract || tokens.length === 0) {
     return null;
   }
+
+  const interactableTokens = isRemotePlayer && allowedTokenIds
+    ? tokens.filter((t) => allowedTokenIds.has(t.id))
+    : tokens;
 
   return (
     <>
       {sizeLinkDrawers.map(({ id, draw }) => (
         <pixiGraphics key={`${id}-size-link`} draw={draw} eventMode="none" />
       ))}
-      {tokens.map((token) => (
+      {interactableTokens.map((token) => (
         <pixiGraphics
           key={token.id}
           x={token.x}

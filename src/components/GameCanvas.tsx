@@ -35,6 +35,9 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { useUIPreferencesStore } from "@/stores/uiPreferencesStore";
 import { PlayersSheet } from "@/components/PlayersSheet";
 import { useLightStore } from "@/stores/lightStore";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 
 extend({ Container: PixiContainer, Sprite: PixiSprite, Graphics: PixiGraphics });
 
@@ -86,6 +89,41 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
   const { addLight } = useLightManager();
   const { addMirror } = useMirrorManager();
   const { placementTemplateId, addTokenInstance } = useTokenManager();
+
+  const isRemotePlayer = !!remotePlayerId;
+  const moveTokenMutation = useMutation(api.players.moveToken);
+
+  const scene = useQuery(
+    api.scenes.getById,
+    sceneId ? { id: sceneId as Id<"scenes"> } : "skip",
+  );
+
+  const allowedTokenIds = useMemo(() => {
+    if (!isRemotePlayer || !scene) return new Set<string>();
+    const players = (scene as Record<string, unknown>).players as
+      | Array<{ id: string; tokenInstanceIds: string[] }>
+      | undefined;
+    const activePlayerIds = (scene as Record<string, unknown>).activePlayerIds as string[] | undefined;
+    const player = players?.find((p) => p.id === remotePlayerId);
+    if (!player) return new Set<string>();
+    const isActive = activePlayerIds?.includes(remotePlayerId!) ?? false;
+    if (!isActive) return new Set<string>();
+    return new Set(player.tokenInstanceIds);
+  }, [isRemotePlayer, scene, remotePlayerId]);
+
+  const handleRemoteTokenMove = useCallback(
+    (tokenId: string, x: number, y: number) => {
+      if (!sceneId || !remotePlayerId) return;
+      void moveTokenMutation({
+        sceneId: sceneId as Id<"scenes">,
+        playerId: remotePlayerId,
+        tokenId,
+        x,
+        y,
+      });
+    },
+    [sceneId, remotePlayerId, moveTokenMutation],
+  );
   const appRef = useRef<PixiApplication | null>(null);
   const containerRef = useRef<PixiContainer | null>(null);
   const spriteRef = useRef<PixiSprite | null>(null);
@@ -455,6 +493,9 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
               onCloseSizeEdit={handleCloseTokenSizeEdit}
               onOpenContextMenu={handleOpenTokenContextMenu}
               onCloseContextMenu={handleCloseTokenContextMenu}
+              remotePlayerId={remotePlayerId}
+              allowedTokenIds={allowedTokenIds}
+              onRemoteTokenMove={handleRemoteTokenMove}
             />
           </pixiContainer>
         </Application>
