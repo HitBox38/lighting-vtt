@@ -30,6 +30,9 @@ import { useMirrorManager } from "@/hooks/useMirrorManager";
 import { useTokenManager } from "@/hooks/useTokenManager";
 import type { LightType } from "@shared/index";
 import { UserToolbar } from "@/components/UserToolbar";
+import { InitiativeSidebar } from "@/components/InitiativeSidebar";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { useUIPreferencesStore } from "@/stores/uiPreferencesStore";
 
 extend({ Container: PixiContainer, Sprite: PixiSprite, Graphics: PixiGraphics });
 
@@ -52,6 +55,10 @@ const getCanvasFromApp = (app: PixiApplication | null) => {
 };
 
 export function GameCanvas({ mapUrl, isGM = true }: Props) {
+  const sidebarSide = useUIPreferencesStore((state) => state.sidebarSide);
+  const sidebarOpen = useUIPreferencesStore((state) => state.sidebarOpen);
+  const setSidebarOpen = useUIPreferencesStore((state) => state.setSidebarOpen);
+
   const [viewportSize, setViewportSize] = useState(() => ({
     width: typeof window !== "undefined" ? window.innerWidth : 0,
     height: typeof window !== "undefined" ? window.innerHeight : 0,
@@ -380,89 +387,96 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
   }, []);
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden">
-      {isGM && (
-        <>
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-linear-to-b from-black/35 via-black/20 to-transparent dark:from-black/55 dark:via-black/30" />
-          <div className="pointer-events-none absolute inset-x-0 top-3 z-20 px-3 sm:px-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="pointer-events-auto flex min-w-0 flex-1 flex-wrap items-start gap-2">
-                <PresetToolbar />
-                <LightToolbar
-                  onAddRadial={() => handleAddLight("radial")}
-                  onAddConic={() => handleAddLight("conic")}
-                  onAddLine={() => handleAddLight("line")}
-                />
-                <MirrorToolbar onAddMirror={handleAddMirror} />
-                <TokenToolbar />
-                <PlayerViewToolbar />
-              </div>
+    <SidebarProvider
+      side={sidebarSide}
+      open={sidebarOpen}
+      onOpenChange={setSidebarOpen}
+    >
+      <InitiativeSidebar isGM={isGM} />
+      <SidebarInset className="relative h-screen overflow-hidden">
+        {isGM && (
+          <>
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-linear-to-b from-black/35 via-black/20 to-transparent dark:from-black/55 dark:via-black/30" />
+            <div className="pointer-events-none absolute inset-x-0 top-3 z-20 px-3 sm:px-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="pointer-events-auto flex min-w-0 flex-1 flex-wrap items-start gap-2">
+                  <PresetToolbar />
+                  <LightToolbar
+                    onAddRadial={() => handleAddLight("radial")}
+                    onAddConic={() => handleAddLight("conic")}
+                    onAddLine={() => handleAddLight("line")}
+                  />
+                  <MirrorToolbar onAddMirror={handleAddMirror} />
+                  <TokenToolbar />
+                  <PlayerViewToolbar />
+                </div>
 
-              <div className="pointer-events-auto shrink-0">
-                <UserToolbar />
+                <div className="pointer-events-auto shrink-0">
+                  <UserToolbar />
+                </div>
               </div>
             </div>
-          </div>
-        </>
-      )}
-      <div className="pointer-events-none absolute right-4 bottom-4 z-20">
-        <FrameCounter appRef={appRef} />
-      </div>
-      <Application
-        width={viewportSize.width}
-        height={viewportSize.height}
-        resolution={resolution}
-        autoDensity
-        backgroundColor={0x000000}
-        className="block h-full w-full"
-        onInit={handleAppInit}>
-        <pixiContainer ref={containerRef}>
-          {mapTexture && <pixiSprite ref={spriteRef} texture={mapTexture} />}
-          <LightingLayer width={lightingWidth} height={lightingHeight} isGM={isGM} />
-          <MirrorLayer isGM={isGM} />
-          <TokenLayer isGM={isGM} />
-          <LightControls
+          </>
+        )}
+        <div className="pointer-events-none absolute right-4 bottom-4 z-20">
+          <FrameCounter appRef={appRef} />
+        </div>
+        <Application
+          width={viewportSize.width}
+          height={viewportSize.height}
+          resolution={resolution}
+          autoDensity
+          backgroundColor={0x000000}
+          className="block h-full w-full"
+          onInit={handleAppInit}>
+          <pixiContainer ref={containerRef}>
+            {mapTexture && <pixiSprite ref={spriteRef} texture={mapTexture} />}
+            <LightingLayer width={lightingWidth} height={lightingHeight} isGM={isGM} />
+            <MirrorLayer isGM={isGM} />
+            <TokenLayer isGM={isGM} />
+            <LightControls
+              isGM={isGM}
+              onOpenContextMenu={handleOpenLightContextMenu}
+              onCloseContextMenu={handleCloseLightContextMenu}
+            />
+            <MirrorControls
+              isGM={isGM}
+              onOpenContextMenu={handleOpenMirrorContextMenu}
+              onCloseContextMenu={handleCloseMirrorContextMenu}
+            />
+            <TokenControls
+              isGM={isGM}
+              sizeEditTokenId={sizeEditTokenId}
+              onCloseSizeEdit={handleCloseTokenSizeEdit}
+              onOpenContextMenu={handleOpenTokenContextMenu}
+              onCloseContextMenu={handleCloseTokenContextMenu}
+            />
+          </pixiContainer>
+        </Application>
+        {lightContextMenuState && (
+          <LightContextMenu
+            state={lightContextMenuState}
             isGM={isGM}
-            onOpenContextMenu={handleOpenLightContextMenu}
-            onCloseContextMenu={handleCloseLightContextMenu}
+            onClose={handleCloseLightContextMenu}
           />
-          <MirrorControls
+        )}
+        {mirrorContextMenuState && (
+          <MirrorContextMenu
+            state={mirrorContextMenuState}
             isGM={isGM}
-            onOpenContextMenu={handleOpenMirrorContextMenu}
-            onCloseContextMenu={handleCloseMirrorContextMenu}
+            onClose={handleCloseMirrorContextMenu}
           />
-          <TokenControls
+        )}
+        {tokenContextMenuState && (
+          <TokenContextMenu
+            state={tokenContextMenuState}
             isGM={isGM}
-            sizeEditTokenId={sizeEditTokenId}
-            onCloseSizeEdit={handleCloseTokenSizeEdit}
-            onOpenContextMenu={handleOpenTokenContextMenu}
-            onCloseContextMenu={handleCloseTokenContextMenu}
+            onEditSize={handleStartTokenSizeEdit}
+            onClose={handleCloseTokenContextMenu}
           />
-        </pixiContainer>
-      </Application>
-      {lightContextMenuState && (
-        <LightContextMenu
-          state={lightContextMenuState}
-          isGM={isGM}
-          onClose={handleCloseLightContextMenu}
-        />
-      )}
-      {mirrorContextMenuState && (
-        <MirrorContextMenu
-          state={mirrorContextMenuState}
-          isGM={isGM}
-          onClose={handleCloseMirrorContextMenu}
-        />
-      )}
-      {tokenContextMenuState && (
-        <TokenContextMenu
-          state={tokenContextMenuState}
-          isGM={isGM}
-          onEditSize={handleStartTokenSizeEdit}
-          onClose={handleCloseTokenContextMenu}
-        />
-      )}
-    </div>
+        )}
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 

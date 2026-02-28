@@ -1,4 +1,4 @@
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { AppSettingsDialog } from "@/components/AppSettingsDialog";
 import { Button } from "@/components/ui/button";
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "@clerk/clerk-react";
 import { Zap } from "lucide-react";
@@ -11,7 +11,7 @@ export const LibraryHeader = () => (
         <span className="text-base font-semibold tracking-tight select-none">Lighting VTT</span>
       </div>
       <div className="flex items-center gap-3">
-        <ThemeToggle />
+        <AppSettingsDialog />
         <SignedIn>
           <UserButton />
         </SignedIn>

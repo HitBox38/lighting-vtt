@@ -160,6 +160,7 @@ export function TokenControls({
 }: Props) {
   const tokens = useTokenStore((state) => state.tokens);
   const updateTokenInstance = useTokenStore((state) => state.updateTokenInstance);
+  const setHoveredTokenId = useTokenStore((state) => state.setHoveredTokenId);
   const { schedule, flush } = useTokenUpdateScheduler(updateTokenInstance);
   const dragRef = useRef<DragState>(createInitialDragState());
   const sizeDragRef = useRef<SizeDragState>(createInitialSizeDragState());
@@ -323,6 +324,17 @@ export function TokenControls({
     [flush, resetSizeDragState]
   );
 
+  const handlePointerOver = useCallback(
+    (tokenId: string) => {
+      setHoveredTokenId(tokenId);
+    },
+    [setHoveredTokenId]
+  );
+
+  const handlePointerOut = useCallback(() => {
+    setHoveredTokenId(null);
+  }, [setHoveredTokenId]);
+
   useEffect(() => {
     if (!sizeEditTokenId) {
       return;
@@ -372,6 +384,8 @@ export function TokenControls({
           onPointerUp={handlePointerUp}
           onPointerUpOutside={handlePointerUp}
           onPointerCancel={handlePointerUp}
+          onPointerOver={() => handlePointerOver(token.id)}
+          onPointerOut={handlePointerOut}
         />
       ))}
       {sizeEditTokenId &&

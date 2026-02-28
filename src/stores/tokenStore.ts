@@ -19,6 +19,7 @@ interface TokenStoreState {
   tokenTemplates: TokenTemplate[];
   tokens: TokenInstance[];
   placementTemplateId: string | null;
+  hoveredTokenId: string | null;
   addTokenTemplate: (template: TokenTemplateCreateInput) => string;
   updateTokenTemplate: (id: string, partial: TokenTemplateUpdate) => void;
   removeTokenTemplate: (id: string) => void;
@@ -26,6 +27,9 @@ interface TokenStoreState {
   updateTokenInstance: (id: string, partial: TokenInstanceUpdate) => void;
   removeTokenInstance: (id: string) => void;
   setPlacementTemplateId: (id: string | null) => void;
+  setHoveredTokenId: (id: string | null) => void;
+  setInitiative: (tokenId: string, initiative: number | undefined) => void;
+  rollInitiative: (tokenId: string) => void;
   loadSceneTokens: (tokenTemplates: TokenTemplate[], tokens: TokenInstance[]) => void;
   applySyncedTokens: (tokenTemplates: TokenTemplate[], tokens: TokenInstance[]) => void;
 }
@@ -61,11 +65,14 @@ export const getTokenStateHash = (tokenTemplates: TokenTemplate[], tokens: Token
   return JSON.stringify({ tokenTemplates, tokens });
 };
 
+const rollD20 = (): number => Math.floor(Math.random() * 20) + 1;
+
 export const useTokenStore = create<TokenStoreState>()(
   devtools((set, get) => ({
     tokenTemplates: [],
     tokens: [],
     placementTemplateId: null,
+    hoveredTokenId: null,
     addTokenTemplate: (template) => {
       const tokenTemplate = buildTokenTemplate(template);
       set((state) => ({ tokenTemplates: state.tokenTemplates.concat(tokenTemplate) }));
@@ -131,6 +138,35 @@ export const useTokenStore = create<TokenStoreState>()(
         return { tokens: nextTokens };
       }),
     setPlacementTemplateId: (placementTemplateId) => set({ placementTemplateId }),
+    setHoveredTokenId: (hoveredTokenId) => set({ hoveredTokenId }),
+    setInitiative: (tokenId, initiative) =>
+      set((state) => {
+        const index = state.tokens.findIndex((token) => token.id === tokenId);
+        if (index === -1) {
+          return state;
+        }
+        const nextToken = tokenInstanceSchema.parse({
+          ...state.tokens[index],
+          initiative,
+        });
+        const tokens = state.tokens.slice();
+        tokens[index] = nextToken;
+        return { tokens };
+      }),
+    rollInitiative: (tokenId) => {
+      const state = get();
+      const index = state.tokens.findIndex((token) => token.id === tokenId);
+      if (index === -1) {
+        return;
+      }
+      const nextToken = tokenInstanceSchema.parse({
+        ...state.tokens[index],
+        initiative: rollD20(),
+      });
+      const tokens = state.tokens.slice();
+      tokens[index] = nextToken;
+      set({ tokens });
+    },
     loadSceneTokens: (tokenTemplates, tokens) => {
       const tokenTemplatesCopy = JSON.parse(JSON.stringify(tokenTemplates)) as TokenTemplate[];
       const tokensCopy = JSON.parse(JSON.stringify(tokens)) as TokenInstance[];

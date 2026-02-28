@@ -138,6 +138,7 @@ export const tokenInstanceSchema = z
     y: z.number(),
     size: z.number().positive().optional().default(22),
     hidden: z.boolean().optional().default(false),
+    initiative: z.number().int().min(1).max(20).optional(),
   })
   .strict();
 
@@ -149,6 +150,7 @@ interface TokenInstanceUpdatableFields {
   y?: number;
   size?: number;
   hidden?: boolean;
+  initiative?: number;
 }
 
 export type TokenInstanceUpdate = TokenInstanceUpdatableFields;

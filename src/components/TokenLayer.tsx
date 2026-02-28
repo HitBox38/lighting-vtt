@@ -16,9 +16,14 @@ const toHexNumber = (color: string): number => {
   return Number.isNaN(parsed) ? 0xffffff : parsed;
 };
 
+const HIGHLIGHT_COLOR = 0x3b82f6;
+const HIGHLIGHT_WIDTH = 4;
+const HIGHLIGHT_PADDING = 4;
+
 export function TokenLayer({ isGM = true }: Props) {
   const templates = useTokenStore((state) => state.tokenTemplates);
   const tokens = useTokenStore((state) => state.tokens);
+  const hoveredTokenId = useTokenStore((state) => state.hoveredTokenId);
   const [textures, setTextures] = useState<Record<string, PixiTexture>>({});
 
   const visibleTokens = useMemo(
@@ -87,6 +92,17 @@ export function TokenLayer({ isGM = true }: Props) {
         const radius = token.size ?? TOKEN_RADIUS;
         const alpha = token.hidden ? 0.45 : 1;
         const borderColor = toHexNumber(template.borderColor);
+        const isHovered = token.id === hoveredTokenId;
+
+        if (isHovered) {
+          graphics.setStrokeStyle({
+            width: HIGHLIGHT_WIDTH,
+            color: HIGHLIGHT_COLOR,
+            alpha: 1,
+          });
+          graphics.circle(token.x, token.y, radius + HIGHLIGHT_PADDING).stroke();
+        }
+
         graphics.circle(token.x, token.y, radius).fill({ texture, alpha });
         graphics.setStrokeStyle({
           width: BORDER_WIDTH,
@@ -96,7 +112,7 @@ export function TokenLayer({ isGM = true }: Props) {
         graphics.circle(token.x, token.y, radius).stroke();
       }
     },
-    [templateById, textures, visibleTokens]
+    [hoveredTokenId, templateById, textures, visibleTokens]
   );
 
   if (!visibleTokens.length) {

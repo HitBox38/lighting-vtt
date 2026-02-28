@@ -76,6 +76,7 @@ export const tokenInstanceValidator = v.object({
   y: v.number(),
   size: v.optional(v.number()),
   hidden: v.optional(v.boolean()),
+  initiative: v.optional(v.number()),
 });
 
 /**
