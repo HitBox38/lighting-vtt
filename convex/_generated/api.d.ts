@@ -9,6 +9,7 @@
  */
 
 import type * as http from "../http.js";
+import type * as players from "../players.js";
 import type * as scenes from "../scenes.js";
 import type * as uploadthingActions from "../uploadthingActions.js";
 
@@ -20,6 +21,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   http: typeof http;
+  players: typeof players;
   scenes: typeof scenes;
   uploadthingActions: typeof uploadthingActions;
 }>;
