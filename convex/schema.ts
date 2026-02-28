@@ -79,6 +79,15 @@ export const tokenInstanceValidator = v.object({
   initiative: v.optional(v.number()),
 });
 
+/** Matches the `ScenePlayer` type in shared/index.ts. */
+export const scenePlayerValidator = v.object({
+  id: v.string(),
+  playerName: v.string(),
+  characterName: v.string(),
+  clerkUserId: v.optional(v.string()),
+  tokenInstanceIds: v.array(v.string()),
+});
+
 /**
  * Full scene document validator *including* system fields.
  * Useful as a `returns` validator on queries that return a scene doc.
@@ -95,6 +104,10 @@ export const sceneDocValidator = v.object({
   tokenTemplates: v.optional(v.array(tokenTemplateValidator)),
   tokens: v.optional(v.array(tokenInstanceValidator)),
   updatedAt: v.number(),
+  inviteCode: v.optional(v.string()),
+  players: v.optional(v.array(scenePlayerValidator)),
+  dmLastSeen: v.optional(v.number()),
+  activePlayerIds: v.optional(v.array(v.string())),
 });
 
 // ---------------------------------------------------------------------------
@@ -112,5 +125,22 @@ export default defineSchema({
     tokenTemplates: v.optional(v.array(tokenTemplateValidator)),
     tokens: v.optional(v.array(tokenInstanceValidator)),
     updatedAt: v.number(),
-  }).index("by_creatorId", ["creatorId"]),
+    inviteCode: v.optional(v.string()),
+    players: v.optional(v.array(scenePlayerValidator)),
+    dmLastSeen: v.optional(v.number()),
+    activePlayerIds: v.optional(v.array(v.string())),
+  })
+    .index("by_creatorId", ["creatorId"])
+    .index("by_inviteCode", ["inviteCode"]),
+
+  playerSceneBookmarks: defineTable({
+    clerkUserId: v.string(),
+    sceneId: v.id("scenes"),
+    playerId: v.string(),
+    playerName: v.string(),
+    characterName: v.string(),
+    savedAt: v.number(),
+  })
+    .index("by_clerkUserId", ["clerkUserId"])
+    .index("by_clerkUserId_and_sceneId", ["clerkUserId", "sceneId"]),
 });

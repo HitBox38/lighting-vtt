@@ -155,6 +155,29 @@ interface TokenInstanceUpdatableFields {
 
 export type TokenInstanceUpdate = TokenInstanceUpdatableFields;
 
+// --- SCENE PLAYERS ---
+
+export const scenePlayerSchema = z
+  .object({
+    id: z.string().min(1, "Player id is required"),
+    playerName: z.string().min(1, "Player name is required"),
+    characterName: z.string().min(1, "Character name is required"),
+    clerkUserId: z.string().optional(),
+    tokenInstanceIds: z.array(z.string()),
+  })
+  .strict();
+
+export type ScenePlayer = z.infer<typeof scenePlayerSchema>;
+
+interface ScenePlayerUpdatableFields {
+  playerName?: string;
+  characterName?: string;
+  clerkUserId?: string;
+  tokenInstanceIds?: string[];
+}
+
+export type ScenePlayerUpdate = ScenePlayerUpdatableFields;
+
 // --- SCENES / PRESETS ---
 
 export type LightPreset = {
