@@ -33,12 +33,16 @@ import { UserToolbar } from "@/components/UserToolbar";
 import { InitiativeSidebar } from "@/components/InitiativeSidebar";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { useUIPreferencesStore } from "@/stores/uiPreferencesStore";
+import { PlayersSheet } from "@/components/PlayersSheet";
+import { useLightStore } from "@/stores/lightStore";
 
 extend({ Container: PixiContainer, Sprite: PixiSprite, Graphics: PixiGraphics });
 
 interface Props {
   mapUrl: string;
   isGM?: boolean;
+  remotePlayerId?: string | null;
+  sceneId?: string | null;
 }
 
 const MIN_ZOOM = 0.5;
@@ -54,7 +58,7 @@ const getCanvasFromApp = (app: PixiApplication | null) => {
     null) as HTMLCanvasElement | null;
 };
 
-export function GameCanvas({ mapUrl, isGM = true }: Props) {
+export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Props) {
   const sidebarSide = useUIPreferencesStore((state) => state.sidebarSide);
   const sidebarOpen = useUIPreferencesStore((state) => state.sidebarOpen);
   const setSidebarOpen = useUIPreferencesStore((state) => state.setSidebarOpen);
@@ -409,6 +413,7 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
                   <MirrorToolbar onAddMirror={handleAddMirror} />
                   <TokenToolbar />
                   <PlayerViewToolbar />
+                  {sceneId && <PlayersSheet sceneId={sceneId} />}
                 </div>
 
                 <div className="pointer-events-auto shrink-0">

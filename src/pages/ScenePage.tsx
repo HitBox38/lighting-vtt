@@ -9,6 +9,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Light, Mirror, LightPreset, TokenInstance, TokenTemplate } from "@shared/index";
+import { RemotePlayerHud } from "@/components/RemotePlayerHud";
 
 export function ScenePage() {
   const [searchParams] = useSearchParams();
@@ -21,12 +22,15 @@ export function ScenePage() {
 
   const isGM = useMemo(() => searchParams.get("isGM") !== "false", [searchParams]);
   const sceneId = searchParams.get("id");
+  const remotePlayerId = searchParams.get("playerId");
+
+  const isRemotePlayer = !!remotePlayerId;
 
   const scene = useQuery(api.scenes.getById, sceneId ? { id: sceneId as Id<"scenes"> } : "skip");
 
   const sceneLoaded = storeSceneId === sceneId;
 
-  const canSave = isGM && sceneLoaded && !!user?.id && user.id === scene?.creatorId;
+  const canSave = isGM && !isRemotePlayer && sceneLoaded && !!user?.id && user.id === scene?.creatorId;
 
   const lastAppliedUpdatedAtRef = useRef<number | null>(null);
 
@@ -46,8 +50,10 @@ export function ScenePage() {
     lastAppliedUpdatedAtRef.current = scene.updatedAt ?? null;
   }, [scene, sceneId, loadScene, loadSceneTokens, sceneLoaded]);
 
+  const isNonGMView = !isGM || isRemotePlayer;
+
   useEffect(() => {
-    if (isGM || !sceneLoaded || !scene) {
+    if (!isNonGMView || !sceneLoaded || !scene) {
       return;
     }
 
@@ -63,7 +69,31 @@ export function ScenePage() {
         activePresetId: null,
       });
     }
-  }, [isGM, sceneLoaded, scene, applySyncedState]);
+  }, [isNonGMView, sceneLoaded, scene, applySyncedState]);
+
+  const remotePlayerInfo = useMemo(() => {
+    if (!isRemotePlayer || !scene) return null;
+    const players = (scene as Record<string, unknown>).players as Array<{
+      id: string;
+      playerName: string;
+      characterName: string;
+      tokenInstanceIds: string[];
+    }> | undefined;
+    const activePlayerIds = (scene as Record<string, unknown>).activePlayerIds as string[] | undefined;
+    const player = players?.find((p) => p.id === remotePlayerId);
+    if (!player) return null;
+    return {
+      ...player,
+      isActive: activePlayerIds?.includes(remotePlayerId) ?? false,
+    };
+  }, [isRemotePlayer, scene, remotePlayerId]);
+
+  const dmOnline = useMemo(() => {
+    if (!scene) return false;
+    const dmLastSeen = (scene as Record<string, unknown>).dmLastSeen as number | undefined;
+    if (typeof dmLastSeen !== "number") return false;
+    return Date.now() - dmLastSeen < 45_000;
+  }, [scene]);
 
   if (scene === undefined) {
     return (
@@ -81,13 +111,28 @@ export function ScenePage() {
     );
   }
 
+  const effectiveIsGM = isGM && !isRemotePlayer;
+
   return (
     <>
-      <GameCanvas mapUrl={scene.mapUrl} isGM={isGM} />
-      {isGM && canSave && (
+      <GameCanvas
+        mapUrl={scene.mapUrl}
+        isGM={effectiveIsGM}
+        sceneId={sceneId}
+        remotePlayerId={remotePlayerId}
+      />
+      {effectiveIsGM && canSave && (
         <div className="pointer-events-none absolute right-4 top-16 z-30">
           <SaveStatusIndicator status={saveStatus} />
         </div>
+      )}
+      {isRemotePlayer && sceneId && (
+        <RemotePlayerHud
+          sceneId={sceneId}
+          playerId={remotePlayerId}
+          playerInfo={remotePlayerInfo}
+          dmOnline={dmOnline}
+        />
       )}
     </>
   );
