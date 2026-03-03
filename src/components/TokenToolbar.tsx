@@ -16,6 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 const HEX_COLOR = /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
@@ -58,12 +59,14 @@ export function TokenToolbar() {
   const [imageUrl, setImageUrl] = useState("");
   const [imageKey, setImageKey] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [useBorderColor, setUseBorderColor] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     setError,
     clearErrors,
     formState: { errors },
@@ -73,8 +76,19 @@ export function TokenToolbar() {
 
   const resetForm = () => {
     reset(defaultFormValues);
+    setUseBorderColor(true);
     setImageUrl("");
     setImageKey("");
+  };
+
+  const handleUseBorderColorChange = (checked: boolean) => {
+    setUseBorderColor(checked);
+    if (!checked) {
+      setValue("borderColor", undefined);
+      clearErrors("borderColor");
+    } else {
+      setValue("borderColor", "#ffffff");
+    }
   };
 
   const clearImage = () => {
@@ -129,7 +143,9 @@ export function TokenToolbar() {
     }
     const trimmedName = validationResult.data.name;
     const borderColor =
-      validationResult.data.borderColor && validationResult.data.borderColor.trim() !== ""
+      useBorderColor &&
+      validationResult.data.borderColor &&
+      validationResult.data.borderColor.trim() !== ""
         ? validationResult.data.borderColor.trim()
         : undefined;
 
@@ -263,19 +279,31 @@ export function TokenToolbar() {
               )}
             </div>
             <div className="grid gap-2">
-              <label htmlFor="token-border-color" className="text-sm font-medium">
-                Border Color <span className="text-muted-foreground">(optional)</span>
-              </label>
-              <Input
-                id="token-border-color"
-                type="color"
-                className="h-10 w-16 cursor-pointer p-1"
-                {...register("borderColor")}
-              />
-              {errors.borderColor && (
-                <p className="text-sm text-destructive" role="alert">
-                  {errors.borderColor.message}
-                </p>
+              <div className="flex items-center justify-between gap-2">
+                <label htmlFor="token-border-color-toggle" className="text-sm font-medium">
+                  Border Color <span className="text-muted-foreground">(optional)</span>
+                </label>
+                <Switch
+                  id="token-border-color-toggle"
+                  checked={useBorderColor}
+                  onCheckedChange={handleUseBorderColorChange}
+                  aria-describedby={errors.borderColor ? "token-border-color-error" : undefined}
+                />
+              </div>
+              {useBorderColor && (
+                <>
+                  <Input
+                    id="token-border-color"
+                    type="color"
+                    className="h-10 w-16 cursor-pointer p-1"
+                    {...register("borderColor")}
+                  />
+                  {errors.borderColor && (
+                    <p id="token-border-color-error" className="text-sm text-destructive" role="alert">
+                      {errors.borderColor.message}
+                    </p>
+                  )}
+                </>
               )}
             </div>
             <div className="grid gap-2">
