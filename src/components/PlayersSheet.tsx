@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { useUser } from "@clerk/clerk-react";
 import {
@@ -8,6 +8,8 @@ import {
   Link2,
   Pencil,
   RefreshCw,
+  Shield,
+  Sparkles,
   Sword,
   Trash2,
   UserPlus,
@@ -37,14 +39,19 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { HudSurface } from "@/components/hud/HudSurface";
 import { useTokenStore } from "@/stores/tokenStore";
 import { useLightStore } from "@/stores/lightStore";
+import { cn } from "@/lib/utils";
+
+type TokenTemplate = { id: string; name: string; imageUrl: string; borderColor: string };
+type TokenInstance = { id: string; templateId: string };
+type AssignedToken = { instanceId: string; template: TokenTemplate };
 
 interface PlayerCardProps {
   player: ScenePlayer;
   sceneId: Id<"scenes">;
   creatorId: string;
   isActive: boolean;
-  tokenTemplates: Array<{ id: string; name: string; imageUrl: string; borderColor: string }>;
-  tokenInstances: Array<{ id: string; templateId: string }>;
+  tokenTemplates: TokenTemplate[];
+  tokenInstances: TokenInstance[];
 }
 
 function PlayerCard({
@@ -63,7 +70,7 @@ function PlayerCard({
   const [editPlayerName, setEditPlayerName] = useState(player.playerName);
   const [editCharacterName, setEditCharacterName] = useState(player.characterName);
 
-  const assignedTokens = useMemo(() => {
+  const assignedTokens = useMemo((): AssignedToken[] => {
     return player.tokenInstanceIds
       .map((tokenId) => {
         const instance = tokenInstances.find((t) => t.id === tokenId);
@@ -72,13 +79,10 @@ function PlayerCard({
         if (!template) return null;
         return { instanceId: tokenId, template };
       })
-      .filter(Boolean) as Array<{
-      instanceId: string;
-      template: { id: string; name: string; imageUrl: string; borderColor: string };
-    }>;
+      .filter((t): t is AssignedToken => t !== null);
   }, [player.tokenInstanceIds, tokenInstances, tokenTemplates]);
 
-  const unassignedTokenInstances = useMemo(() => {
+  const unassignedTokenInstances = useMemo((): AssignedToken[] => {
     const allAssignedIds = new Set<string>();
     return tokenInstances
       .filter((inst) => !allAssignedIds.has(inst.id))
@@ -86,13 +90,10 @@ function PlayerCard({
         const template = tokenTemplates.find((t) => t.id === inst.templateId);
         return template ? { instanceId: inst.id, template } : null;
       })
-      .filter(Boolean) as Array<{
-      instanceId: string;
-      template: { id: string; name: string; imageUrl: string; borderColor: string };
-    }>;
+      .filter((t): t is AssignedToken => t !== null);
   }, [tokenInstances, tokenTemplates]);
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = useCallback(async () => {
     if (!editPlayerName.trim() || !editCharacterName.trim()) return;
     await updatePlayer({
       sceneId,
@@ -102,207 +103,273 @@ function PlayerCard({
       characterName: editCharacterName.trim(),
     });
     setIsEditing(false);
-  };
+  }, [editPlayerName, editCharacterName, updatePlayer, sceneId, creatorId, player.id]);
 
-  const handleCancelEdit = () => {
+  const handleCancelEdit = useCallback(() => {
     setEditPlayerName(player.playerName);
     setEditCharacterName(player.characterName);
     setIsEditing(false);
-  };
+  }, [player.playerName, player.characterName]);
 
-  const handleRemove = async () => {
+  const handleRemove = useCallback(async () => {
     await removePlayer({ sceneId, creatorId, playerId: player.id });
-  };
+  }, [removePlayer, sceneId, creatorId, player.id]);
 
-  const handleToggleActive = async () => {
+  const handleToggleActive = useCallback(async () => {
     await setPlayerActive({
       sceneId,
       creatorId,
       playerId: player.id,
       active: !isActive,
     });
-  };
+  }, [setPlayerActive, sceneId, creatorId, player.id, isActive]);
 
-  const handleAssignToken = async (tokenInstanceId: string) => {
-    const nextIds = [...player.tokenInstanceIds, tokenInstanceId];
-    await updatePlayer({
-      sceneId,
-      creatorId,
-      playerId: player.id,
-      tokenInstanceIds: nextIds,
-    });
-  };
+  const handleAssignToken = useCallback(
+    async (tokenInstanceId: string) => {
+      const nextIds = [...player.tokenInstanceIds, tokenInstanceId];
+      await updatePlayer({
+        sceneId,
+        creatorId,
+        playerId: player.id,
+        tokenInstanceIds: nextIds,
+      });
+    },
+    [player.tokenInstanceIds, updatePlayer, sceneId, creatorId, player.id],
+  );
 
-  const handleUnassignToken = async (tokenInstanceId: string) => {
-    const nextIds = player.tokenInstanceIds.filter((id) => id !== tokenInstanceId);
-    await updatePlayer({
-      sceneId,
-      creatorId,
-      playerId: player.id,
-      tokenInstanceIds: nextIds,
-    });
-  };
+  const handleUnassignToken = useCallback(
+    async (tokenInstanceId: string) => {
+      const nextIds = player.tokenInstanceIds.filter((id) => id !== tokenInstanceId);
+      await updatePlayer({
+        sceneId,
+        creatorId,
+        playerId: player.id,
+        tokenInstanceIds: nextIds,
+      });
+    },
+    [player.tokenInstanceIds, updatePlayer, sceneId, creatorId, player.id],
+  );
 
   return (
-    <div className="rounded-lg border bg-card p-3 space-y-3">
-      <div className="flex items-start justify-between gap-2">
+    <div
+      className={cn(
+        "group relative rounded-xl border p-4 transition-all duration-200",
+        "bg-linear-to-br from-card to-card/80",
+        "hover:shadow-md hover:border-primary/20",
+        isActive && [
+          "border-amber-500/50 shadow-lg",
+          "bg-linear-to-br from-amber-950/20 via-card to-card",
+          "ring-1 ring-amber-500/20",
+        ],
+      )}>
+      {isActive && (
+        <div className="absolute -top-px left-4 right-4 h-px bg-linear-to-r from-transparent via-amber-500/60 to-transparent" />
+      )}
+
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           {isEditing ? (
-            <div className="space-y-2">
-              <div>
-                <Label htmlFor={`pn-${player.id}`} className="text-xs text-muted-foreground">
+            <div className="space-y-3 animate-in fade-in-0 slide-in-from-top-1 duration-200">
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor={`pn-${player.id}`}
+                  className="text-xs font-medium text-muted-foreground">
                   Player Name
                 </Label>
                 <Input
                   id={`pn-${player.id}`}
                   value={editPlayerName}
                   onChange={(e) => setEditPlayerName(e.target.value)}
-                  className="h-7 text-sm"
+                  className="h-8 text-sm bg-background/50 focus-visible:ring-primary/50"
+                  placeholder="Enter player name…"
+                  autoComplete="off"
                 />
               </div>
-              <div>
-                <Label htmlFor={`cn-${player.id}`} className="text-xs text-muted-foreground">
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor={`cn-${player.id}`}
+                  className="text-xs font-medium text-muted-foreground">
                   Character Name
                 </Label>
                 <Input
                   id={`cn-${player.id}`}
                   value={editCharacterName}
                   onChange={(e) => setEditCharacterName(e.target.value)}
-                  className="h-7 text-sm"
+                  className="h-8 text-sm bg-background/50 focus-visible:ring-primary/50"
+                  placeholder="Enter character name…"
+                  autoComplete="off"
                 />
               </div>
-              <div className="flex gap-1">
-                <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => void handleSaveEdit()}>
-                  <Check className="size-3 mr-1" />
+              <div className="flex gap-2 pt-1">
+                <Button
+                  size="sm"
+                  className="h-7 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+                  onClick={() => void handleSaveEdit()}>
+                  <Check className="size-3" aria-hidden="true" />
                   Save
                 </Button>
-                <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={handleCancelEdit}>
-                  <X className="size-3 mr-1" />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={handleCancelEdit}>
+                  <X className="size-3" aria-hidden="true" />
                   Cancel
                 </Button>
               </div>
             </div>
           ) : (
-            <>
-              <div className="flex items-center gap-1.5">
-                <p className="text-sm font-medium truncate">{player.playerName}</p>
+            <div className="animate-in fade-in-0 duration-150">
+              <div className="flex items-center gap-2 mb-0.5">
+                <h4 className="text-sm font-semibold tracking-tight truncate">
+                  {player.playerName}
+                </h4>
                 {player.clerkUserId && (
-                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 shrink-0">
-                    Registered
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] px-1.5 py-0 h-4 shrink-0 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5">
+                    <Shield className="size-2.5 mr-0.5" aria-hidden="true" />
+                    Verified
                   </Badge>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground truncate">
-                <Crown className="inline size-3 mr-0.5 -mt-px" />
-                {player.characterName}
+              <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                <Crown className="size-3 text-amber-500/80 shrink-0" aria-hidden="true" />
+                <span className="font-medium">{player.characterName}</span>
               </p>
-            </>
+            </div>
           )}
         </div>
 
         {!isEditing && (
-          <div className="flex items-center gap-0.5 shrink-0">
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon-sm"
-                    variant={isActive ? "default" : "ghost"}
-                    className="size-6"
-                    onClick={() => void handleToggleActive()}
-                  >
-                    <Sword className="size-3" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {isActive ? "Revoke turn" : "Grant turn (allow token movement)"}
-                </TooltipContent>
-              </Tooltip>
+          <div className="flex items-center gap-1 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant={isActive ? "default" : "ghost"}
+                  className={cn(
+                    "size-7 transition-all duration-200",
+                    isActive && [
+                      "bg-amber-500 hover:bg-amber-600 text-amber-950",
+                      "shadow-sm shadow-amber-500/30",
+                    ],
+                  )}
+                  onClick={() => void handleToggleActive()}
+                  aria-label={isActive ? "Revoke turn" : "Grant turn"}>
+                  <Sword className="size-3.5" aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                {isActive ? "Revoke Turn" : "Grant Turn"}
+              </TooltipContent>
+            </Tooltip>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    className="size-6"
-                    onClick={() => setIsEditing(true)}
-                  >
-                    <Pencil className="size-3" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Edit player</TooltipContent>
-              </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-7 hover:bg-primary/10"
+                  onClick={() => setIsEditing(true)}
+                  aria-label="Edit player">
+                  <Pencil className="size-3.5" aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                Edit Player
+              </TooltipContent>
+            </Tooltip>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    className="size-6 text-muted-foreground hover:text-destructive"
-                    onClick={() => void handleRemove()}
-                  >
-                    <Trash2 className="size-3" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Remove player</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => void handleRemove()}
+                  aria-label="Remove player">
+                  <Trash2 className="size-3.5" aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                Remove Player
+              </TooltipContent>
+            </Tooltip>
           </div>
         )}
       </div>
 
       {isActive && (
-        <Badge className="text-[10px]">
-          <Sword className="size-3 mr-1" />
-          Active Turn
-        </Badge>
+        <div className="mt-3 animate-in fade-in-0 slide-in-from-top-1 duration-300">
+          <Badge className="bg-amber-500/90 hover:bg-amber-500 text-amber-950 text-[10px] font-semibold gap-1.5 shadow-sm">
+            <Sparkles className="size-3 animate-pulse" aria-hidden="true" />
+            Active Turn
+          </Badge>
+        </div>
       )}
 
-      <div>
-        <p className="text-xs font-medium text-muted-foreground mb-1.5">Assigned Tokens</p>
+      <div className="mt-4 pt-3 border-t border-border/50">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+          Tokens
+        </p>
         {assignedTokens.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
             {assignedTokens.map(({ instanceId, template }) => (
               <div
                 key={instanceId}
-                className="flex items-center gap-1 rounded-md border bg-muted/50 px-1.5 py-0.5"
-              >
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg border px-2 py-1",
+                  "bg-linear-to-r from-muted/60 to-muted/30",
+                  "hover:from-muted/80 hover:to-muted/50 transition-colors",
+                )}>
                 <img
                   src={template.imageUrl}
-                  alt={template.name}
-                  className="size-4 rounded-full object-cover"
-                  style={{ border: `1px solid ${template.borderColor}` }}
+                  alt={`${template.name} token`}
+                  width={18}
+                  height={18}
+                  className="size-[18px] rounded-full object-cover"
+                  style={{
+                    boxShadow: `0 0 0 1.5px ${template.borderColor}, 0 0 0 3px hsl(var(--background))`,
+                  }}
                 />
-                <span className="text-[11px]">{template.name}</span>
+                <span className="text-[11px] font-medium">{template.name}</span>
                 <button
-                  className="ml-0.5 text-muted-foreground hover:text-destructive"
+                  type="button"
+                  className="ml-0.5 p-0.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                   onClick={() => void handleUnassignToken(instanceId)}
-                  aria-label={`Unassign ${template.name}`}
-                >
-                  <X className="size-3" />
+                  aria-label={`Unassign ${template.name}`}>
+                  <X className="size-3" aria-hidden="true" />
                 </button>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-[11px] text-muted-foreground italic">No tokens assigned</p>
+          <p className="text-[11px] text-muted-foreground/70 italic">No tokens assigned</p>
         )}
 
         {unassignedTokenInstances.length > 0 && (
-          <div className="mt-2">
-            <p className="text-[10px] text-muted-foreground mb-1">Assign a token:</p>
-            <div className="flex flex-wrap gap-1">
+          <div className="mt-3 animate-in fade-in-0 duration-200">
+            <p className="text-[10px] text-muted-foreground mb-1.5">Click to assign:</p>
+            <div className="flex flex-wrap gap-1.5">
               {unassignedTokenInstances.map(({ instanceId, template }) => (
                 <button
                   key={instanceId}
-                  className="flex items-center gap-1 rounded-md border border-dashed px-1.5 py-0.5 text-[11px] hover:bg-accent transition-colors"
-                  onClick={() => void handleAssignToken(instanceId)}
-                >
+                  type="button"
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg border border-dashed",
+                    "px-2 py-1 text-[11px] font-medium",
+                    "hover:border-primary/50 hover:bg-primary/5",
+                    "active:scale-95 transition-all duration-150",
+                  )}
+                  onClick={() => void handleAssignToken(instanceId)}>
                   <img
                     src={template.imageUrl}
-                    alt={template.name}
-                    className="size-4 rounded-full object-cover"
-                    style={{ border: `1px solid ${template.borderColor}` }}
+                    alt={`${template.name} token`}
+                    width={18}
+                    height={18}
+                    className="size-[18px] rounded-full object-cover opacity-70"
+                    style={{ border: `1.5px solid ${template.borderColor}` }}
                   />
                   {template.name}
                 </button>
@@ -330,29 +397,40 @@ function InviteLinkSection({ sceneId, creatorId, existingInviteCode }: InviteLin
     ? `${window.location.origin}/join/${existingInviteCode}`
     : null;
 
-  const handleGenerateCode = async () => {
+  const handleGenerateCode = useCallback(async () => {
     await createInviteCode({ sceneId, creatorId });
-  };
+  }, [createInviteCode, sceneId, creatorId]);
 
-  const handleRegenerateCode = async () => {
+  const handleRegenerateCode = useCallback(async () => {
     await regenerateInviteCode({ sceneId, creatorId });
-  };
+  }, [regenerateInviteCode, sceneId, creatorId]);
 
-  const handleCopyLink = async () => {
+  const handleCopyLink = useCallback(async () => {
     if (!inviteUrl) return;
     await navigator.clipboard.writeText(inviteUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
+  }, [inviteUrl]);
 
   if (!existingInviteCode) {
     return (
-      <div className="space-y-2">
-        <p className="text-sm text-muted-foreground">
-          Generate an invite link so players can join this scene remotely.
-        </p>
-        <Button size="sm" onClick={() => void handleGenerateCode()}>
-          <Link2 className="size-4 mr-2" />
+      <div
+        className={cn(
+          "rounded-xl border-2 border-dashed border-primary/20 p-5",
+          "bg-linear-to-br from-primary/5 via-transparent to-transparent",
+          "text-center space-y-3",
+        )}>
+        <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+          <Link2 className="size-5 text-primary" aria-hidden="true" />
+        </div>
+        <div>
+          <p className="text-sm font-medium mb-1">Share Your Table</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Generate an invite link so players can join this scene remotely.
+          </p>
+        </div>
+        <Button size="sm" className="gap-2 shadow-sm" onClick={() => void handleGenerateCode()}>
+          <Sparkles className="size-3.5" aria-hidden="true" />
           Generate Invite Link
         </Button>
       </div>
@@ -360,34 +438,71 @@ function InviteLinkSection({ sceneId, creatorId, existingInviteCode }: InviteLin
   }
 
   return (
-    <div className="space-y-2">
-      <Label className="text-xs text-muted-foreground">Invite Link</Label>
+    <div
+      className={cn(
+        "rounded-xl border p-4 space-y-3",
+        "bg-linear-to-br from-emerald-500/5 via-transparent to-transparent",
+      )}>
+      <div className="flex items-center gap-2">
+        <div className="size-7 rounded-full bg-emerald-500/10 flex items-center justify-center">
+          <Link2 className="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+        </div>
+        <div>
+          <Label className="text-xs font-semibold">Invite Link</Label>
+          <p className="text-[10px] text-muted-foreground">Share with players to join</p>
+        </div>
+      </div>
+
       <div className="flex items-center gap-2">
         <Input
           readOnly
           value={inviteUrl ?? ""}
-          className="h-8 text-xs font-mono"
+          className={cn(
+            "h-9 text-xs font-mono bg-background/50",
+            "focus-visible:ring-emerald-500/50",
+          )}
           onFocus={(e) => e.target.select()}
+          aria-label="Invite link URL"
+          autoComplete="off"
         />
-        <TooltipProvider delayDuration={200}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button size="icon-sm" variant="outline" onClick={() => void handleCopyLink()}>
-                {copied ? <Check className="size-3.5" /> : <ClipboardCopy className="size-3.5" />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{copied ? "Copied!" : "Copy link"}</TooltipContent>
-          </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button size="icon-sm" variant="outline" onClick={() => void handleRegenerateCode()}>
-                <RefreshCw className="size-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Regenerate (invalidates old link)</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon"
+              variant={copied ? "default" : "outline"}
+              className={cn(
+                "size-9 shrink-0 transition-all duration-200",
+                copied && "bg-emerald-500 hover:bg-emerald-600 border-emerald-500",
+              )}
+              onClick={() => void handleCopyLink()}
+              aria-label={copied ? "Copied to clipboard" : "Copy link"}>
+              {copied ? (
+                <Check className="size-4" aria-hidden="true" />
+              ) : (
+                <ClipboardCopy className="size-4" aria-hidden="true" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="text-xs">{copied ? "Copied!" : "Copy Link"}</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon"
+              variant="outline"
+              className="size-9 shrink-0"
+              onClick={() => void handleRegenerateCode()}
+              aria-label="Regenerate invite link">
+              <RefreshCw className="size-4" aria-hidden="true" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="text-xs max-w-[180px] text-center">
+            Regenerate Link
+            <span className="block text-muted-foreground">Invalidates previous link</span>
+          </TooltipContent>
+        </Tooltip>
       </div>
     </div>
   );
@@ -397,14 +512,29 @@ interface PlayersSheetProps {
   sceneId: string;
 }
 
+const EmptyPlayersState = () => (
+  <div className="text-center py-10 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+    <div
+      className={cn(
+        "mx-auto w-16 h-16 rounded-2xl mb-4",
+        "bg-linear-to-br from-muted/80 to-muted/40",
+        "flex items-center justify-center",
+        "shadow-inner",
+      )}>
+      <UserPlus className="size-7 text-muted-foreground/60" aria-hidden="true" />
+    </div>
+    <p className="text-sm font-medium mb-1">No Adventurers Yet</p>
+    <p className="text-xs text-muted-foreground leading-relaxed max-w-[200px] mx-auto">
+      Share your invite link to assemble your party
+    </p>
+  </div>
+);
+
 export function PlayersSheet({ sceneId }: PlayersSheetProps) {
   const { user } = useUser();
   const creatorId = user?.id ?? "";
 
-  const scene = useQuery(
-    api.scenes.getById,
-    sceneId ? { id: sceneId as Id<"scenes"> } : "skip",
-  );
+  const scene = useQuery(api.scenes.getById, sceneId ? { id: sceneId as Id<"scenes"> } : "skip");
 
   const tokenTemplates = useTokenStore((s) => s.tokenTemplates);
   const tokens = useTokenStore((s) => s.tokens);
@@ -419,12 +549,12 @@ export function PlayersSheet({ sceneId }: PlayersSheetProps) {
   );
   const inviteCode = scene?.inviteCode as string | undefined;
 
-  const tokenInstancesForAssignment = useMemo(
+  const tokenInstancesForAssignment = useMemo<TokenInstance[]>(
     () => tokens.map((t) => ({ id: t.id, templateId: t.templateId })),
     [tokens],
   );
 
-  const tokenTemplatesForDisplay = useMemo(
+  const tokenTemplatesForDisplay = useMemo<TokenTemplate[]>(
     () =>
       tokenTemplates.map((t) => ({
         id: t.id,
@@ -453,90 +583,124 @@ export function PlayersSheet({ sceneId }: PlayersSheetProps) {
     return () => clearInterval(interval);
   }, [storeSceneId, creatorId, dmHeartbeat]);
 
+  const activeCount = useMemo(
+    () => players.filter((p) => activePlayerIds.includes(p.id)).length,
+    [players, activePlayerIds],
+  );
+
   return (
-    <Sheet>
-      <SheetTrigger asChild>
-        <HudSurface className="items-center">
-          <TooltipProvider>
+    <TooltipProvider delayDuration={150}>
+      <Sheet>
+        <SheetTrigger asChild>
+          <HudSurface className="items-center">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="sm" variant="outline">
-                  <Users className="size-4 mr-2" />
-                  Players
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={cn(
+                    "gap-2 transition-all duration-200",
+                    activeCount > 0 && "border-amber-500/30 shadow-sm shadow-amber-500/10",
+                  )}>
+                  <Users className="size-4" aria-hidden="true" />
+                  <span>Players</span>
                   {players.length > 0 && (
-                    <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0 h-4">
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "text-[10px] px-1.5 py-0 h-4 font-semibold tabular-nums",
+                        activeCount > 0 && "bg-amber-500/20 text-amber-600 dark:text-amber-400",
+                      )}>
                       {players.length}
                     </Badge>
                   )}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>Manage players &amp; invites</p>
+              <TooltipContent side="bottom" className="text-xs">
+                Manage Players &amp; Invites
               </TooltipContent>
             </Tooltip>
-          </TooltipProvider>
-        </HudSurface>
-      </SheetTrigger>
+          </HudSurface>
+        </SheetTrigger>
 
-      <SheetContent side="right" className="flex flex-col w-[400px] sm:max-w-[400px]">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <Users className="size-5" />
-            Players
-          </SheetTitle>
-          <SheetDescription>
-            Invite players to join this scene remotely. Manage their profiles and token assignments.
-          </SheetDescription>
-        </SheetHeader>
-
-        <ScrollArea className="flex-1 -mx-4 px-4">
-          <div className="space-y-4 pb-4">
-            <InviteLinkSection
-              sceneId={sceneId as Id<"scenes">}
-              creatorId={creatorId}
-              existingInviteCode={inviteCode}
-            />
-
-            <Separator />
-
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium">
-                  Invited Players
-                  {players.length > 0 && (
-                    <span className="text-muted-foreground ml-1.5">({players.length})</span>
-                  )}
-                </h3>
+        <SheetContent
+          side="right"
+          className={cn(
+            "flex flex-col w-[420px] sm:max-w-[420px] px-4",
+            "bg-linear-to-b from-background via-background to-muted/20",
+            "*:data-radix-scroll-area-viewport:overscroll-contain",
+          )}>
+          <SheetHeader className="pb-2">
+            <SheetTitle className="flex items-center gap-2.5 text-lg">
+              <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Users className="size-4 text-primary" aria-hidden="true" />
               </div>
+              Party Management
+            </SheetTitle>
+            <SheetDescription className="text-xs leading-relaxed">
+              Invite players to join your table remotely. Manage profiles, assign tokens, and
+              control turn order.
+            </SheetDescription>
+          </SheetHeader>
 
-              {players.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <UserPlus className="size-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No players yet</p>
-                  <p className="text-xs mt-1">
-                    Share the invite link to let players join your scene
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {players.map((player) => (
-                    <PlayerCard
-                      key={player.id}
-                      player={player}
-                      sceneId={sceneId as Id<"scenes">}
-                      creatorId={creatorId}
-                      isActive={activePlayerIds.includes(player.id)}
-                      tokenTemplates={tokenTemplatesForDisplay}
-                      tokenInstances={tokenInstancesForAssignment}
-                    />
-                  ))}
-                </div>
-              )}
+          <ScrollArea className="flex-1 -mx-6 px-6 mt-2">
+            <div className="space-y-5 pb-6">
+              <InviteLinkSection
+                sceneId={sceneId as Id<"scenes">}
+                creatorId={creatorId}
+                existingInviteCode={inviteCode}
+              />
+
+              <Separator className="bg-border/50" />
+
+              <section>
+                <header className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-sm font-semibold tracking-tight">Party Members</h3>
+                    {players.length > 0 && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        {players.length} player{players.length !== 1 ? "s" : ""}
+                        {activeCount > 0 && (
+                          <span className="text-amber-600 dark:text-amber-400">
+                            {" "}
+                            · {activeCount} active
+                          </span>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                </header>
+
+                {players.length === 0 ? (
+                  <EmptyPlayersState />
+                ) : (
+                  <div className="space-y-3">
+                    {players.map((player, index) => (
+                      <div
+                        key={player.id}
+                        className="animate-in fade-in-0 slide-in-from-right-2"
+                        style={{
+                          animationDelay: `${index * 50}ms`,
+                          animationFillMode: "backwards",
+                        }}>
+                        <PlayerCard
+                          player={player}
+                          sceneId={sceneId as Id<"scenes">}
+                          creatorId={creatorId}
+                          isActive={activePlayerIds.includes(player.id)}
+                          tokenTemplates={tokenTemplatesForDisplay}
+                          tokenInstances={tokenInstancesForAssignment}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
             </div>
-          </div>
-        </ScrollArea>
-      </SheetContent>
-    </Sheet>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
+    </TooltipProvider>
   );
 }
 
