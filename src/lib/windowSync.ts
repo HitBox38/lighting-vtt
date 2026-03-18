@@ -1,10 +1,12 @@
-import type { Light, Mirror } from "@shared/index";
+import type { Light, Mirror, TokenInstance, TokenTemplate } from "@shared/index";
 
 const CHANNEL_NAME = "lighting-vtt-sync";
 
 export interface SyncState {
   lights: Light[];
   mirrors: Mirror[];
+  tokenTemplates: TokenTemplate[];
+  tokens: TokenInstance[];
   activePresetId: string | null;
 }
 

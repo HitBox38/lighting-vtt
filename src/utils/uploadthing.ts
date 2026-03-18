@@ -1,11 +1,23 @@
-import { generateUploadButton, generateUploadDropzone } from "@uploadthing/react";
+import {
+  generateReactHelpers,
+  generateUploadButton,
+  generateUploadDropzone,
+} from "@uploadthing/react";
 
-import type { UploadRouter } from "../../api/uploadthing";
+import type { UploadRouter } from "../../convex/http";
+
+const CONVEX_URL = import.meta.env.VITE_CONVEX_SITE_URL as string;
+
+const helpers = generateReactHelpers<UploadRouter>({
+  url: `${CONVEX_URL}/api/uploadthing`,
+});
+
+export const { useUploadThing } = helpers;
 
 export const UploadButton = generateUploadButton<UploadRouter>({
-  url: "/api/uploadthing",
+  url: `${CONVEX_URL}/api/uploadthing`,
 });
 
 export const UploadDropzone = generateUploadDropzone<UploadRouter>({
-  url: "/api/uploadthing",
+  url: `${CONVEX_URL}/api/uploadthing`,
 });

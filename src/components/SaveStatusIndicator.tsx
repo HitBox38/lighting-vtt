@@ -1,4 +1,5 @@
 import { CheckCircle2, CloudOff, Loader2 } from "lucide-react";
+import { HUD_SURFACE_CLASSNAME } from "@/components/hud/HudSurface";
 import { cn } from "@/lib/utils";
 
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -15,14 +16,17 @@ export function SaveStatusIndicator({ status, className }: SaveStatusIndicatorPr
 
   return (
     <div
+      role="status"
+      aria-live="polite"
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-lg bg-background/80 px-3 py-1.5 text-sm shadow-lg ring-1 ring-border backdrop-blur",
+        HUD_SURFACE_CLASSNAME,
+        "items-center gap-1.5 px-3 py-1.5 text-sm",
         className
       )}>
       {status === "saving" && (
         <>
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          <span className="text-muted-foreground">Saving...</span>
+          <span className="text-muted-foreground">Saving…</span>
         </>
       )}
       {status === "saved" && (

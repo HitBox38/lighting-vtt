@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowLeft, ArrowRight, FilePlus, Save, Shuffle, Trash2 } from "lucide-react";
 import { useLightManager } from "@/hooks/useLightManager";
+import { HudSurface } from "@/components/hud/HudSurface";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function PresetToolbar() {
   const {
@@ -33,13 +34,19 @@ export function PresetToolbar() {
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [newPresetName, setNewPresetName] = useState("");
 
+  const canCyclePresets = Boolean(activePresetId) && presets.length > 1;
+  const saveDialogLabel = activePresetId ? "Save As New Preset" : "Save New Preset";
+
   const handleSaveAsNew = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPresetName.trim()) {
-      savePreset(newPresetName.trim());
-      setNewPresetName("");
-      setIsSaveDialogOpen(false);
+    const presetName = newPresetName.trim();
+    if (!presetName) {
+      return;
     }
+
+    savePreset(presetName);
+    setNewPresetName("");
+    setIsSaveDialogOpen(false);
   };
 
   const handleUpdateCurrent = () => {
@@ -59,80 +66,110 @@ export function PresetToolbar() {
   };
 
   const handlePreviousPreset = () => {
-    if (activePresetId) {
-      const previousPresetId = presets.findIndex((preset) => preset.id === activePresetId) - 1;
-      if (previousPresetId >= 0) {
-        loadPreset(presets[previousPresetId].id);
-      } else {
-        loadPreset(presets[presets.length - 1].id);
-      }
+    if (!activePresetId || presets.length < 2) {
+      return;
     }
+
+    const activeIndex = presets.findIndex((preset) => preset.id === activePresetId);
+    if (activeIndex < 0) {
+      return;
+    }
+
+    const previousIndex = activeIndex > 0 ? activeIndex - 1 : presets.length - 1;
+    loadPreset(presets[previousIndex].id);
   };
 
   const handleNextPreset = () => {
-    if (activePresetId) {
-      const nextPresetId = presets.findIndex((preset) => preset.id === activePresetId) + 1;
-      if (nextPresetId < presets.length) {
-        loadPreset(presets[nextPresetId].id);
-      } else {
-        loadPreset(presets[0].id);
-      }
+    if (!activePresetId || presets.length < 2) {
+      return;
     }
+
+    const activeIndex = presets.findIndex((preset) => preset.id === activePresetId);
+    if (activeIndex < 0) {
+      return;
+    }
+
+    const nextIndex = activeIndex < presets.length - 1 ? activeIndex + 1 : 0;
+    loadPreset(presets[nextIndex].id);
   };
 
   return (
-    <div className="inline-flex gap-2 rounded-lg bg-background/80 p-2 shadow-lg ring-1 ring-border backdrop-blur items-center">
-      <Select value={activePresetId || ""} onValueChange={handleValueChange}>
-        <SelectTrigger className="w-[180px] h-8">
-          <SelectValue placeholder="Select preset..." />
-        </SelectTrigger>
-        <SelectContent>
-          {presets.length === 0 ? (
-            <div className="p-2 text-sm text-muted-foreground text-center">No presets</div>
-          ) : (
-            presets.map((preset) => (
-              <SelectItem key={preset.id} value={preset.id}>
-                {preset.name}
-              </SelectItem>
-            ))
-          )}
-        </SelectContent>
-      </Select>
+    <TooltipProvider>
+      <HudSurface className="items-center gap-2">
+        <div className="min-w-0">
+          <Select value={activePresetId || ""} onValueChange={handleValueChange}>
+            <SelectTrigger className="h-8 w-[200px] min-w-[160px]">
+              <SelectValue placeholder="Select preset…" />
+            </SelectTrigger>
+            <SelectContent>
+              {presets.length === 0 ? (
+                <div className="p-2 text-center text-sm text-muted-foreground">No presets</div>
+              ) : (
+                presets.map((preset) => (
+                  <SelectItem key={preset.id} value={preset.id}>
+                    {preset.name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
 
-      {activePresetId ? (
-        <>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button size="icon-sm" variant="outline" onClick={handleUpdateCurrent}>
-                <Save className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <p>Update Current Preset</p>
-            </TooltipContent>
-          </Tooltip>
-          <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
+        <div className="hidden h-5 w-px bg-border/70 sm:block" aria-hidden="true" />
+
+        <div className="flex items-center gap-1.5">
+          {activePresetId && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon-sm"
+                  variant="outline"
+                  onClick={handleUpdateCurrent}
+                  aria-label="Update Current Preset">
+                  <Save className="size-4" aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Update Current Preset</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+
+          <Dialog
+            open={isSaveDialogOpen}
+            onOpenChange={(open) => {
+              setIsSaveDialogOpen(open);
+              if (!open) {
+                setNewPresetName("");
+              }
+            }}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DialogTrigger asChild>
-                  <Button size="icon-sm" variant="outline">
-                    <FilePlus className="size-4" />
+                  <Button size="icon-sm" variant="outline" aria-label={saveDialogLabel}>
+                    {activePresetId ? (
+                      <FilePlus className="size-4" aria-hidden="true" />
+                    ) : (
+                      <Save className="size-4" aria-hidden="true" />
+                    )}
                   </Button>
                 </DialogTrigger>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                <p>Save As New Preset</p>
+                <p>{saveDialogLabel}</p>
               </TooltipContent>
             </Tooltip>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle>Save As New Preset</DialogTitle>
+                <DialogTitle>{saveDialogLabel}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSaveAsNew} className="grid gap-4 py-4">
                 <div className="grid gap-2">
                   <Input
-                    id="name"
-                    placeholder="Preset name"
+                    id="preset-name"
+                    name="presetName"
+                    placeholder="Preset name…"
+                    autoComplete="off"
                     value={newPresetName}
                     onChange={(e) => setNewPresetName(e.target.value)}
                     autoFocus
@@ -144,102 +181,78 @@ export function PresetToolbar() {
               </form>
             </DialogContent>
           </Dialog>
-        </>
-      ) : (
-        <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
+        </div>
+
+        <div className="hidden h-5 w-px bg-border/70 sm:block" aria-hidden="true" />
+
+        <div className="flex items-center gap-1.5">
           <Tooltip>
             <TooltipTrigger asChild>
-              <DialogTrigger asChild>
-                <Button size="icon-sm" variant="outline">
-                  <Save className="size-4" />
-                </Button>
-              </DialogTrigger>
+              <Button
+                size="icon-sm"
+                variant="outline"
+                disabled={!canCyclePresets}
+                onClick={handlePreviousPreset}
+                aria-label="Go to Previous Preset">
+                <ArrowLeft className="size-4" aria-hidden="true" />
+              </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              <p>Save New Preset</p>
+              <p>Go to Previous Preset</p>
             </TooltipContent>
           </Tooltip>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Save New Preset</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSaveAsNew} className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Input
-                  id="name"
-                  placeholder="Preset name"
-                  value={newPresetName}
-                  onChange={(e) => setNewPresetName(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <div className="flex justify-end">
-                <Button type="submit">Save</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      )}
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon-sm"
-            variant="outline"
-            disabled={!activePresetId || presets.length < 2}
-            onClick={handlePreviousPreset}>
-            <ArrowLeft className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p>Go to previous preset</p>
-        </TooltipContent>
-      </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon-sm"
+                variant="outline"
+                onClick={randomizePreset}
+                disabled={presets.length < 2}
+                aria-label="Randomize Preset">
+                <Shuffle className="size-4" aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>Randomize Preset</p>
+            </TooltipContent>
+          </Tooltip>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon-sm"
-            variant="outline"
-            onClick={randomizePreset}
-            disabled={presets.length < 2}>
-            <Shuffle className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p>Randomize Preset</p>
-        </TooltipContent>
-      </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon-sm"
+                variant="outline"
+                disabled={!canCyclePresets}
+                onClick={handleNextPreset}
+                aria-label="Go to Next Preset">
+                <ArrowRight className="size-4" aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>Go to Next Preset</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon-sm"
-            variant="outline"
-            disabled={!activePresetId || presets.length < 2}
-            onClick={handleNextPreset}>
-            <ArrowRight className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p>Go to next preset</p>
-        </TooltipContent>
-      </Tooltip>
+        <div className="hidden h-5 w-px bg-border/70 sm:block" aria-hidden="true" />
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon-sm"
-            variant="destructive"
-            onClick={handleDelete}
-            disabled={!activePresetId}>
-            <Trash2 className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p>Delete Current Preset</p>
-        </TooltipContent>
-      </Tooltip>
-    </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon-sm"
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={!activePresetId}
+              aria-label="Delete Current Preset">
+              <Trash2 className="size-4" aria-hidden="true" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Delete Current Preset</p>
+          </TooltipContent>
+        </Tooltip>
+      </HudSurface>
+    </TooltipProvider>
   );
 }

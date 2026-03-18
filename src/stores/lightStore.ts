@@ -15,8 +15,8 @@ import {
   type Mirror,
   type MirrorUpdate,
   mirrorSchema,
-  type SavePresetResponse,
-  type DeletePresetResponse,
+  type TokenInstance,
+  type TokenTemplate,
 } from "@shared/index";
 import {
   broadcastState,
@@ -25,8 +25,12 @@ import {
   subscribeToStateRequests,
   type SyncState,
 } from "@/lib/windowSync";
+import { convexClient } from "@/lib/convex";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+import type { SaveStatus } from "@/components/SaveStatusIndicator";
+import { useTokenStore } from "@/stores/tokenStore";
 
-// Check if this is a GM window (defaults to true)
 const getIsGM = (): boolean => {
   if (typeof window === "undefined") return true;
   const params = new URLSearchParams(window.location.search);
@@ -44,6 +48,7 @@ interface LightStoreState {
   sceneId: string | null;
   creatorId: string | null;
   initialStateHash: string | null;
+  saveStatus: SaveStatus;
   addLight: (type: LightType, x: number, y: number) => string;
   updateLight: (id: string, partial: LightUpdate) => void;
   removeLight: (id: string) => void;
@@ -61,10 +66,11 @@ interface LightStoreState {
     creatorId: string,
     lights: Light[],
     mirrors: Mirror[],
-    presets: LightPreset[]
+    tokenTemplates: TokenTemplate[],
+    tokens: TokenInstance[],
+    presets: LightPreset[],
   ) => void;
   getStateHash: () => string;
-  // Internal method for applying synced state from GM
   _applySyncedState: (state: SyncState) => void;
 }
 
@@ -75,41 +81,28 @@ const createId = () => {
   return `id-${Math.random().toString(36).slice(2, 10)}`;
 };
 
-// API helper functions for preset operations
-const savePresetToAPI = async (
-  sceneId: string,
-  creatorId: string,
-  preset: LightPreset
-): Promise<SavePresetResponse> => {
-  try {
-    const response = await fetch(`/api/scene/${sceneId}/presets`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ creatorId, preset }),
+const persistPreset = (sceneId: string, creatorId: string, preset: LightPreset): void => {
+  convexClient
+    .mutation(api.scenes.savePreset, {
+      id: sceneId as Id<"scenes">,
+      creatorId,
+      preset,
+    })
+    .catch((error) => {
+      console.error("Failed to persist preset:", error);
     });
-    return (await response.json()) as SavePresetResponse;
-  } catch (error) {
-    console.error("Failed to save preset to API:", error);
-    return { message: "Network error", success: false, payload: null };
-  }
 };
 
-const deletePresetFromAPI = async (
-  sceneId: string,
-  creatorId: string,
-  presetId: string
-): Promise<DeletePresetResponse> => {
-  try {
-    const response = await fetch(`/api/scene/${sceneId}/presets/${presetId}`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ creatorId }),
+const removePreset = (sceneId: string, creatorId: string, presetId: string): void => {
+  convexClient
+    .mutation(api.scenes.deletePreset, {
+      id: sceneId as Id<"scenes">,
+      creatorId,
+      presetId,
+    })
+    .catch((error) => {
+      console.error("Failed to delete preset:", error);
     });
-    return (await response.json()) as DeletePresetResponse;
-  } catch (error) {
-    console.error("Failed to delete preset from API:", error);
-    return { message: "Network error", success: false };
-  }
 };
 
 const buildLight = (type: LightType, x: number, y: number): Light => {
@@ -160,8 +153,13 @@ const buildMirror = (x: number, y: number): Mirror => {
   return mirrorSchema.parse(candidate);
 };
 
-const computeStateHash = (lights: Light[], mirrors: Mirror[]): string => {
-  return JSON.stringify({ lights, mirrors });
+const computeStateHash = (
+  lights: Light[],
+  mirrors: Mirror[],
+  tokenTemplates: TokenTemplate[],
+  tokens: TokenInstance[]
+): string => {
+  return JSON.stringify({ lights, mirrors, tokenTemplates, tokens });
 };
 
 export const useLightStore = create<LightStoreState>()(
@@ -174,6 +172,7 @@ export const useLightStore = create<LightStoreState>()(
     sceneId: null,
     creatorId: null,
     initialStateHash: null,
+    saveStatus: "idle",
     addLight: (type, x, y) => {
       const light = buildLight(type, x, y);
       set((state) => ({ lights: state.lights.concat(light) }));
@@ -239,9 +238,8 @@ export const useLightStore = create<LightStoreState>()(
       const nextPresets = [...state.presets, newPreset];
       set({ presets: nextPresets, activePresetId: newPreset.id });
 
-      // Persist to API if we have a scene loaded
       if (state.sceneId && state.creatorId) {
-        void savePresetToAPI(state.sceneId, state.creatorId, newPreset);
+        persistPreset(state.sceneId, state.creatorId, newPreset);
       }
 
       return newPreset.id;
@@ -260,16 +258,14 @@ export const useLightStore = create<LightStoreState>()(
       nextPresets[index] = updatedPreset;
       set({ presets: nextPresets });
 
-      // Persist to API if we have a scene loaded
       if (state.sceneId && state.creatorId) {
-        void savePresetToAPI(state.sceneId, state.creatorId, updatedPreset);
+        persistPreset(state.sceneId, state.creatorId, updatedPreset);
       }
     },
     loadPreset: (id) => {
       const state = get();
       const preset = state.presets.find((p) => p.id === id);
       if (preset) {
-        // Deep copy lights and mirrors to avoid reference issues if modified
         const lightsCopy = JSON.parse(JSON.stringify(preset.lights));
         const mirrorsCopy = JSON.parse(JSON.stringify(preset.mirrors ?? []));
         set({ lights: lightsCopy, mirrors: mirrorsCopy, activePresetId: id });
@@ -283,7 +279,6 @@ export const useLightStore = create<LightStoreState>()(
       const randomIndex = Math.floor(Math.random() * availablePresets.length);
       const randomPreset = availablePresets[randomIndex];
 
-      // Reuse loadPreset logic
       get().loadPreset(randomPreset.id);
     },
     deletePreset: (id) => {
@@ -293,17 +288,16 @@ export const useLightStore = create<LightStoreState>()(
       const nextActiveId = state.activePresetId === id ? null : state.activePresetId;
       set({ presets: nextPresets, activePresetId: nextActiveId });
 
-      // Persist to API if we have a scene loaded
       if (state.sceneId && state.creatorId) {
-        void deletePresetFromAPI(state.sceneId, state.creatorId, id);
+        removePreset(state.sceneId, state.creatorId, id);
       }
     },
     setHoveredLightId: (id) => set({ hoveredLightId: id }),
-    loadScene: (sceneId, creatorId, lights, mirrors, presets) => {
+    loadScene: (sceneId, creatorId, lights, mirrors, tokenTemplates, tokens, presets) => {
       const lightsCopy = JSON.parse(JSON.stringify(lights)) as Light[];
       const mirrorsCopy = JSON.parse(JSON.stringify(mirrors)) as Mirror[];
       const presetsCopy = JSON.parse(JSON.stringify(presets)) as LightPreset[];
-      const hash = computeStateHash(lightsCopy, mirrorsCopy);
+      const hash = computeStateHash(lightsCopy, mirrorsCopy, tokenTemplates, tokens);
       set({
         sceneId,
         creatorId,
@@ -316,7 +310,8 @@ export const useLightStore = create<LightStoreState>()(
     },
     getStateHash: () => {
       const state = get();
-      return computeStateHash(state.lights, state.mirrors);
+      const tokenState = useTokenStore.getState();
+      return computeStateHash(state.lights, state.mirrors, tokenState.tokenTemplates, tokenState.tokens);
     },
     _applySyncedState: (syncedState) => {
       set({
@@ -324,58 +319,140 @@ export const useLightStore = create<LightStoreState>()(
         mirrors: syncedState.mirrors,
         activePresetId: syncedState.activePresetId,
       });
+      useTokenStore.getState().applySyncedTokens(syncedState.tokenTemplates, syncedState.tokens);
     },
-  }))
+  })),
 );
 
-// Subscribe to state changes and broadcast (GM only)
 if (IS_GM) {
+  const getCombinedSyncState = (): SyncState => {
+    const lightState = useLightStore.getState();
+    const tokenState = useTokenStore.getState();
+    return {
+      lights: lightState.lights,
+      mirrors: lightState.mirrors,
+      tokenTemplates: tokenState.tokenTemplates,
+      tokens: tokenState.tokens,
+      activePresetId: lightState.activePresetId,
+    };
+  };
+
   useLightStore.subscribe((state, prevState) => {
-    // Only broadcast if lights, mirrors, or activePresetId changed
-    if (
-      state.lights !== prevState.lights ||
-      state.mirrors !== prevState.mirrors ||
-      state.activePresetId !== prevState.activePresetId
-    ) {
-      broadcastState({
-        lights: state.lights,
-        mirrors: state.mirrors,
-        activePresetId: state.activePresetId,
-      });
+    if (state.lights !== prevState.lights || state.mirrors !== prevState.mirrors) {
+      broadcastState(getCombinedSyncState());
+      return;
+    }
+    if (state.activePresetId !== prevState.activePresetId) {
+      broadcastState(getCombinedSyncState());
     }
   });
 
-  // Listen for state requests from player windows and respond
-  subscribeToStateRequests(() => {
-    const state = useLightStore.getState();
-    return {
-      lights: state.lights,
-      mirrors: state.mirrors,
-      activePresetId: state.activePresetId,
-    };
+  useTokenStore.subscribe((state, prevState) => {
+    if (state.tokenTemplates !== prevState.tokenTemplates || state.tokens !== prevState.tokens) {
+      broadcastState(getCombinedSyncState());
+    }
   });
 
-  // Broadcast initial state when GM window is ready
+  subscribeToStateRequests(() => {
+    return getCombinedSyncState();
+  });
+
   if (typeof window !== "undefined") {
-    // Small delay to ensure store is initialized
     setTimeout(() => {
-      const state = useLightStore.getState();
-      broadcastState({
-        lights: state.lights,
-        mirrors: state.mirrors,
-        activePresetId: state.activePresetId,
-      });
+      broadcastState(getCombinedSyncState());
     }, 100);
   }
+
+  const DEBOUNCE_DELAY = 2000;
+  const SAVED_DISPLAY_DURATION = 2000;
+
+  let persistTimer: ReturnType<typeof setTimeout> | null = null;
+  let savedDisplayTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastPersistedHash: string | null = null;
+
+  const schedulePersist = () => {
+    const state = useLightStore.getState();
+
+    if (!state.sceneId || !state.creatorId) {
+      return;
+    }
+
+    if (persistTimer) {
+      clearTimeout(persistTimer);
+    }
+
+    const { sceneId, creatorId } = state;
+
+    persistTimer = setTimeout(() => {
+      const current = useLightStore.getState();
+      const currentTokens = useTokenStore.getState();
+      const currentHash = computeStateHash(
+        current.lights,
+        current.mirrors,
+        currentTokens.tokenTemplates,
+        currentTokens.tokens
+      );
+
+      if (currentHash === lastPersistedHash) {
+        return;
+      }
+
+      if (currentHash === current.initialStateHash && lastPersistedHash === null) {
+        return;
+      }
+
+      useLightStore.setState({ saveStatus: "saving" });
+
+      convexClient
+        .mutation(api.scenes.update, {
+          id: sceneId as Id<"scenes">,
+          creatorId,
+          lights: current.lights,
+          mirrors: current.mirrors,
+          tokenTemplates: currentTokens.tokenTemplates,
+          tokens: currentTokens.tokens,
+        })
+        .then(() => {
+          lastPersistedHash = currentHash;
+          useLightStore.setState({ saveStatus: "saved" });
+
+          if (savedDisplayTimer) {
+            clearTimeout(savedDisplayTimer);
+          }
+          savedDisplayTimer = setTimeout(() => {
+            useLightStore.setState({ saveStatus: "idle" });
+          }, SAVED_DISPLAY_DURATION);
+        })
+        .catch((error) => {
+          console.error("Auto-save failed:", error);
+          useLightStore.setState({ saveStatus: "error" });
+        });
+    }, DEBOUNCE_DELAY);
+  };
+
+  useLightStore.subscribe((state, prevState) => {
+    if (
+      state.lights === prevState.lights &&
+      state.mirrors === prevState.mirrors
+    ) {
+      return;
+    }
+    schedulePersist();
+  });
+
+  useTokenStore.subscribe((state, prevState) => {
+    if (state.tokenTemplates === prevState.tokenTemplates && state.tokens === prevState.tokens) {
+      return;
+    }
+    schedulePersist();
+  });
 }
 
-// Subscribe to GM updates (player windows only)
 if (!IS_GM) {
   subscribeToStateUpdates((syncedState) => {
     useLightStore.getState()._applySyncedState(syncedState);
   });
 
-  // Request current state when player window loads
   if (typeof window !== "undefined") {
     requestState();
   }

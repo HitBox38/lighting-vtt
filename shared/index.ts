@@ -103,6 +103,81 @@ export type MirrorUpdate = MirrorUpdatableFields;
 
 export const DEFAULT_MIRROR_LENGTH = 200;
 
+// --- TOKENS ---
+
+export const tokenTemplateSchema = z
+  .object({
+    id: z.string().min(1, "Token template id is required"),
+    name: z.string().min(1, "Token template name is required"),
+    imageUrl: z.string().url("Token image must be a valid URL"),
+    imageKey: z.string().min(1, "Token image key is required"),
+    borderColor: z
+      .string()
+      .regex(HEX_COLOR, "Border color must be a hex string like #RRGGBB")
+      .optional()
+      .default("#ffffff"),
+  })
+  .strict();
+
+export type TokenTemplate = z.infer<typeof tokenTemplateSchema>;
+
+interface TokenTemplateUpdatableFields {
+  name?: string;
+  imageUrl?: string;
+  imageKey?: string;
+  borderColor?: string;
+}
+
+export type TokenTemplateUpdate = TokenTemplateUpdatableFields;
+
+export const tokenInstanceSchema = z
+  .object({
+    id: z.string().min(1, "Token instance id is required"),
+    templateId: z.string().min(1, "Token template id is required"),
+    x: z.number(),
+    y: z.number(),
+    size: z.number().positive().optional().default(22),
+    hidden: z.boolean().optional().default(false),
+    initiative: z.number().int().min(1).max(20).optional(),
+  })
+  .strict();
+
+export type TokenInstance = z.infer<typeof tokenInstanceSchema>;
+
+interface TokenInstanceUpdatableFields {
+  templateId?: string;
+  x?: number;
+  y?: number;
+  size?: number;
+  hidden?: boolean;
+  initiative?: number;
+}
+
+export type TokenInstanceUpdate = TokenInstanceUpdatableFields;
+
+// --- SCENE PLAYERS ---
+
+export const scenePlayerSchema = z
+  .object({
+    id: z.string().min(1, "Player id is required"),
+    playerName: z.string().min(1, "Player name is required"),
+    characterName: z.string().min(1, "Character name is required"),
+    clerkUserId: z.string().optional(),
+    tokenInstanceIds: z.array(z.string()),
+  })
+  .strict();
+
+export type ScenePlayer = z.infer<typeof scenePlayerSchema>;
+
+interface ScenePlayerUpdatableFields {
+  playerName?: string;
+  characterName?: string;
+  clerkUserId?: string;
+  tokenInstanceIds?: string[];
+}
+
+export type ScenePlayerUpdate = ScenePlayerUpdatableFields;
+
 // --- SCENES / PRESETS ---
 
 export type LightPreset = {
@@ -111,77 +186,3 @@ export type LightPreset = {
   lights: Light[];
   mirrors: Mirror[];
 };
-
-// --- API ---
-
-export interface SaveMapPayload {
-  creatorId: string;
-  name: string;
-  mapUrl: string;
-  lightsState: Record<string, unknown>;
-  mirrorsState: Record<string, unknown>;
-}
-
-export interface Scene {
-  id: string;
-  creatorId: string;
-  name: string;
-  mapUrl: string;
-  lightsState: Record<string, unknown>;
-  mirrorsState: Record<string, unknown>;
-  presets: LightPreset[];
-  createdAt: Date | string | number;
-  updatedAt: Date | string | number;
-}
-
-export interface GetMapsResponse {
-  message: string;
-  payload: Scene[] | null;
-}
-
-export interface GetSceneResponse {
-  message: string;
-  payload: Scene | null;
-}
-
-export interface SaveMapResponse {
-  message: string;
-  payload: { id: string } | null;
-}
-
-export interface UpdateScenePayload {
-  sceneId: string;
-  creatorId: string;
-  lightsState: Light[];
-  mirrorsState: Mirror[];
-}
-
-export interface UpdateSceneResponse {
-  message: string;
-  success: boolean;
-}
-
-// --- PRESET API ---
-
-export interface SavePresetPayload {
-  sceneId: string;
-  creatorId: string;
-  preset: LightPreset;
-}
-
-export interface SavePresetResponse {
-  message: string;
-  success: boolean;
-  payload: { presetId: string } | null;
-}
-
-export interface DeletePresetPayload {
-  sceneId: string;
-  creatorId: string;
-  presetId: string;
-}
-
-export interface DeletePresetResponse {
-  message: string;
-  success: boolean;
-}

@@ -21,16 +21,30 @@ import MirrorLayer from "@/components/MirrorLayer";
 import MirrorControls from "@/components/MirrorControls";
 import LightContextMenu, { type LightContextMenuState } from "@/components/LightContextMenu";
 import MirrorContextMenu, { type MirrorContextMenuState } from "@/components/MirrorContextMenu";
+import TokenContextMenu, { type TokenContextMenuState } from "@/components/TokenContextMenu";
+import TokenLayer from "@/components/TokenLayer";
+import TokenControls from "@/components/TokenControls";
+import TokenToolbar from "@/components/TokenToolbar";
 import { useLightManager } from "@/hooks/useLightManager";
 import { useMirrorManager } from "@/hooks/useMirrorManager";
+import { useTokenManager } from "@/hooks/useTokenManager";
 import type { LightType } from "@shared/index";
 import { UserToolbar } from "@/components/UserToolbar";
+import { InitiativeSidebar } from "@/components/InitiativeSidebar";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { useUIPreferencesStore } from "@/stores/uiPreferencesStore";
+import { PlayersSheet } from "@/components/PlayersSheet";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 
 extend({ Container: PixiContainer, Sprite: PixiSprite, Graphics: PixiGraphics });
 
 interface Props {
   mapUrl: string;
   isGM?: boolean;
+  remotePlayerId?: string | null;
+  sceneId?: string | null;
 }
 
 const MIN_ZOOM = 0.5;
@@ -46,7 +60,11 @@ const getCanvasFromApp = (app: PixiApplication | null) => {
     null) as HTMLCanvasElement | null;
 };
 
-export function GameCanvas({ mapUrl, isGM = true }: Props) {
+export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Props) {
+  const sidebarSide = useUIPreferencesStore((state) => state.sidebarSide);
+  const sidebarOpen = useUIPreferencesStore((state) => state.sidebarOpen);
+  const setSidebarOpen = useUIPreferencesStore((state) => state.setSidebarOpen);
+
   const [viewportSize, setViewportSize] = useState(() => ({
     width: typeof window !== "undefined" ? window.innerWidth : 0,
     height: typeof window !== "undefined" ? window.innerHeight : 0,
@@ -63,18 +81,68 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
   );
   const [mirrorContextMenuState, setMirrorContextMenuState] =
     useState<MirrorContextMenuState | null>(null);
+  const [tokenContextMenuState, setTokenContextMenuState] = useState<TokenContextMenuState | null>(
+    null
+  );
+  const [sizeEditTokenId, setSizeEditTokenId] = useState<string | null>(null);
   const { addLight } = useLightManager();
   const { addMirror } = useMirrorManager();
+  const { placementTemplateId, addTokenInstance } = useTokenManager();
+
+  const isRemotePlayer = !!remotePlayerId;
+  const moveTokenMutation = useMutation(api.players.moveToken);
+
+  const scene = useQuery(
+    api.scenes.getById,
+    sceneId ? { id: sceneId as Id<"scenes"> } : "skip",
+  );
+
+  const allowedTokenIds = useMemo(() => {
+    if (!isRemotePlayer || !scene) return new Set<string>();
+    const players = (scene as Record<string, unknown>).players as
+      | Array<{ id: string; tokenInstanceIds: string[] }>
+      | undefined;
+    const activePlayerIds = (scene as Record<string, unknown>).activePlayerIds as string[] | undefined;
+    const player = players?.find((p) => p.id === remotePlayerId);
+    if (!player) return new Set<string>();
+    const isActive = activePlayerIds?.includes(remotePlayerId!) ?? false;
+    if (!isActive) return new Set<string>();
+    return new Set(player.tokenInstanceIds);
+  }, [isRemotePlayer, scene, remotePlayerId]);
+
+  const handleRemoteTokenMove = useCallback(
+    (tokenId: string, x: number, y: number) => {
+      if (!sceneId || !remotePlayerId) return;
+      void moveTokenMutation({
+        sceneId: sceneId as Id<"scenes">,
+        playerId: remotePlayerId,
+        tokenId,
+        x,
+        y,
+      });
+    },
+    [sceneId, remotePlayerId, moveTokenMutation],
+  );
   const appRef = useRef<PixiApplication | null>(null);
   const containerRef = useRef<PixiContainer | null>(null);
   const spriteRef = useRef<PixiSprite | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const placementTemplateIdRef = useRef<string | null>(null);
+  const addTokenInstanceRef = useRef(addTokenInstance);
   const panStateRef = useRef({
     dragging: false,
     pointerId: null as number | null,
     lastX: 0,
     lastY: 0,
   });
+
+  useEffect(() => {
+    placementTemplateIdRef.current = placementTemplateId;
+  }, [placementTemplateId]);
+
+  useEffect(() => {
+    addTokenInstanceRef.current = addTokenInstance;
+  }, [addTokenInstance]);
 
   useEffect(() => {
     let isMounted = true;
@@ -201,12 +269,31 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
     addMirror(x, y);
   }, [addMirror, getViewportCenterWorld]);
 
-  const handlePointerDown = useCallback((event: FederatedPointerEvent) => {
-    panStateRef.current.dragging = true;
-    panStateRef.current.pointerId = event.pointerId;
-    panStateRef.current.lastX = event.global.x;
-    panStateRef.current.lastY = event.global.y;
-  }, []);
+  const handlePointerDown = useCallback(
+    (event: FederatedPointerEvent) => {
+      if (event.button !== 0) {
+        return;
+      }
+
+      const activeTemplateId = placementTemplateIdRef.current;
+      if (isGM && activeTemplateId) {
+        event.stopPropagation();
+        const container = containerRef.current;
+        if (!container) {
+          return;
+        }
+        const worldPosition = event.getLocalPosition(container);
+        addTokenInstanceRef.current(activeTemplateId, worldPosition.x, worldPosition.y);
+        return;
+      }
+
+      panStateRef.current.dragging = true;
+      panStateRef.current.pointerId = event.pointerId;
+      panStateRef.current.lastX = event.global.x;
+      panStateRef.current.lastY = event.global.y;
+    },
+    [isGM]
+  );
 
   const handlePointerMove = useCallback((event: FederatedPointerEvent) => {
     const state = panStateRef.current;
@@ -300,6 +387,8 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
   const lightingHeight = mapTexture?.height ?? viewportSize.height;
 
   const handleOpenLightContextMenu = useCallback((state: LightContextMenuState) => {
+    setSizeEditTokenId(null);
+    setTokenContextMenuState(null);
     setMirrorContextMenuState(null);
     setLightContextMenuState(state);
   }, []);
@@ -309,6 +398,8 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
   }, []);
 
   const handleOpenMirrorContextMenu = useCallback((state: MirrorContextMenuState) => {
+    setSizeEditTokenId(null);
+    setTokenContextMenuState(null);
     setLightContextMenuState(null);
     setMirrorContextMenuState(state);
   }, []);
@@ -317,70 +408,120 @@ export function GameCanvas({ mapUrl, isGM = true }: Props) {
     setMirrorContextMenuState(null);
   }, []);
 
-  return (
-    <div className="relative h-screen w-screen">
-      {isGM && (
-        <div className="pointer-events-none absolute left-0 top-4 z-10 w-full px-4">
-          <div className="flex flex-row justify-between">
-            <div className="pointer-events-auto flex flex-row gap-2">
-              <PresetToolbar />
-              <LightToolbar
-                onAddRadial={() => handleAddLight("radial")}
-                onAddConic={() => handleAddLight("conic")}
-                onAddLine={() => handleAddLight("line")}
-              />
-              <MirrorToolbar onAddMirror={handleAddMirror} />
-              <PlayerViewToolbar />
-            </div>
+  const handleOpenTokenContextMenu = useCallback((state: TokenContextMenuState) => {
+    setSizeEditTokenId(null);
+    setLightContextMenuState(null);
+    setMirrorContextMenuState(null);
+    setTokenContextMenuState(state);
+  }, []);
 
-            <div className="pointer-events-auto">
-              <UserToolbar />
+  const handleCloseTokenContextMenu = useCallback(() => {
+    setTokenContextMenuState(null);
+  }, []);
+
+  const handleStartTokenSizeEdit = useCallback((tokenId: string) => {
+    setSizeEditTokenId(tokenId);
+  }, []);
+
+  const handleCloseTokenSizeEdit = useCallback(() => {
+    setSizeEditTokenId(null);
+  }, []);
+
+  return (
+    <SidebarProvider
+      side={sidebarSide}
+      open={sidebarOpen}
+      onOpenChange={setSidebarOpen}
+    >
+      <InitiativeSidebar isGM={isGM} />
+      <SidebarInset className="relative h-screen overflow-hidden">
+        {isGM && (
+          <>
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-linear-to-b from-black/35 via-black/20 to-transparent dark:from-black/55 dark:via-black/30" />
+            <div className="pointer-events-none absolute inset-x-0 top-3 z-20 px-3 sm:px-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="pointer-events-auto flex min-w-0 flex-1 flex-wrap items-start gap-2">
+                  <PresetToolbar />
+                  <LightToolbar
+                    onAddRadial={() => handleAddLight("radial")}
+                    onAddConic={() => handleAddLight("conic")}
+                    onAddLine={() => handleAddLight("line")}
+                  />
+                  <MirrorToolbar onAddMirror={handleAddMirror} />
+                  <TokenToolbar />
+                  <PlayerViewToolbar />
+                  {sceneId && <PlayersSheet sceneId={sceneId} />}
+                </div>
+
+                <div className="pointer-events-auto shrink-0">
+                  <UserToolbar />
+                </div>
+              </div>
             </div>
-          </div>
+          </>
+        )}
+        <div className="pointer-events-none absolute right-4 bottom-4 z-20">
+          <FrameCounter appRef={appRef} />
         </div>
-      )}
-      <div className="pointer-events-none absolute right-4 bottom-4 z-10">
-        <FrameCounter appRef={appRef} />
-      </div>
-      <Application
-        width={viewportSize.width}
-        height={viewportSize.height}
-        resolution={resolution}
-        autoDensity
-        backgroundColor={0x000000}
-        className="block h-full w-full"
-        onInit={handleAppInit}>
-        <pixiContainer ref={containerRef}>
-          {mapTexture && <pixiSprite ref={spriteRef} texture={mapTexture} />}
-          <LightingLayer width={lightingWidth} height={lightingHeight} isGM={isGM} />
-          <MirrorLayer isGM={isGM} />
-          <LightControls
+        <Application
+          width={viewportSize.width}
+          height={viewportSize.height}
+          resolution={resolution}
+          autoDensity
+          backgroundColor={0x000000}
+          className="block h-full w-full"
+          onInit={handleAppInit}>
+          <pixiContainer ref={containerRef}>
+            {mapTexture && <pixiSprite ref={spriteRef} texture={mapTexture} />}
+            <LightingLayer width={lightingWidth} height={lightingHeight} isGM={isGM} />
+            <MirrorLayer isGM={isGM} />
+            <TokenLayer isGM={isGM} />
+            <LightControls
+              isGM={isGM}
+              onOpenContextMenu={handleOpenLightContextMenu}
+              onCloseContextMenu={handleCloseLightContextMenu}
+            />
+            <MirrorControls
+              isGM={isGM}
+              onOpenContextMenu={handleOpenMirrorContextMenu}
+              onCloseContextMenu={handleCloseMirrorContextMenu}
+            />
+            <TokenControls
+              isGM={isGM}
+              sizeEditTokenId={sizeEditTokenId}
+              onCloseSizeEdit={handleCloseTokenSizeEdit}
+              onOpenContextMenu={handleOpenTokenContextMenu}
+              onCloseContextMenu={handleCloseTokenContextMenu}
+              remotePlayerId={remotePlayerId}
+              allowedTokenIds={allowedTokenIds}
+              onRemoteTokenMove={handleRemoteTokenMove}
+            />
+          </pixiContainer>
+        </Application>
+        {lightContextMenuState && (
+          <LightContextMenu
+            state={lightContextMenuState}
             isGM={isGM}
-            onOpenContextMenu={handleOpenLightContextMenu}
-            onCloseContextMenu={handleCloseLightContextMenu}
+            onClose={handleCloseLightContextMenu}
           />
-          <MirrorControls
+        )}
+        {mirrorContextMenuState && (
+          <MirrorContextMenu
+            state={mirrorContextMenuState}
             isGM={isGM}
-            onOpenContextMenu={handleOpenMirrorContextMenu}
-            onCloseContextMenu={handleCloseMirrorContextMenu}
+            onClose={handleCloseMirrorContextMenu}
           />
-        </pixiContainer>
-      </Application>
-      {lightContextMenuState && (
-        <LightContextMenu
-          state={lightContextMenuState}
-          isGM={isGM}
-          onClose={handleCloseLightContextMenu}
-        />
-      )}
-      {mirrorContextMenuState && (
-        <MirrorContextMenu
-          state={mirrorContextMenuState}
-          isGM={isGM}
-          onClose={handleCloseMirrorContextMenu}
-        />
-      )}
-    </div>
+        )}
+        {tokenContextMenuState && (
+          <TokenContextMenu
+            state={tokenContextMenuState}
+            isGM={isGM}
+            onEditSize={handleStartTokenSizeEdit}
+            onClose={handleCloseTokenContextMenu}
+          />
+        )}
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 
