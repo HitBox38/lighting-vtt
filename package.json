@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev:frontend": "vite",
-    "dev": "bunx convex dev && bun run dev:frontend",
+    "dev:backend": "bunx convex dev",
+    "dev": "bun dev:backend && bun dev:frontend",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -43,6 +44,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "babel-plugin-react-compiler": "^1.0.0",
+    "baseline-browser-mapping": "^2.10.8",
     "bun": "^1.3.10",
     "dotenv": "^17.2.3",
     "eslint": "^9.39.1",
