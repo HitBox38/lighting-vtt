@@ -13,6 +13,18 @@ export default defineConfig({
     }),
     tailwindcss(),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          pixi: ["pixi.js"],
+          "@pixi/react": ["@pixi/react"],
+          "lucide-react": ["lucide-react"],
+          "radix-ui": ["radix-ui"],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
