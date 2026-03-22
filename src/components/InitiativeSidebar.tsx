@@ -1,7 +1,9 @@
 import { useMemo, useCallback } from "react";
+import { usePostHog } from "@posthog/react";
 import { Dices, Sword } from "lucide-react";
 
 import { useTokenStore } from "@/stores/tokenStore";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,6 +94,7 @@ function InitiativeItem({
 }
 
 export function InitiativeSidebar({ isGM }: Props) {
+  const posthog = usePostHog();
   const tokens = useTokenStore((state) => state.tokens);
   const templates = useTokenStore((state) => state.tokenTemplates);
   const hoveredTokenId = useTokenStore((state) => state.hoveredTokenId);
@@ -123,15 +126,27 @@ export function InitiativeSidebar({ isGM }: Props) {
   const handleInitiativeChange = useCallback(
     (tokenId: string, value: number | undefined) => {
       setInitiative(tokenId, value);
+      if (!isGM) {
+        return;
+      }
+      if (value === undefined) {
+        posthog.capture(ANALYTICS_EVENTS.InitiativeValueCleared);
+        return;
+      }
+      posthog.capture(ANALYTICS_EVENTS.InitiativeValueSet);
     },
-    [setInitiative]
+    [setInitiative, isGM, posthog]
   );
 
   const handleRoll = useCallback(
     (tokenId: string) => {
       rollInitiative(tokenId);
+      if (!isGM) {
+        return;
+      }
+      posthog.capture(ANALYTICS_EVENTS.InitiativeRolled);
     },
-    [rollInitiative]
+    [rollInitiative, isGM, posthog]
   );
 
   return (
