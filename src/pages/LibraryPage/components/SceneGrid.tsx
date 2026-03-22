@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/card";
+import { setSceneEntrySource } from "@/lib/analytics";
 import { Lightbulb, Layers, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { formatRelativeTime } from "../helpers";
@@ -10,13 +11,17 @@ interface SceneGridProps {
 
 export const SceneGrid = ({ scenes }: SceneGridProps) => {
   const navigate = useNavigate();
+  const openScene = (sceneId: string) => {
+    setSceneEntrySource("library");
+    navigate(`/scene?id=${encodeURIComponent(sceneId)}`);
+  };
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
       {scenes.map((scene, index) => (
         <Card
           key={scene._id}
-          onClick={() => navigate(`/scene?id=${encodeURIComponent(scene._id)}`)}
+          onClick={() => openScene(scene._id)}
           className="group relative overflow-hidden cursor-pointer transition-all duration-200 hover:ring-1 hover:ring-primary/25 hover:-translate-y-0.5 border border-border/50 p-0 gap-0 animate-fade-slide-up"
           style={{
             animationDelay: `${Math.min(index * 50, 500)}ms`,
