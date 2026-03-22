@@ -3,6 +3,7 @@ import { SaveStatusIndicator } from "@/components/SaveStatusIndicator";
 import { useLightStore } from "@/stores/lightStore";
 import { useTokenStore } from "@/stores/tokenStore";
 import { useUser } from "@clerk/clerk-react";
+import { usePostHog } from "@posthog/react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -10,9 +11,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Light, Mirror, LightPreset, TokenInstance, TokenTemplate } from "@shared/index";
 import { RemotePlayerHud } from "@/components/RemotePlayerHud";
+import { ANALYTICS_EVENTS, consumeSceneEntrySource, type SceneEntrySource } from "@/lib/analytics";
 
 export function ScenePage() {
   const [searchParams] = useSearchParams();
+  const posthog = usePostHog();
   const { user } = useUser();
   const loadScene = useLightStore((state) => state.loadScene);
   const applySyncedState = useLightStore((state) => state._applySyncedState);
@@ -25,6 +28,11 @@ export function ScenePage() {
   const remotePlayerId = searchParams.get("playerId");
 
   const isRemotePlayer = !!remotePlayerId;
+  const sceneAnalyticsRef = useRef<{ sceneId: string | null; didTrackOutcome: boolean; didTrackEntered: boolean }>({
+    sceneId: null,
+    didTrackOutcome: false,
+    didTrackEntered: false,
+  });
 
   const scene = useQuery(api.scenes.getById, sceneId ? { id: sceneId as Id<"scenes"> } : "skip");
 
@@ -32,7 +40,58 @@ export function ScenePage() {
 
   const canSave = isGM && !isRemotePlayer && sceneLoaded && !!user?.id && user.id === scene?.creatorId;
 
+  const role = useMemo(() => {
+    if (isRemotePlayer) {
+      return "remote_player";
+    }
+    if (isGM) {
+      return "gm";
+    }
+    return "player";
+  }, [isGM, isRemotePlayer]);
+
   const lastAppliedUpdatedAtRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (sceneAnalyticsRef.current.sceneId !== sceneId) {
+      sceneAnalyticsRef.current = {
+        sceneId,
+        didTrackOutcome: false,
+        didTrackEntered: false,
+      };
+    }
+  }, [sceneId]);
+
+  useEffect(() => {
+    if (!sceneId || scene === undefined) {
+      return;
+    }
+
+    if (!sceneAnalyticsRef.current.didTrackOutcome) {
+      if (scene === null) {
+        posthog.capture(ANALYTICS_EVENTS.SceneLoadFailed, { reason: "not_found", role });
+        sceneAnalyticsRef.current.didTrackOutcome = true;
+        return;
+      }
+
+      posthog.capture(ANALYTICS_EVENTS.SceneLoaded, {
+        role,
+        is_remote_player: isRemotePlayer,
+      });
+      sceneAnalyticsRef.current.didTrackOutcome = true;
+    }
+
+    if (scene && !sceneAnalyticsRef.current.didTrackEntered) {
+      const entrySource: SceneEntrySource = isRemotePlayer
+        ? "join"
+        : consumeSceneEntrySource() ?? "direct_or_library";
+      posthog.capture(ANALYTICS_EVENTS.SceneEditorEntered, {
+        role,
+        entry_source: entrySource,
+      });
+      sceneAnalyticsRef.current.didTrackEntered = true;
+    }
+  }, [sceneId, scene, isRemotePlayer, posthog, role]);
 
   useEffect(() => {
     if (!scene || !sceneId || sceneLoaded) {
