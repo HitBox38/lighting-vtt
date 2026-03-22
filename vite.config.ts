@@ -3,6 +3,25 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import tailwindcss from "@tailwindcss/vite";
 
+const vendorChunks: ReadonlyArray<readonly [packagePath: string, chunkName: string]> = [
+  ["/node_modules/pixi.js/", "pixi"],
+  ["/node_modules/@pixi/react/", "@pixi/react"],
+  ["/node_modules/lucide-react/", "lucide-react"],
+  ["/node_modules/radix-ui/", "radix-ui"],
+];
+
+function manualChunks(id: string) {
+  const normalizedId = id.replaceAll("\\", "/");
+
+  for (const [packagePath, chunkName] of vendorChunks) {
+    if (normalizedId.includes(packagePath)) {
+      return chunkName;
+    }
+  }
+
+  return undefined;
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -16,12 +35,7 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          pixi: ["pixi.js"],
-          "@pixi/react": ["@pixi/react"],
-          "lucide-react": ["lucide-react"],
-          "radix-ui": ["radix-ui"],
-        },
+        manualChunks,
       },
     },
   },
