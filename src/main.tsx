@@ -9,6 +9,7 @@ import "./index.css";
 import App from "./App.tsx";
 import { ThemeProvider } from "./components/ThemeProvider.tsx";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { PostHogProvider } from "@posthog/react";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 if (!PUBLISHABLE_KEY) {
@@ -22,24 +23,31 @@ if (!CONVEX_URL) {
 
 const convex = new ConvexReactClient(CONVEX_URL);
 
+const options = {
+  api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
+  defaults: "2026-01-30",
+} as const;
+
 const queryClient = new QueryClient();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ThemeProvider>
-      <ConvexProvider client={convex}>
-        <ClerkProvider
-          publishableKey={PUBLISHABLE_KEY}
-          appearance={{
-            theme: shadcn,
-          }}>
-          <BrowserRouter>
-            <QueryClientProvider client={queryClient}>
-              <App />
-            </QueryClientProvider>
-          </BrowserRouter>
-        </ClerkProvider>
-      </ConvexProvider>
-    </ThemeProvider>
+    <PostHogProvider apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY} options={options}>
+      <ThemeProvider>
+        <ConvexProvider client={convex}>
+          <ClerkProvider
+            publishableKey={PUBLISHABLE_KEY}
+            appearance={{
+              theme: shadcn,
+            }}>
+            <BrowserRouter>
+              <QueryClientProvider client={queryClient}>
+                <App />
+              </QueryClientProvider>
+            </BrowserRouter>
+          </ClerkProvider>
+        </ConvexProvider>
+      </ThemeProvider>
+    </PostHogProvider>
   </StrictMode>,
 );
