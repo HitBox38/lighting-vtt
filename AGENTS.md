@@ -1,6 +1,7 @@
 ## Learned User Preferences
 
 - For PostHog, use the `usePostHog` hook in React components and hooks; keep a small `posthog-js`-based `capture` helper in `src/lib/analytics.ts` only for non-React code such as Zustand store subscribers.
+- Do not drop production runtime optimizations (for example React Compiler on production `vite build`) purely to speed up builds unless the user explicitly accepts that tradeoff; production performance matters alongside build time.
 
 ## Learned Workspace Facts
 
