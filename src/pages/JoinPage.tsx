@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePostHog } from "@posthog/react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import { SignedIn, SignedOut, SignInButton, useUser } from "@clerk/clerk-react";
 
 import { api } from "../../convex/_generated/api";
+import { ANALYTICS_EVENTS, setSceneEntrySource } from "@/lib/analytics";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +17,7 @@ import { Loader2, LogIn, MapPin, ShieldAlert, Wifi, WifiOff } from "lucide-react
 export function JoinPage() {
   const { inviteCode } = useParams<{ inviteCode: string }>();
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const { user } = useUser();
 
   const sceneInfo = useQuery(
@@ -27,6 +30,11 @@ export function JoinPage() {
   const [characterName, setCharacterName] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inviteStateTrackedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    inviteStateTrackedRef.current = null;
+  }, [inviteCode]);
 
   useEffect(() => {
     if (user) {
@@ -51,13 +59,48 @@ export function JoinPage() {
         clerkUserId: user?.id,
       });
 
+      posthog.capture(ANALYTICS_EVENTS.JoinSceneSucceeded);
+      setSceneEntrySource("join");
       navigate(`/scene?id=${sceneInfo._id}&playerId=${playerId}`);
     } catch (err) {
+      const errorCategory = err instanceof Error ? err.message.slice(0, 120) : "unknown";
+      posthog.capture(ANALYTICS_EVENTS.JoinSceneFailed, { error_category: errorCategory });
       setError(err instanceof Error ? err.message : "Failed to join scene");
     } finally {
       setIsJoining(false);
     }
-  }, [sceneInfo, playerName, characterName, user?.id, joinScene, navigate]);
+  }, [sceneInfo, playerName, characterName, user?.id, joinScene, navigate, posthog]);
+
+  const alreadyJoined = sceneInfo && user?.id
+    ? sceneInfo.players.some((p) => p.clerkUserId === user.id)
+    : false;
+
+  useEffect(() => {
+    if (sceneInfo === undefined) {
+      return;
+    }
+
+    if (sceneInfo === null) {
+      if (inviteStateTrackedRef.current !== "invalid") {
+        posthog.capture(ANALYTICS_EVENTS.JoinInviteInvalid);
+        inviteStateTrackedRef.current = "invalid";
+      }
+      return;
+    }
+
+    if (!sceneInfo.dmOnline) {
+      if (inviteStateTrackedRef.current !== "dm_offline") {
+        posthog.capture(ANALYTICS_EVENTS.JoinDmOffline);
+        inviteStateTrackedRef.current = "dm_offline";
+      }
+      return;
+    }
+
+    if (inviteStateTrackedRef.current !== "valid") {
+      posthog.capture(ANALYTICS_EVENTS.JoinInviteValid, { already_joined: alreadyJoined });
+      inviteStateTrackedRef.current = "valid";
+    }
+  }, [sceneInfo, alreadyJoined, posthog]);
 
   if (sceneInfo === undefined) {
     return (
@@ -115,10 +158,6 @@ export function JoinPage() {
       </div>
     );
   }
-
-  const alreadyJoined = user?.id
-    ? sceneInfo.players.some((p) => p.clerkUserId === user.id)
-    : false;
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
