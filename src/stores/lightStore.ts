@@ -26,6 +26,7 @@ import {
   type SyncState,
 } from "@/lib/windowSync";
 import { convexClient } from "@/lib/convex";
+import { ANALYTICS_EVENTS, capture } from "@/lib/analytics";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import type { SaveStatus } from "@/components/SaveStatusIndicator";
@@ -425,6 +426,7 @@ if (IS_GM) {
         })
         .catch((error) => {
           console.error("Auto-save failed:", error);
+          capture(ANALYTICS_EVENTS.SceneAutosaveFailed);
           useLightStore.setState({ saveStatus: "error" });
         });
     }, DEBOUNCE_DELAY);
