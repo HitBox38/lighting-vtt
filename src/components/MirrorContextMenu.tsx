@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { usePostHog } from "@posthog/react";
 import { createPortal } from "react-dom";
 
 import {
@@ -9,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useLightStore } from "@/stores/lightStore";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
 
 export interface MirrorContextMenuState {
   mirrorId: string;
@@ -22,6 +24,7 @@ interface Props {
 }
 
 export function MirrorContextMenu({ state, isGM, onClose }: Props) {
+  const posthog = usePostHog();
   const mirror = useLightStore((store) =>
     store.mirrors.find((candidate) => candidate.id === state.mirrorId)
   );
@@ -58,6 +61,7 @@ export function MirrorContextMenu({ state, isGM, onClose }: Props) {
 
   const handleDelete = () => {
     removeMirror(mirror.id);
+    posthog.capture(ANALYTICS_EVENTS.MirrorRemoved);
     onClose();
   };
 

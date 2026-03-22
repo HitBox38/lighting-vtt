@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Application, extend } from "@pixi/react";
+import { usePostHog } from "@posthog/react";
 import {
   Application as PixiApplication,
   Assets,
@@ -37,6 +38,7 @@ import { PlayersSheet } from "@/components/PlayersSheet";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
 
 extend({ Container: PixiContainer, Sprite: PixiSprite, Graphics: PixiGraphics });
 
@@ -61,6 +63,7 @@ const getCanvasFromApp = (app: PixiApplication | null) => {
 };
 
 export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Props) {
+  const posthog = usePostHog();
   const sidebarSide = useUIPreferencesStore((state) => state.sidebarSide);
   const sidebarOpen = useUIPreferencesStore((state) => state.sidebarOpen);
   const setSidebarOpen = useUIPreferencesStore((state) => state.setSidebarOpen);
@@ -113,15 +116,29 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
   const handleRemoteTokenMove = useCallback(
     (tokenId: string, x: number, y: number) => {
       if (!sceneId || !remotePlayerId) return;
-      void moveTokenMutation({
-        sceneId: sceneId as Id<"scenes">,
-        playerId: remotePlayerId,
-        tokenId,
-        x,
-        y,
-      });
+      void (async () => {
+        try {
+          await moveTokenMutation({
+            sceneId: sceneId as Id<"scenes">,
+            playerId: remotePlayerId,
+            tokenId,
+            x,
+            y,
+          });
+          // Success is throttled to avoid noisy drag-stream analytics.
+          const now = Date.now();
+          if (now - lastRemoteMoveSuccessAtRef.current >= 30_000) {
+            posthog.capture(ANALYTICS_EVENTS.RemotePlayerTokenMoveSucceeded);
+            lastRemoteMoveSuccessAtRef.current = now;
+          }
+        } catch (error) {
+          posthog.capture(ANALYTICS_EVENTS.RemotePlayerTokenMoveFailed, {
+            error_category: error instanceof Error ? error.message.slice(0, 120) : "unknown",
+          });
+        }
+      })();
     },
-    [sceneId, remotePlayerId, moveTokenMutation],
+    [sceneId, remotePlayerId, moveTokenMutation, posthog],
   );
   const appRef = useRef<PixiApplication | null>(null);
   const containerRef = useRef<PixiContainer | null>(null);
@@ -135,6 +152,7 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
     lastX: 0,
     lastY: 0,
   });
+  const lastRemoteMoveSuccessAtRef = useRef(0);
 
   useEffect(() => {
     placementTemplateIdRef.current = placementTemplateId;
@@ -260,14 +278,16 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
     (type: LightType) => {
       const { x, y } = getViewportCenterWorld();
       addLight(type, x, y);
+      posthog.capture(ANALYTICS_EVENTS.LightAdded, { light_type: type });
     },
-    [addLight, getViewportCenterWorld]
+    [addLight, getViewportCenterWorld, posthog]
   );
 
   const handleAddMirror = useCallback(() => {
     const { x, y } = getViewportCenterWorld();
     addMirror(x, y);
-  }, [addMirror, getViewportCenterWorld]);
+    posthog.capture(ANALYTICS_EVENTS.MirrorAdded);
+  }, [addMirror, getViewportCenterWorld, posthog]);
 
   const handlePointerDown = useCallback(
     (event: FederatedPointerEvent) => {
@@ -284,6 +304,7 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
         }
         const worldPosition = event.getLocalPosition(container);
         addTokenInstanceRef.current(activeTemplateId, worldPosition.x, worldPosition.y);
+        posthog.capture(ANALYTICS_EVENTS.TokenInstancePlaced);
         return;
       }
 
@@ -292,7 +313,7 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
       panStateRef.current.lastX = event.global.x;
       panStateRef.current.lastY = event.global.y;
     },
-    [isGM]
+    [isGM, posthog]
   );
 
   const handlePointerMove = useCallback((event: FederatedPointerEvent) => {

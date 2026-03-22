@@ -8,6 +8,9 @@
     },
     "vercel": {
       "enabled": true
+    },
+    "posthog": {
+      "enabled": true
     }
   }
 }

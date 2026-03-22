@@ -1,6 +1,7 @@
 import { Lightbulb, Layers, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { formatRelativeTime } from "../helpers";
+import { setSceneEntrySource } from "@/lib/analytics";
 import type { Doc } from "../../../../convex/_generated/dataModel";
 
 interface SceneListProps {
@@ -9,13 +10,17 @@ interface SceneListProps {
 
 export const SceneList = ({ scenes }: SceneListProps) => {
   const navigate = useNavigate();
+  const openScene = (sceneId: string) => {
+    setSceneEntrySource("library");
+    navigate(`/scene?id=${encodeURIComponent(sceneId)}`);
+  };
 
   return (
     <div className="rounded-lg border border-border/50 divide-y divide-border/50 overflow-hidden">
       {scenes.map((scene, index) => (
         <div
           key={scene._id}
-          onClick={() => navigate(`/scene?id=${encodeURIComponent(scene._id)}`)}
+          onClick={() => openScene(scene._id)}
           className="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors animate-fade-slide-up"
           style={{
             animationDelay: `${Math.min(index * 30, 300)}ms`,
