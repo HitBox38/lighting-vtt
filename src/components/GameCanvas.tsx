@@ -404,12 +404,15 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
     [attachInteractionHandlers],
   );
 
-  // Ensure stage hitArea updates on resize
+  // Pixi v8 Application ignores post-init `width`/`height` props; resize the renderer explicitly.
   useEffect(() => {
-    if (appRef.current) {
-      appRef.current.stage.hitArea = appRef.current.screen;
+    const app = appRef.current;
+    if (!app?.renderer) {
+      return;
     }
-  }, [viewportSize]);
+    app.renderer.resize(viewportSize.width, viewportSize.height);
+    app.stage.hitArea = app.screen;
+  }, [viewportSize.width, viewportSize.height]);
 
   const lightingWidth = mapTexture?.width ?? viewportSize.width;
   const lightingHeight = mapTexture?.height ?? viewportSize.height;
