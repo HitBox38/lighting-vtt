@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { usePostHog } from "@posthog/react";
 import { ArrowLeft, ArrowRight, FilePlus, Save, Shuffle, Trash2 } from "lucide-react";
 import { useLightManager } from "@/hooks/useLightManager";
+import { ANALYTICS_EVENTS, toCountBucket } from "@/lib/analytics";
 import { HudSurface } from "@/components/hud/HudSurface";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +23,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function PresetToolbar() {
+  const posthog = usePostHog();
   const {
     presets,
     activePresetId,
@@ -45,6 +48,9 @@ export function PresetToolbar() {
     }
 
     savePreset(presetName);
+    posthog.capture(ANALYTICS_EVENTS.PresetSavedNew, {
+      preset_count_bucket: toCountBucket(presets.length + 1),
+    });
     setNewPresetName("");
     setIsSaveDialogOpen(false);
   };
@@ -52,16 +58,19 @@ export function PresetToolbar() {
   const handleUpdateCurrent = () => {
     if (activePresetId) {
       updateSavedPreset(activePresetId);
+      posthog.capture(ANALYTICS_EVENTS.PresetUpdatedCurrent);
     }
   };
 
   const handleValueChange = (value: string) => {
     loadPreset(value);
+    posthog.capture(ANALYTICS_EVENTS.PresetLoaded, { via: "select" });
   };
 
   const handleDelete = () => {
     if (activePresetId) {
       deletePreset(activePresetId);
+      posthog.capture(ANALYTICS_EVENTS.PresetDeleted);
     }
   };
 
@@ -77,6 +86,7 @@ export function PresetToolbar() {
 
     const previousIndex = activeIndex > 0 ? activeIndex - 1 : presets.length - 1;
     loadPreset(presets[previousIndex].id);
+    posthog.capture(ANALYTICS_EVENTS.PresetLoaded, { via: "prev" });
   };
 
   const handleNextPreset = () => {
@@ -91,6 +101,14 @@ export function PresetToolbar() {
 
     const nextIndex = activeIndex < presets.length - 1 ? activeIndex + 1 : 0;
     loadPreset(presets[nextIndex].id);
+    posthog.capture(ANALYTICS_EVENTS.PresetLoaded, { via: "next" });
+  };
+
+  const handleRandomizePreset = () => {
+    randomizePreset();
+    posthog.capture(ANALYTICS_EVENTS.PresetRandomized, {
+      preset_count_bucket: toCountBucket(presets.length),
+    });
   };
 
   return (
@@ -207,7 +225,7 @@ export function PresetToolbar() {
               <Button
                 size="icon-sm"
                 variant="outline"
-                onClick={randomizePreset}
+                onClick={handleRandomizePreset}
                 disabled={presets.length < 2}
                 aria-label="Randomize Preset">
                 <Shuffle className="size-4" aria-hidden="true" />

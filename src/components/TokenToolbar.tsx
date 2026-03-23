@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { usePostHog } from "@posthog/react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Loader2, Plus, Search, Trash2, Upload, X } from "lucide-react";
@@ -17,16 +18,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
 const HEX_COLOR = /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
 const createTokenFormSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
-  borderColor: z
-    .string()
-    .regex(HEX_COLOR, "Border color must be a valid hex string")
-    .optional(),
+  borderColor: z.string().regex(HEX_COLOR, "Border color must be a valid hex string").optional(),
 });
 
 type CreateTokenFormValues = z.infer<typeof createTokenFormSchema>;
@@ -46,6 +45,7 @@ async function deleteUploadedFile(key: string): Promise<void> {
 }
 
 export function TokenToolbar() {
+  const posthog = usePostHog();
   const {
     tokenTemplates,
     tokens,
@@ -124,7 +124,7 @@ export function TokenToolbar() {
     if (!validationResult.success) {
       const nameIssue = validationResult.error.issues.find((issue) => issue.path[0] === "name");
       const borderColorIssue = validationResult.error.issues.find(
-        (issue) => issue.path[0] === "borderColor"
+        (issue) => issue.path[0] === "borderColor",
       );
 
       if (nameIssue?.message) {
@@ -155,6 +155,7 @@ export function TokenToolbar() {
       imageKey,
       ...(borderColor !== undefined && { borderColor }),
     });
+    posthog.capture(ANALYTICS_EVENTS.TokenTemplateCreated, { has_image: true });
     resetForm();
     setIsDialogOpen(false);
   };
@@ -205,7 +206,9 @@ export function TokenToolbar() {
       return tokenTemplates;
     }
 
-    return tokenTemplates.filter((template) => template.name.toLowerCase().includes(normalizedQuery));
+    return tokenTemplates.filter((template) =>
+      template.name.toLowerCase().includes(normalizedQuery),
+    );
   }, [searchQuery, tokenTemplates]);
 
   const canSubmit = imageUrl.length > 0 && imageKey.length > 0 && !isUploading;
@@ -217,6 +220,9 @@ export function TokenToolbar() {
     : "No token templates yet";
 
   const handleSelectTemplate = (templateId: string) => {
+    if (placementTemplateId !== templateId) {
+      posthog.capture(ANALYTICS_EVENTS.TokenPlacementModeSelected);
+    }
     setPlacementTemplateId(templateId);
     setSearchQuery("");
   };
@@ -259,9 +265,7 @@ export function TokenToolbar() {
           <DialogHeader>
             <DialogTitle>Create Token Template</DialogTitle>
           </DialogHeader>
-          <form
-            onSubmit={(e) => void handleSubmit(onSubmit)(e)}
-            className="grid gap-4 py-2">
+          <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} className="grid gap-4 py-2">
             <div className="grid gap-2">
               <label htmlFor="token-name" className="text-sm font-medium">
                 Name
@@ -299,7 +303,10 @@ export function TokenToolbar() {
                     {...register("borderColor")}
                   />
                   {errors.borderColor && (
-                    <p id="token-border-color-error" className="text-sm text-destructive" role="alert">
+                    <p
+                      id="token-border-color-error"
+                      className="text-sm text-destructive"
+                      role="alert">
                       {errors.borderColor.message}
                     </p>
                   )}
@@ -317,11 +324,7 @@ export function TokenToolbar() {
               />
               {imageUrl ? (
                 <div className="relative h-24 w-24 overflow-hidden rounded-full ring-2 ring-border">
-                  <img
-                    src={imageUrl}
-                    alt="Token preview"
-                    className="h-full w-full object-cover"
-                  />
+                  <img src={imageUrl} alt="Token preview" className="h-full w-full object-cover" />
                   <Button
                     type="button"
                     size="icon-sm"
@@ -415,11 +418,10 @@ export function TokenToolbar() {
                 className={cn(
                   "flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent",
                   isHighlighted && "bg-accent/80",
-                  isSelected && "ring-1 ring-primary/40"
+                  isSelected && "ring-1 ring-primary/40",
                 )}
                 onMouseDown={(event) => event.preventDefault()}
-                onClick={selectOption}
-              >
+                onClick={selectOption}>
                 <img
                   src={option.imageUrl}
                   alt={option.name}

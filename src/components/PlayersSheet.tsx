@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { useUser } from "@clerk/clerk-react";
+import { usePostHog } from "@posthog/react";
 import {
   Check,
   ClipboardCopy,
@@ -39,6 +40,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { HudSurface } from "@/components/hud/HudSurface";
 import { useTokenStore } from "@/stores/tokenStore";
 import { useLightStore } from "@/stores/lightStore";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
 type TokenTemplate = { id: string; name: string; imageUrl: string; borderColor: string };
@@ -62,6 +64,7 @@ function PlayerCard({
   tokenTemplates,
   tokenInstances,
 }: PlayerCardProps) {
+  const posthog = usePostHog();
   const updatePlayer = useMutation(api.players.updatePlayer);
   const removePlayer = useMutation(api.players.removePlayer);
   const setPlayerActive = useMutation(api.players.setPlayerActive);
@@ -102,8 +105,9 @@ function PlayerCard({
       playerName: editPlayerName.trim(),
       characterName: editCharacterName.trim(),
     });
+    posthog.capture(ANALYTICS_EVENTS.PlayersPlayerUpdated);
     setIsEditing(false);
-  }, [editPlayerName, editCharacterName, updatePlayer, sceneId, creatorId, player.id]);
+  }, [editPlayerName, editCharacterName, updatePlayer, sceneId, creatorId, player.id, posthog]);
 
   const handleCancelEdit = useCallback(() => {
     setEditPlayerName(player.playerName);
@@ -113,7 +117,8 @@ function PlayerCard({
 
   const handleRemove = useCallback(async () => {
     await removePlayer({ sceneId, creatorId, playerId: player.id });
-  }, [removePlayer, sceneId, creatorId, player.id]);
+    posthog.capture(ANALYTICS_EVENTS.PlayersPlayerRemoved);
+  }, [removePlayer, sceneId, creatorId, player.id, posthog]);
 
   const handleToggleActive = useCallback(async () => {
     await setPlayerActive({
@@ -122,7 +127,8 @@ function PlayerCard({
       playerId: player.id,
       active: !isActive,
     });
-  }, [setPlayerActive, sceneId, creatorId, player.id, isActive]);
+    posthog.capture(ANALYTICS_EVENTS.PlayersPlayerActiveToggled, { active: !isActive });
+  }, [setPlayerActive, sceneId, creatorId, player.id, isActive, posthog]);
 
   const handleAssignToken = useCallback(
     async (tokenInstanceId: string) => {
@@ -133,8 +139,9 @@ function PlayerCard({
         playerId: player.id,
         tokenInstanceIds: nextIds,
       });
+      posthog.capture(ANALYTICS_EVENTS.PlayersTokenAssigned);
     },
-    [player.tokenInstanceIds, updatePlayer, sceneId, creatorId, player.id],
+    [player.tokenInstanceIds, updatePlayer, sceneId, creatorId, player.id, posthog],
   );
 
   const handleUnassignToken = useCallback(
@@ -146,8 +153,9 @@ function PlayerCard({
         playerId: player.id,
         tokenInstanceIds: nextIds,
       });
+      posthog.capture(ANALYTICS_EVENTS.PlayersTokenUnassigned);
     },
-    [player.tokenInstanceIds, updatePlayer, sceneId, creatorId, player.id],
+    [player.tokenInstanceIds, updatePlayer, sceneId, creatorId, player.id, posthog],
   );
 
   return (
@@ -389,6 +397,7 @@ interface InviteLinkSectionProps {
 }
 
 function InviteLinkSection({ sceneId, creatorId, existingInviteCode }: InviteLinkSectionProps) {
+  const posthog = usePostHog();
   const createInviteCode = useMutation(api.players.createInviteCode);
   const regenerateInviteCode = useMutation(api.players.regenerateInviteCode);
   const [copied, setCopied] = useState(false);
@@ -399,18 +408,21 @@ function InviteLinkSection({ sceneId, creatorId, existingInviteCode }: InviteLin
 
   const handleGenerateCode = useCallback(async () => {
     await createInviteCode({ sceneId, creatorId });
-  }, [createInviteCode, sceneId, creatorId]);
+    posthog.capture(ANALYTICS_EVENTS.PlayersInviteGenerated);
+  }, [createInviteCode, sceneId, creatorId, posthog]);
 
   const handleRegenerateCode = useCallback(async () => {
     await regenerateInviteCode({ sceneId, creatorId });
-  }, [regenerateInviteCode, sceneId, creatorId]);
+    posthog.capture(ANALYTICS_EVENTS.PlayersInviteRegenerated);
+  }, [regenerateInviteCode, sceneId, creatorId, posthog]);
 
   const handleCopyLink = useCallback(async () => {
     if (!inviteUrl) return;
     await navigator.clipboard.writeText(inviteUrl);
+    posthog.capture(ANALYTICS_EVENTS.PlayersInviteLinkCopied);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }, [inviteUrl]);
+  }, [inviteUrl, posthog]);
 
   if (!existingInviteCode) {
     return (
@@ -531,6 +543,7 @@ const EmptyPlayersState = () => (
 );
 
 export function PlayersSheet({ sceneId }: PlayersSheetProps) {
+  const posthog = usePostHog();
   const { user } = useUser();
   const creatorId = user?.id ?? "";
 
@@ -590,7 +603,12 @@ export function PlayersSheet({ sceneId }: PlayersSheetProps) {
 
   return (
     <TooltipProvider delayDuration={150}>
-      <Sheet>
+      <Sheet
+        onOpenChange={(open) => {
+          if (open) {
+            posthog.capture(ANALYTICS_EVENTS.PlayersSheetOpened);
+          }
+        }}>
         <SheetTrigger asChild>
           <HudSurface className="items-center">
             <Tooltip>

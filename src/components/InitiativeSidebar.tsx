@@ -1,16 +1,12 @@
 import { useMemo, useCallback } from "react";
+import { usePostHog } from "@posthog/react";
 import { Dices, Sword } from "lucide-react";
-
 import { useTokenStore } from "@/stores/tokenStore";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarHeader,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarHeader, SidebarTrigger } from "@/components/ui/sidebar";
 
 interface Props {
   isGM: boolean;
@@ -49,7 +45,7 @@ function InitiativeItem({
         onInitiativeChange(tokenId, numValue);
       }
     },
-    [tokenId, onInitiativeChange]
+    [tokenId, onInitiativeChange],
   );
 
   const handleRollClick = useCallback(() => {
@@ -60,11 +56,10 @@ function InitiativeItem({
     <div
       className={cn(
         "flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors",
-        isHovered && "bg-accent"
+        isHovered && "bg-accent",
       )}
       onMouseEnter={() => onHover(tokenId)}
-      onMouseLeave={() => onHover(null)}
-    >
+      onMouseLeave={() => onHover(null)}>
       {isGM && (
         <>
           <Input
@@ -76,12 +71,7 @@ function InitiativeItem({
             placeholder="--"
             className="h-7 w-12 px-1.5 text-center text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           />
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            onClick={handleRollClick}
-            title="Roll d20"
-          >
+          <Button variant="ghost" size="icon-xs" onClick={handleRollClick} title="Roll d20">
             <Dices className="size-3.5" />
           </Button>
         </>
@@ -92,6 +82,7 @@ function InitiativeItem({
 }
 
 export function InitiativeSidebar({ isGM }: Props) {
+  const posthog = usePostHog();
   const tokens = useTokenStore((state) => state.tokens);
   const templates = useTokenStore((state) => state.tokenTemplates);
   const hoveredTokenId = useTokenStore((state) => state.hoveredTokenId);
@@ -109,7 +100,7 @@ export function InitiativeSidebar({ isGM }: Props) {
 
   const visibleTokens = useMemo(
     () => (isGM ? tokens : tokens.filter((token) => !token.hidden)),
-    [isGM, tokens]
+    [isGM, tokens],
   );
 
   const sortedTokens = useMemo(() => {
@@ -123,15 +114,27 @@ export function InitiativeSidebar({ isGM }: Props) {
   const handleInitiativeChange = useCallback(
     (tokenId: string, value: number | undefined) => {
       setInitiative(tokenId, value);
+      if (!isGM) {
+        return;
+      }
+      if (value === undefined) {
+        posthog.capture(ANALYTICS_EVENTS.InitiativeValueCleared);
+        return;
+      }
+      posthog.capture(ANALYTICS_EVENTS.InitiativeValueSet);
     },
-    [setInitiative]
+    [setInitiative, isGM, posthog],
   );
 
   const handleRoll = useCallback(
     (tokenId: string) => {
       rollInitiative(tokenId);
+      if (!isGM) {
+        return;
+      }
+      posthog.capture(ANALYTICS_EVENTS.InitiativeRolled);
     },
-    [rollInitiative]
+    [rollInitiative, isGM, posthog],
   );
 
   return (

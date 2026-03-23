@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePostHog } from "@posthog/react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import { SignedIn, SignedOut, SignInButton, useUser } from "@clerk/clerk-react";
 
 import { api } from "../../convex/_generated/api";
+import { ANALYTICS_EVENTS, setSceneEntrySource } from "@/lib/analytics";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +17,7 @@ import { Loader2, LogIn, MapPin, ShieldAlert, Wifi, WifiOff } from "lucide-react
 export function JoinPage() {
   const { inviteCode } = useParams<{ inviteCode: string }>();
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const { user } = useUser();
 
   const sceneInfo = useQuery(
@@ -27,6 +30,11 @@ export function JoinPage() {
   const [characterName, setCharacterName] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inviteStateTrackedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    inviteStateTrackedRef.current = null;
+  }, [inviteCode]);
 
   useEffect(() => {
     if (user) {
@@ -51,13 +59,47 @@ export function JoinPage() {
         clerkUserId: user?.id,
       });
 
+      posthog.capture(ANALYTICS_EVENTS.JoinSceneSucceeded);
+      setSceneEntrySource("join");
       navigate(`/scene?id=${sceneInfo._id}&playerId=${playerId}`);
     } catch (err) {
+      const errorCategory = err instanceof Error ? err.message.slice(0, 120) : "unknown";
+      posthog.capture(ANALYTICS_EVENTS.JoinSceneFailed, { error_category: errorCategory });
       setError(err instanceof Error ? err.message : "Failed to join scene");
     } finally {
       setIsJoining(false);
     }
-  }, [sceneInfo, playerName, characterName, user?.id, joinScene, navigate]);
+  }, [sceneInfo, playerName, characterName, user?.id, joinScene, navigate, posthog]);
+
+  const alreadyJoined =
+    sceneInfo && user?.id ? sceneInfo.players.some((p) => p.clerkUserId === user.id) : false;
+
+  useEffect(() => {
+    if (sceneInfo === undefined) {
+      return;
+    }
+
+    if (sceneInfo === null) {
+      if (inviteStateTrackedRef.current !== "invalid") {
+        posthog.capture(ANALYTICS_EVENTS.JoinInviteInvalid);
+        inviteStateTrackedRef.current = "invalid";
+      }
+      return;
+    }
+
+    if (!sceneInfo.dmOnline) {
+      if (inviteStateTrackedRef.current !== "dm_offline") {
+        posthog.capture(ANALYTICS_EVENTS.JoinDmOffline);
+        inviteStateTrackedRef.current = "dm_offline";
+      }
+      return;
+    }
+
+    if (inviteStateTrackedRef.current !== "valid") {
+      posthog.capture(ANALYTICS_EVENTS.JoinInviteValid, { already_joined: alreadyJoined });
+      inviteStateTrackedRef.current = "valid";
+    }
+  }, [sceneInfo, alreadyJoined, posthog]);
 
   if (sceneInfo === undefined) {
     return (
@@ -116,10 +158,6 @@ export function JoinPage() {
     );
   }
 
-  const alreadyJoined = user?.id
-    ? sceneInfo.players.some((p) => p.clerkUserId === user.id)
-    : false;
-
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
       <Card className="w-full max-w-md">
@@ -144,11 +182,7 @@ export function JoinPage() {
               <p className="text-sm text-muted-foreground">
                 You've already joined this scene. Click below to rejoin.
               </p>
-              <Button
-                className="w-full"
-                disabled={isJoining}
-                onClick={() => void handleJoin()}
-              >
+              <Button className="w-full" disabled={isJoining} onClick={() => void handleJoin()}>
                 {isJoining ? (
                   <Loader2 className="size-4 mr-2 animate-spin" />
                 ) : (
@@ -163,8 +197,7 @@ export function JoinPage() {
               onSubmit={(e) => {
                 e.preventDefault();
                 void handleJoin();
-              }}
-            >
+              }}>
               <div className="space-y-2">
                 <Label htmlFor="player-name">Player Name</Label>
                 <Input
@@ -192,10 +225,7 @@ export function JoinPage() {
                   <p className="text-xs text-muted-foreground">
                     Sign in to save this scene to your library for quick access later.
                   </p>
-                  <SignInButton
-                    mode="modal"
-                    forceRedirectUrl={window.location.href}
-                  >
+                  <SignInButton mode="modal" forceRedirectUrl={window.location.href}>
                     <Button type="button" variant="outline" size="sm">
                       <LogIn className="size-3.5 mr-1.5" />
                       Sign In (optional)
@@ -207,8 +237,10 @@ export function JoinPage() {
               <SignedIn>
                 <p className="text-xs text-muted-foreground">
                   Signed in as{" "}
-                  <span className="font-medium">{user?.fullName ?? user?.primaryEmailAddress?.emailAddress}</span>.
-                  This scene will be saved to your library.
+                  <span className="font-medium">
+                    {user?.fullName ?? user?.primaryEmailAddress?.emailAddress}
+                  </span>
+                  . This scene will be saved to your library.
                 </p>
               </SignedIn>
 
@@ -221,8 +253,7 @@ export function JoinPage() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isJoining || !playerName.trim() || !characterName.trim()}
-              >
+                disabled={isJoining || !playerName.trim() || !characterName.trim()}>
                 {isJoining ? (
                   <Loader2 className="size-4 mr-2 animate-spin" />
                 ) : (

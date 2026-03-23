@@ -1,12 +1,14 @@
 import { SignedIn, SignedOut, useUser } from "@clerk/clerk-react";
+import { usePostHog } from "@posthog/react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useRef, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { DEFAULT_FILTERS } from "./constants";
 import { getSortComparator } from "./helpers";
 import type { Filters, SortOption, ViewMode } from "./types";
 import { useCreateSceneForm } from "./hooks/useCreateSceneForm";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { LibraryHeader } from "./components/LibraryHeader";
 import { LibraryToolbar } from "./components/LibraryToolbar";
 import { CreateSceneDialog } from "./components/CreateSceneDialog";
@@ -18,7 +20,8 @@ import { SignedOutState } from "./components/SignedOutState";
 import { PlayerScenesSection } from "./components/PlayerScenesSection";
 
 export const LibraryPage = () => {
-  const { user } = useUser();
+  const posthog = usePostHog();
+  const { user, isLoaded } = useUser();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("updated-newest");
@@ -59,6 +62,16 @@ export const LibraryPage = () => {
     setSearchQuery("");
     setFilters({ ...DEFAULT_FILTERS });
   };
+
+  const trackedLibraryViewRef = useRef(false);
+
+  useEffect(() => {
+    if (!isLoaded || trackedLibraryViewRef.current) {
+      return;
+    }
+    trackedLibraryViewRef.current = true;
+    posthog.capture(ANALYTICS_EVENTS.ActivationLibraryViewed, { signed_in: Boolean(user?.id) });
+  }, [isLoaded, posthog, user?.id]);
 
   return (
     <div className="min-h-screen bg-background">

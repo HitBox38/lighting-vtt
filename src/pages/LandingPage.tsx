@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { usePostHog } from "@posthog/react";
 import { AppSettingsDialog } from "@/components/AppSettingsDialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "@clerk/clerk-react";
 import {
   FlipHorizontal2,
@@ -61,7 +63,17 @@ const FEATURES: Feature[] = [
 ];
 
 export const LandingPage = () => {
+  const posthog = usePostHog();
   const [activeFeature, setActiveFeature] = useState(0);
+  const didTrackLandingViewRef = useRef(false);
+
+  useEffect(() => {
+    if (didTrackLandingViewRef.current) {
+      return;
+    }
+    didTrackLandingViewRef.current = true;
+    posthog.capture(ANALYTICS_EVENTS.ActivationLandingViewed);
+  }, [posthog]);
 
   return (
     <div className="min-h-screen bg-background">

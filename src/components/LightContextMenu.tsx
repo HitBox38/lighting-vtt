@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { usePostHog } from "@posthog/react";
 import { createPortal } from "react-dom";
 
 import {
@@ -9,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useLightStore } from "@/stores/lightStore";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
 
 export type LightContextMenuState = {
   lightId: string;
@@ -22,6 +24,7 @@ type LightContextMenuProps = {
 };
 
 export function LightContextMenu({ state, isGM, onClose }: LightContextMenuProps) {
+  const posthog = usePostHog();
   const light = useLightStore((store) =>
     store.lights.find((candidate) => candidate.id === state.lightId)
   );
@@ -52,7 +55,9 @@ export function LightContextMenu({ state, isGM, onClose }: LightContextMenuProps
   };
 
   const handleDelete = () => {
+    const lightType = light.type;
     removeLight(light.id);
+    posthog.capture(ANALYTICS_EVENTS.LightRemoved, { light_type: lightType });
     onClose();
   };
 

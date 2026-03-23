@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Application, extend } from "@pixi/react";
+import { usePostHog } from "@posthog/react";
 import {
   Application as PixiApplication,
   Assets,
@@ -37,6 +38,7 @@ import { PlayersSheet } from "@/components/PlayersSheet";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
 
 extend({ Container: PixiContainer, Sprite: PixiSprite, Graphics: PixiGraphics });
 
@@ -61,6 +63,7 @@ const getCanvasFromApp = (app: PixiApplication | null) => {
 };
 
 export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Props) {
+  const posthog = usePostHog();
   const sidebarSide = useUIPreferencesStore((state) => state.sidebarSide);
   const sidebarOpen = useUIPreferencesStore((state) => state.sidebarOpen);
   const setSidebarOpen = useUIPreferencesStore((state) => state.setSidebarOpen);
@@ -72,17 +75,17 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
 
   const resolution = useMemo(
     () => (typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1),
-    []
+    [],
   );
 
   const [mapTexture, setMapTexture] = useState<PixiTexture | null>(null);
   const [lightContextMenuState, setLightContextMenuState] = useState<LightContextMenuState | null>(
-    null
+    null,
   );
   const [mirrorContextMenuState, setMirrorContextMenuState] =
     useState<MirrorContextMenuState | null>(null);
   const [tokenContextMenuState, setTokenContextMenuState] = useState<TokenContextMenuState | null>(
-    null
+    null,
   );
   const [sizeEditTokenId, setSizeEditTokenId] = useState<string | null>(null);
   const { addLight } = useLightManager();
@@ -92,17 +95,16 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
   const isRemotePlayer = !!remotePlayerId;
   const moveTokenMutation = useMutation(api.players.moveToken);
 
-  const scene = useQuery(
-    api.scenes.getById,
-    sceneId ? { id: sceneId as Id<"scenes"> } : "skip",
-  );
+  const scene = useQuery(api.scenes.getById, sceneId ? { id: sceneId as Id<"scenes"> } : "skip");
 
   const allowedTokenIds = useMemo(() => {
     if (!isRemotePlayer || !scene) return new Set<string>();
     const players = (scene as Record<string, unknown>).players as
       | Array<{ id: string; tokenInstanceIds: string[] }>
       | undefined;
-    const activePlayerIds = (scene as Record<string, unknown>).activePlayerIds as string[] | undefined;
+    const activePlayerIds = (scene as Record<string, unknown>).activePlayerIds as
+      | string[]
+      | undefined;
     const player = players?.find((p) => p.id === remotePlayerId);
     if (!player) return new Set<string>();
     const isActive = activePlayerIds?.includes(remotePlayerId!) ?? false;
@@ -113,15 +115,29 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
   const handleRemoteTokenMove = useCallback(
     (tokenId: string, x: number, y: number) => {
       if (!sceneId || !remotePlayerId) return;
-      void moveTokenMutation({
-        sceneId: sceneId as Id<"scenes">,
-        playerId: remotePlayerId,
-        tokenId,
-        x,
-        y,
-      });
+      void (async () => {
+        try {
+          await moveTokenMutation({
+            sceneId: sceneId as Id<"scenes">,
+            playerId: remotePlayerId,
+            tokenId,
+            x,
+            y,
+          });
+          // Success is throttled to avoid noisy drag-stream analytics.
+          const now = Date.now();
+          if (now - lastRemoteMoveSuccessAtRef.current >= 30_000) {
+            posthog.capture(ANALYTICS_EVENTS.RemotePlayerTokenMoveSucceeded);
+            lastRemoteMoveSuccessAtRef.current = now;
+          }
+        } catch (error) {
+          posthog.capture(ANALYTICS_EVENTS.RemotePlayerTokenMoveFailed, {
+            error_category: error instanceof Error ? error.message.slice(0, 120) : "unknown",
+          });
+        }
+      })();
     },
-    [sceneId, remotePlayerId, moveTokenMutation],
+    [sceneId, remotePlayerId, moveTokenMutation, posthog],
   );
   const appRef = useRef<PixiApplication | null>(null);
   const containerRef = useRef<PixiContainer | null>(null);
@@ -135,6 +151,15 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
     lastX: 0,
     lastY: 0,
   });
+  const lastRemoteMoveSuccessAtRef = useRef(0);
+
+  useEffect(() => {
+    placementTemplateIdRef.current = placementTemplateId;
+  }, [placementTemplateId]);
+
+  useEffect(() => {
+    addTokenInstanceRef.current = addTokenInstance;
+  }, [addTokenInstance]);
 
   useEffect(() => {
     placementTemplateIdRef.current = placementTemplateId;
@@ -206,7 +231,7 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
 
     container.position.set(
       (viewportSize.width - scaledWidth) / 2,
-      (viewportSize.height - scaledHeight) / 2
+      (viewportSize.height - scaledHeight) / 2,
     );
   }, [viewportSize.height, viewportSize.width, mapTexture]);
 
@@ -242,10 +267,10 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
       container.scale.set(nextScale);
       container.position.set(
         event.offsetX - worldX * nextScale,
-        event.offsetY - worldY * nextScale
+        event.offsetY - worldY * nextScale,
       );
     },
-    [clampScale]
+    [clampScale],
   );
 
   const getViewportCenterWorld = useCallback(() => {
@@ -260,14 +285,16 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
     (type: LightType) => {
       const { x, y } = getViewportCenterWorld();
       addLight(type, x, y);
+      posthog.capture(ANALYTICS_EVENTS.LightAdded, { light_type: type });
     },
-    [addLight, getViewportCenterWorld]
+    [addLight, getViewportCenterWorld, posthog],
   );
 
   const handleAddMirror = useCallback(() => {
     const { x, y } = getViewportCenterWorld();
     addMirror(x, y);
-  }, [addMirror, getViewportCenterWorld]);
+    posthog.capture(ANALYTICS_EVENTS.MirrorAdded);
+  }, [addMirror, getViewportCenterWorld, posthog]);
 
   const handlePointerDown = useCallback(
     (event: FederatedPointerEvent) => {
@@ -284,6 +311,7 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
         }
         const worldPosition = event.getLocalPosition(container);
         addTokenInstanceRef.current(activeTemplateId, worldPosition.x, worldPosition.y);
+        posthog.capture(ANALYTICS_EVENTS.TokenInstancePlaced);
         return;
       }
 
@@ -292,7 +320,7 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
       panStateRef.current.lastX = event.global.x;
       panStateRef.current.lastY = event.global.y;
     },
-    [isGM]
+    [isGM, posthog],
   );
 
   const handlePointerMove = useCallback((event: FederatedPointerEvent) => {
@@ -356,7 +384,7 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
         canvas.removeEventListener("contextmenu", preventContextMenu);
       };
     },
-    [detachInteractionHandlers, handlePointerDown, handlePointerMove, handlePointerUp, handleWheel]
+    [detachInteractionHandlers, handlePointerDown, handlePointerMove, handlePointerUp, handleWheel],
   );
 
   useEffect(() => {
@@ -373,7 +401,7 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
         attachInteractionHandlers(canvas, app);
       }
     },
-    [attachInteractionHandlers]
+    [attachInteractionHandlers],
   );
 
   // Ensure stage hitArea updates on resize
@@ -428,11 +456,7 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
   }, []);
 
   return (
-    <SidebarProvider
-      side={sidebarSide}
-      open={sidebarOpen}
-      onOpenChange={setSidebarOpen}
-    >
+    <SidebarProvider side={sidebarSide} open={sidebarOpen} onOpenChange={setSidebarOpen}>
       <InitiativeSidebar isGM={isGM} />
       <SidebarInset className="relative h-screen overflow-hidden">
         {isGM && (
