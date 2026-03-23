@@ -359,7 +359,13 @@ export const getPlayerBookmarks = query({
         Date.now() - scene.dmLastSeen < DM_ONLINE_THRESHOLD_MS;
 
       results.push({
-        ...bookmark,
+        _id: bookmark._id,
+        clerkUserId: bookmark.clerkUserId,
+        sceneId: bookmark.sceneId,
+        playerId: bookmark.playerId,
+        playerName: bookmark.playerName,
+        characterName: bookmark.characterName,
+        savedAt: bookmark.savedAt,
         sceneName: scene.name,
         dmOnline,
       });
