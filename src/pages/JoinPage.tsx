@@ -71,9 +71,8 @@ export function JoinPage() {
     }
   }, [sceneInfo, playerName, characterName, user?.id, joinScene, navigate, posthog]);
 
-  const alreadyJoined = sceneInfo && user?.id
-    ? sceneInfo.players.some((p) => p.clerkUserId === user.id)
-    : false;
+  const alreadyJoined =
+    sceneInfo && user?.id ? sceneInfo.players.some((p) => p.clerkUserId === user.id) : false;
 
   useEffect(() => {
     if (sceneInfo === undefined) {
@@ -183,11 +182,7 @@ export function JoinPage() {
               <p className="text-sm text-muted-foreground">
                 You've already joined this scene. Click below to rejoin.
               </p>
-              <Button
-                className="w-full"
-                disabled={isJoining}
-                onClick={() => void handleJoin()}
-              >
+              <Button className="w-full" disabled={isJoining} onClick={() => void handleJoin()}>
                 {isJoining ? (
                   <Loader2 className="size-4 mr-2 animate-spin" />
                 ) : (
@@ -202,8 +197,7 @@ export function JoinPage() {
               onSubmit={(e) => {
                 e.preventDefault();
                 void handleJoin();
-              }}
-            >
+              }}>
               <div className="space-y-2">
                 <Label htmlFor="player-name">Player Name</Label>
                 <Input
@@ -231,10 +225,7 @@ export function JoinPage() {
                   <p className="text-xs text-muted-foreground">
                     Sign in to save this scene to your library for quick access later.
                   </p>
-                  <SignInButton
-                    mode="modal"
-                    forceRedirectUrl={window.location.href}
-                  >
+                  <SignInButton mode="modal" forceRedirectUrl={window.location.href}>
                     <Button type="button" variant="outline" size="sm">
                       <LogIn className="size-3.5 mr-1.5" />
                       Sign In (optional)
@@ -246,8 +237,10 @@ export function JoinPage() {
               <SignedIn>
                 <p className="text-xs text-muted-foreground">
                   Signed in as{" "}
-                  <span className="font-medium">{user?.fullName ?? user?.primaryEmailAddress?.emailAddress}</span>.
-                  This scene will be saved to your library.
+                  <span className="font-medium">
+                    {user?.fullName ?? user?.primaryEmailAddress?.emailAddress}
+                  </span>
+                  . This scene will be saved to your library.
                 </p>
               </SignedIn>
 
@@ -260,8 +253,7 @@ export function JoinPage() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isJoining || !playerName.trim() || !characterName.trim()}
-              >
+                disabled={isJoining || !playerName.trim() || !characterName.trim()}>
                 {isJoining ? (
                   <Loader2 className="size-4 mr-2 animate-spin" />
                 ) : (

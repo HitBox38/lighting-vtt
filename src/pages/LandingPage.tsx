@@ -4,13 +4,7 @@ import { AppSettingsDialog } from "@/components/AppSettingsDialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
-import {
-  SignedIn,
-  SignedOut,
-  SignInButton,
-  SignUpButton,
-  UserButton,
-} from "@clerk/clerk-react";
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "@clerk/clerk-react";
 import {
   FlipHorizontal2,
   Globe,
@@ -87,9 +81,7 @@ export const LandingPage = () => {
         <div className="flex h-14 items-center justify-between px-6">
           <div className="flex items-center gap-2.5">
             <Zap className="w-5 h-5 text-primary" aria-hidden="true" />
-            <span className="text-base font-semibold tracking-tight select-none">
-              Lighting VTT
-            </span>
+            <span className="text-base font-semibold tracking-tight select-none">Lighting VTT</span>
           </div>
           <div className="flex items-center gap-3">
             <AppSettingsDialog />
@@ -126,16 +118,14 @@ export const LandingPage = () => {
 
           <p
             className="relative text-muted-foreground text-base sm:text-lg max-w-md mt-5 leading-relaxed text-pretty animate-fade-slide-up"
-            style={{ animationDelay: "80ms" }}
-          >
-            A 2D dynamic lighting engine for virtual tabletops, built for
-            TV-table setups. Place lights, set the mood, invite your players.
+            style={{ animationDelay: "80ms" }}>
+            A 2D dynamic lighting engine for virtual tabletops, built for TV-table setups. Place
+            lights, set the mood, invite your players.
           </p>
 
           <div
             className="relative flex flex-wrap items-center justify-center gap-3 mt-8 animate-fade-slide-up"
-            style={{ animationDelay: "160ms" }}
-          >
+            style={{ animationDelay: "160ms" }}>
             <SignedOut>
               <SignUpButton mode="modal" forceRedirectUrl="/library">
                 <Button size="lg">Get Started</Button>
@@ -156,14 +146,12 @@ export const LandingPage = () => {
 
         <section
           className="border-t border-border/40 px-6 py-14 animate-fade-slide-up"
-          style={{ animationDelay: "240ms" }}
-        >
+          style={{ animationDelay: "240ms" }}>
           <div className="mx-auto flex max-w-xl flex-col items-center">
             <div
               role="tablist"
               aria-label="Features"
-              className="flex flex-wrap items-center justify-center gap-1"
-            >
+              className="flex flex-wrap items-center justify-center gap-1">
               {FEATURES.map((f, i) => (
                 <button
                   key={f.label}
@@ -176,12 +164,8 @@ export const LandingPage = () => {
                     i === activeFeature
                       ? "bg-muted text-foreground"
                       : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <f.icon
-                    className="w-3.5 h-3.5 shrink-0"
-                    aria-hidden="true"
-                  />
+                  )}>
+                  <f.icon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                   {f.label}
                 </button>
               ))}
@@ -191,8 +175,7 @@ export const LandingPage = () => {
               key={activeFeature}
               id="feature-panel"
               role="tabpanel"
-              className="mt-5 max-w-sm text-center text-sm leading-relaxed text-muted-foreground animate-fade-slide-up"
-            >
+              className="mt-5 max-w-sm text-center text-sm leading-relaxed text-muted-foreground animate-fade-slide-up">
               {FEATURES[activeFeature].description}
             </p>
           </div>

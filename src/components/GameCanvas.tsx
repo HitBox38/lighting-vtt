@@ -75,17 +75,17 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
 
   const resolution = useMemo(
     () => (typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1),
-    []
+    [],
   );
 
   const [mapTexture, setMapTexture] = useState<PixiTexture | null>(null);
   const [lightContextMenuState, setLightContextMenuState] = useState<LightContextMenuState | null>(
-    null
+    null,
   );
   const [mirrorContextMenuState, setMirrorContextMenuState] =
     useState<MirrorContextMenuState | null>(null);
   const [tokenContextMenuState, setTokenContextMenuState] = useState<TokenContextMenuState | null>(
-    null
+    null,
   );
   const [sizeEditTokenId, setSizeEditTokenId] = useState<string | null>(null);
   const { addLight } = useLightManager();
@@ -95,17 +95,16 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
   const isRemotePlayer = !!remotePlayerId;
   const moveTokenMutation = useMutation(api.players.moveToken);
 
-  const scene = useQuery(
-    api.scenes.getById,
-    sceneId ? { id: sceneId as Id<"scenes"> } : "skip",
-  );
+  const scene = useQuery(api.scenes.getById, sceneId ? { id: sceneId as Id<"scenes"> } : "skip");
 
   const allowedTokenIds = useMemo(() => {
     if (!isRemotePlayer || !scene) return new Set<string>();
     const players = (scene as Record<string, unknown>).players as
       | Array<{ id: string; tokenInstanceIds: string[] }>
       | undefined;
-    const activePlayerIds = (scene as Record<string, unknown>).activePlayerIds as string[] | undefined;
+    const activePlayerIds = (scene as Record<string, unknown>).activePlayerIds as
+      | string[]
+      | undefined;
     const player = players?.find((p) => p.id === remotePlayerId);
     if (!player) return new Set<string>();
     const isActive = activePlayerIds?.includes(remotePlayerId!) ?? false;
@@ -153,6 +152,14 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
     lastY: 0,
   });
   const lastRemoteMoveSuccessAtRef = useRef(0);
+
+  useEffect(() => {
+    placementTemplateIdRef.current = placementTemplateId;
+  }, [placementTemplateId]);
+
+  useEffect(() => {
+    addTokenInstanceRef.current = addTokenInstance;
+  }, [addTokenInstance]);
 
   useEffect(() => {
     placementTemplateIdRef.current = placementTemplateId;
@@ -224,7 +231,7 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
 
     container.position.set(
       (viewportSize.width - scaledWidth) / 2,
-      (viewportSize.height - scaledHeight) / 2
+      (viewportSize.height - scaledHeight) / 2,
     );
   }, [viewportSize.height, viewportSize.width, mapTexture]);
 
@@ -260,10 +267,10 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
       container.scale.set(nextScale);
       container.position.set(
         event.offsetX - worldX * nextScale,
-        event.offsetY - worldY * nextScale
+        event.offsetY - worldY * nextScale,
       );
     },
-    [clampScale]
+    [clampScale],
   );
 
   const getViewportCenterWorld = useCallback(() => {
@@ -280,7 +287,7 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
       addLight(type, x, y);
       posthog.capture(ANALYTICS_EVENTS.LightAdded, { light_type: type });
     },
-    [addLight, getViewportCenterWorld, posthog]
+    [addLight, getViewportCenterWorld, posthog],
   );
 
   const handleAddMirror = useCallback(() => {
@@ -313,7 +320,7 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
       panStateRef.current.lastX = event.global.x;
       panStateRef.current.lastY = event.global.y;
     },
-    [isGM, posthog]
+    [isGM, posthog],
   );
 
   const handlePointerMove = useCallback((event: FederatedPointerEvent) => {
@@ -377,7 +384,7 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
         canvas.removeEventListener("contextmenu", preventContextMenu);
       };
     },
-    [detachInteractionHandlers, handlePointerDown, handlePointerMove, handlePointerUp, handleWheel]
+    [detachInteractionHandlers, handlePointerDown, handlePointerMove, handlePointerUp, handleWheel],
   );
 
   useEffect(() => {
@@ -394,7 +401,7 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
         attachInteractionHandlers(canvas, app);
       }
     },
-    [attachInteractionHandlers]
+    [attachInteractionHandlers],
   );
 
   // Ensure stage hitArea updates on resize
@@ -449,11 +456,7 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
   }, []);
 
   return (
-    <SidebarProvider
-      side={sidebarSide}
-      open={sidebarOpen}
-      onOpenChange={setSidebarOpen}
-    >
+    <SidebarProvider side={sidebarSide} open={sidebarOpen} onOpenChange={setSidebarOpen}>
       <InitiativeSidebar isGM={isGM} />
       <SidebarInset className="relative h-screen overflow-hidden">
         {isGM && (

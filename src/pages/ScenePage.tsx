@@ -28,7 +28,11 @@ export function ScenePage() {
   const remotePlayerId = searchParams.get("playerId");
 
   const isRemotePlayer = !!remotePlayerId;
-  const sceneAnalyticsRef = useRef<{ sceneId: string | null; didTrackOutcome: boolean; didTrackEntered: boolean }>({
+  const sceneAnalyticsRef = useRef<{
+    sceneId: string | null;
+    didTrackOutcome: boolean;
+    didTrackEntered: boolean;
+  }>({
     sceneId: null,
     didTrackOutcome: false,
     didTrackEntered: false,
@@ -38,7 +42,8 @@ export function ScenePage() {
 
   const sceneLoaded = storeSceneId === sceneId;
 
-  const canSave = isGM && !isRemotePlayer && sceneLoaded && !!user?.id && user.id === scene?.creatorId;
+  const canSave =
+    isGM && !isRemotePlayer && sceneLoaded && !!user?.id && user.id === scene?.creatorId;
 
   const role = useMemo(() => {
     if (isRemotePlayer) {
@@ -84,7 +89,7 @@ export function ScenePage() {
     if (scene && !sceneAnalyticsRef.current.didTrackEntered) {
       const entrySource: SceneEntrySource = isRemotePlayer
         ? "join"
-        : consumeSceneEntrySource() ?? "direct_or_library";
+        : (consumeSceneEntrySource() ?? "direct_or_library");
       posthog.capture(ANALYTICS_EVENTS.SceneEditorEntered, {
         role,
         entry_source: entrySource,
@@ -161,13 +166,17 @@ export function ScenePage() {
 
   const remotePlayerInfo = useMemo(() => {
     if (!isRemotePlayer || !scene) return null;
-    const players = (scene as Record<string, unknown>).players as Array<{
-      id: string;
-      playerName: string;
-      characterName: string;
-      tokenInstanceIds: string[];
-    }> | undefined;
-    const activePlayerIds = (scene as Record<string, unknown>).activePlayerIds as string[] | undefined;
+    const players = (scene as Record<string, unknown>).players as
+      | Array<{
+          id: string;
+          playerName: string;
+          characterName: string;
+          tokenInstanceIds: string[];
+        }>
+      | undefined;
+    const activePlayerIds = (scene as Record<string, unknown>).activePlayerIds as
+      | string[]
+      | undefined;
     const player = players?.find((p) => p.id === remotePlayerId);
     if (!player) return null;
     return {
