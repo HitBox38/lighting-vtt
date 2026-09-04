@@ -130,6 +130,15 @@ interface TokenTemplateUpdatableFields {
 
 export type TokenTemplateUpdate = TokenTemplateUpdatableFields;
 
+export const damageLogEntrySchema = z.object({
+  timestamp: z.number(),
+  delta: z.number(), // negative = damage, positive = heal
+  source: z.string().optional(),
+  round: z.number().optional(),
+});
+
+export type DamageLogEntry = z.infer<typeof damageLogEntrySchema>;
+
 export const tokenInstanceSchema = z
   .object({
     id: z.string().min(1, "Token instance id is required"),
@@ -139,6 +148,12 @@ export const tokenInstanceSchema = z
     size: z.number().positive().optional().default(22),
     hidden: z.boolean().optional().default(false),
     initiative: z.number().int().min(1).max(20).optional(),
+    currentHp: z.number().optional(),
+    maxHp: z.number().optional(),
+    tempHp: z.number().optional(),
+    ac: z.number().optional(),
+    damageLog: z.array(damageLogEntrySchema).optional(),
+    iiCombatantId: z.string().optional(),
   })
   .strict();
 
@@ -151,9 +166,23 @@ interface TokenInstanceUpdatableFields {
   size?: number;
   hidden?: boolean;
   initiative?: number;
+  currentHp?: number;
+  maxHp?: number;
+  tempHp?: number;
+  ac?: number;
+  damageLog?: DamageLogEntry[];
+  iiCombatantId?: string;
 }
 
 export type TokenInstanceUpdate = TokenInstanceUpdatableFields;
+
+/** Sync configuration for improvedinitiative.app integration. */
+export type IISyncConfig = {
+  encounterId: string;
+  enabled: boolean;
+  pollIntervalMs?: number;
+  lastPulledAt?: number;
+};
 
 // --- SCENE PLAYERS ---
 

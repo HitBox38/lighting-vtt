@@ -35,6 +35,8 @@ import { InitiativeSidebar } from "@/components/InitiativeSidebar";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { useUIPreferencesStore } from "@/stores/uiPreferencesStore";
 import { PlayersSheet } from "@/components/PlayersSheet";
+import { IIInitImportDialog } from "@/components/IIInitImportDialog";
+import { IISyncIndicator } from "@/components/IISyncIndicator";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -460,7 +462,13 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
 
   return (
     <SidebarProvider side={sidebarSide} open={sidebarOpen} onOpenChange={setSidebarOpen}>
-      <InitiativeSidebar isGM={isGM} />
+      <InitiativeSidebar
+        isGM={isGM}
+        sceneId={sceneId}
+        creatorId={scene?.creatorId ?? null}
+        round={scene?.round}
+        turnIndex={scene?.turnIndex}
+      />
       <SidebarInset className="relative h-screen overflow-hidden">
         {isGM && (
           <>
@@ -478,6 +486,16 @@ export function GameCanvas({ mapUrl, isGM = true, remotePlayerId, sceneId }: Pro
                   <TokenToolbar />
                   <PlayerViewToolbar />
                   {sceneId && <PlayersSheet sceneId={sceneId} />}
+                  {sceneId && scene?.creatorId && (
+                    <IIInitImportDialog sceneId={sceneId} creatorId={scene.creatorId} />
+                  )}
+                  {scene?.iiSync?.enabled && (
+                    <IISyncIndicator
+                      encounterId={scene.iiSync.encounterId}
+                      sceneId={sceneId!}
+                      creatorId={scene.creatorId}
+                    />
+                  )}
                 </div>
 
                 <div className="pointer-events-auto shrink-0">

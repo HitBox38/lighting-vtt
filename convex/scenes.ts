@@ -135,6 +135,81 @@ export const savePreset = mutation({
   },
 });
 
+/**
+ * Advance the turn tracker to the next combatant in initiative order.
+ * Wrapping past the end increments the round counter.
+ */
+export const advanceTurn = mutation({
+  args: {
+    id: v.id("scenes"),
+    creatorId: v.string(),
+  },
+  returns: v.object({
+    round: v.number(),
+    turnIndex: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const scene = await ctx.db.get(args.id);
+    if (!scene) throw new Error("Scene not found");
+    if (scene.creatorId !== args.creatorId) {
+      throw new Error("Unauthorized: only the scene creator can advance turns");
+    }
+
+    const tokens = scene.tokens ?? [];
+    const sorted = [...tokens]
+      .filter((t) => t.initiative !== undefined)
+      .sort((a, b) => (b.initiative ?? 0) - (a.initiative ?? 0));
+
+    if (sorted.length === 0) {
+      throw new Error("No tokens with initiative set");
+    }
+
+    const currentRound = scene.round ?? 1;
+    const currentIndex = scene.turnIndex ?? 0;
+    let nextIndex = currentIndex + 1;
+    let nextRound = currentRound;
+
+    if (nextIndex >= sorted.length) {
+      nextIndex = 0;
+      nextRound = currentRound + 1;
+    }
+
+    await ctx.db.patch(args.id, {
+      round: nextRound,
+      turnIndex: nextIndex,
+      updatedAt: Date.now(),
+    });
+
+    return { round: nextRound, turnIndex: nextIndex };
+  },
+});
+
+/**
+ * Reset the combat tracker to round 1, turn 0.
+ */
+export const resetCombat = mutation({
+  args: {
+    id: v.id("scenes"),
+    creatorId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const scene = await ctx.db.get(args.id);
+    if (!scene) throw new Error("Scene not found");
+    if (scene.creatorId !== args.creatorId) {
+      throw new Error("Unauthorized: only the scene creator can reset combat");
+    }
+
+    await ctx.db.patch(args.id, {
+      round: 1,
+      turnIndex: 0,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
 /** Remove a preset by its client-generated id from a scene's presets array. */
 export const deletePreset = mutation({
   args: {

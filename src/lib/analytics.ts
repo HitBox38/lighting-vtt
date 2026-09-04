@@ -46,6 +46,15 @@ export const ANALYTICS_EVENTS = {
   InitiativeValueSet: "initiative_value_set",
   InitiativeValueCleared: "initiative_value_cleared",
   InitiativeRolled: "initiative_rolled",
+  DamageApplied: "damage_applied",
+  HealApplied: "heal_applied",
+  TempHpSet: "temp_hp_set",
+  TurnAdvanced: "turn_advanced",
+  CombatReset: "combat_reset",
+  IIImportStarted: "ii_import_started",
+  IIImportCompleted: "ii_import_completed",
+  IILiveSyncEnabled: "ii_live_sync_enabled",
+  IILiveSyncDisabled: "ii_live_sync_disabled",
 } as const;
 
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];

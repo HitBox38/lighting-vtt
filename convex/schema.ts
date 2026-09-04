@@ -68,6 +68,14 @@ export const tokenTemplateValidator = v.object({
   borderColor: v.string(),
 });
 
+/** A single entry in a combatant's damage log. */
+export const damageLogEntryValidator = v.object({
+  timestamp: v.number(),
+  delta: v.number(), // negative = damage, positive = heal
+  source: v.optional(v.string()),
+  round: v.optional(v.number()),
+});
+
 /** Matches the `TokenInstance` type in shared/index.ts. */
 export const tokenInstanceValidator = v.object({
   id: v.string(),
@@ -77,6 +85,12 @@ export const tokenInstanceValidator = v.object({
   size: v.optional(v.number()),
   hidden: v.optional(v.boolean()),
   initiative: v.optional(v.number()),
+  currentHp: v.optional(v.number()),
+  maxHp: v.optional(v.number()),
+  tempHp: v.optional(v.number()),
+  ac: v.optional(v.number()),
+  damageLog: v.optional(v.array(damageLogEntryValidator)),
+  iiCombatantId: v.optional(v.string()),
 });
 
 /** Matches the `ScenePlayer` type in shared/index.ts. */
@@ -86,6 +100,14 @@ export const scenePlayerValidator = v.object({
   characterName: v.string(),
   clerkUserId: v.optional(v.string()),
   tokenInstanceIds: v.array(v.string()),
+});
+
+/** Sync configuration for improvedinitiative.app integration. */
+export const iiSyncValidator = v.object({
+  encounterId: v.string(),
+  enabled: v.boolean(),
+  pollIntervalMs: v.optional(v.number()), // default 3000
+  lastPulledAt: v.optional(v.number()),
 });
 
 /**
@@ -108,6 +130,9 @@ export const sceneDocValidator = v.object({
   players: v.optional(v.array(scenePlayerValidator)),
   dmLastSeen: v.optional(v.number()),
   activePlayerIds: v.optional(v.array(v.string())),
+  round: v.optional(v.number()),
+  turnIndex: v.optional(v.number()),
+  iiSync: v.optional(iiSyncValidator),
 });
 
 // ---------------------------------------------------------------------------
@@ -129,6 +154,9 @@ export default defineSchema({
     players: v.optional(v.array(scenePlayerValidator)),
     dmLastSeen: v.optional(v.number()),
     activePlayerIds: v.optional(v.array(v.string())),
+    round: v.optional(v.number()),
+    turnIndex: v.optional(v.number()),
+    iiSync: v.optional(iiSyncValidator),
   })
     .index("by_creatorId", ["creatorId"])
     .index("by_inviteCode", ["inviteCode"]),
