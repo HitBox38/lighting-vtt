@@ -6,8 +6,8 @@ import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { BrowserRouter } from "react-router-dom";
 import "pixi.js/advanced-blend-modes";
 import "./index.css";
-import App from "./App.tsx";
-import { ThemeProvider } from "./components/ThemeProvider.tsx";
+import App from "./App";
+import { ThemeProvider } from "@/components/atoms/ThemeProvider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PostHogProvider } from "@posthog/react";
 

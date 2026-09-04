@@ -1,0 +1,1 @@
+export { GameCanvasStage } from "./GameCanvasStage";

@@ -21,3 +21,12 @@ export const UploadButton = generateUploadButton<UploadRouter>({
 export const UploadDropzone = generateUploadDropzone<UploadRouter>({
   url: `${CONVEX_URL}/api/uploadthing`,
 });
+
+export async function deleteUploadedFile(key: string): Promise<void> {
+  const convexUrl = import.meta.env.VITE_CONVEX_URL as string;
+  await fetch(`${convexUrl}/api/uploadthing/delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key }),
+  });
+}
