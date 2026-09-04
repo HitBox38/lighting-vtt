@@ -4,7 +4,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { useUploadThing } from "@/utils/uploadthing";
+import { deleteUploadedFile, useUploadThing } from "@/utils/uploadthing";
 import { ANALYTICS_EVENTS, setSceneEntrySource } from "@/lib/analytics";
 import type { NewSceneFormData } from "../types";
 
@@ -83,12 +83,7 @@ export function useCreateSceneForm(userId: string | undefined) {
     const keyToDelete = uploadedFile.key;
     setUploadedFile(null);
     try {
-      const convexUrl = import.meta.env.VITE_CONVEX_URL as string;
-      await fetch(`${convexUrl}/api/uploadthing/delete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: keyToDelete }),
-      });
+      await deleteUploadedFile(keyToDelete);
     } catch (error) {
       console.error("Failed to delete upload", error);
     }

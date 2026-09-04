@@ -2,10 +2,10 @@ import { useEffect } from "react";
 import { usePostHog } from "@posthog/react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
-import { LandingPage } from "@/pages/LandingPage";
-import ScenePage from "@/pages/ScenePage";
-import { LibraryPage } from "@/pages/LibraryPage";
 import { JoinPage } from "@/pages/JoinPage";
+import { LandingPage } from "@/pages/LandingPage";
+import { LibraryPage } from "@/pages/LibraryPage";
+import { ScenePage } from "@/pages/ScenePage";
 
 let lastTrackedPath: string | null = null;
 
