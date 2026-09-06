@@ -1,3 +1,4 @@
+import { useWorkshopStore } from "@/stores/workshopStore";
 import { useRef } from "react";
 import type { FederatedPointerEvent } from "pixi.js";
 import type { Mirror } from "@shared/index";
@@ -22,6 +23,7 @@ export function useMirrorDrag({ onOpenContextMenu, onCloseContextMenu }: MirrorC
     mirror: Mirror,
     handle: MirrorDragHandleType,
   ) => {
+    useWorkshopStore.getState().select({ kind: "mirror", id: mirror.id });
     event.stopPropagation();
     onCloseContextMenu();
     flush();

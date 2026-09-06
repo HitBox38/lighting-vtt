@@ -61,6 +61,7 @@ export const createScenePersister = (lightStore: LightStoreApi, tokenStore: Toke
       const currentHash = computeStateHash(
         current.lights,
         current.mirrors,
+        current.effects,
         currentTokens.tokenTemplates,
         currentTokens.tokens,
       );
@@ -81,6 +82,7 @@ export const createScenePersister = (lightStore: LightStoreApi, tokenStore: Toke
           creatorId,
           lights: current.lights,
           mirrors: current.mirrors,
+          effects: current.effects,
           tokenTemplates: currentTokens.tokenTemplates,
           tokens: currentTokens.tokens,
         })

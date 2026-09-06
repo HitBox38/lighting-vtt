@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { Light, LightPreset, Mirror, TokenInstance, TokenTemplate } from "@shared/index";
+import type { EffectInstance } from "@shared/effects";
 
 import type { Doc } from "../../../../convex/_generated/dataModel";
 import { useLightStore } from "@/stores/lightStore/lightStore";
@@ -24,6 +25,7 @@ export function useLoadScene(
       scene.creatorId,
       (scene.lights ?? []) as Light[],
       (scene.mirrors ?? []) as Mirror[],
+      (scene.effects ?? []) as EffectInstance[],
       (scene.tokenTemplates ?? []) as TokenTemplate[],
       (scene.tokens ?? []) as TokenInstance[],
       (scene.presets ?? []) as LightPreset[],

@@ -1,6 +1,8 @@
 import { LightContextMenu } from "@/components/molecules/LightContextMenu";
 import { MirrorContextMenu } from "@/components/molecules/MirrorContextMenu";
 import { TokenContextMenu } from "@/components/molecules/TokenContextMenu";
+import { EffectContextMenu } from "@/components/molecules/EffectContextMenu";
+import { EffectParamsPanel } from "@/components/molecules/EffectParamsPanel";
 import type { useOverlayMenus } from "@/components/templates/GameCanvas/hooks/useOverlayMenus";
 
 interface GameCanvasMenusProps {
@@ -31,6 +33,20 @@ export function GameCanvasMenus({ isGM, menus }: GameCanvasMenusProps) {
           isGM={isGM}
           onEditSize={menus.handleStartTokenSizeEdit}
           onClose={menus.handleCloseTokenContextMenu}
+        />
+      ) : null}
+      {menus.effectContextMenuState ? (
+        <EffectContextMenu
+          state={menus.effectContextMenuState}
+          isGM={isGM}
+          onOpenParams={menus.handleOpenEffectParams}
+          onClose={menus.handleCloseEffectContextMenu}
+        />
+      ) : null}
+      {menus.effectParamsPanelState ? (
+        <EffectParamsPanel
+          state={menus.effectParamsPanelState}
+          onClose={menus.handleCloseEffectParams}
         />
       ) : null}
     </>

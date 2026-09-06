@@ -12,8 +12,16 @@ import {
   lightSchema,
   mirrorSchema,
 } from "@shared/index";
+import {
+  DEFAULT_EFFECT_RADIUS,
+  type EffectInstance,
+  clampEffectRadius,
+  effectInstanceSchema,
+  sanitizeEffectInstances,
+} from "@shared/effects";
 
 import { createId } from "@/lib/createId";
+import type { AddEffectInput } from "@/stores/lightStore/types";
 
 export const getIsGM = (): boolean => {
   if (typeof window === "undefined") return true;
@@ -67,11 +75,33 @@ export const buildMirror = (x: number, y: number): Mirror => {
   });
 };
 
+export const buildEffect = (input: AddEffectInput): EffectInstance => {
+  return effectInstanceSchema.parse({
+    id: createId(),
+    effectId: input.effectId,
+    version: input.version,
+    x: input.x,
+    y: input.y,
+    radius: clampEffectRadius(input.radius ?? DEFAULT_EFFECT_RADIUS),
+    rotation: 0,
+    params: input.params,
+  });
+};
+
+export const importEffects = (
+  effects: readonly unknown[] | undefined,
+  source: string,
+): EffectInstance[] =>
+  sanitizeEffectInstances(JSON.parse(JSON.stringify(effects ?? [])) as unknown[], (index, reason) => {
+    console.warn(`[lightStore] dropped effect #${index} from ${source}: ${reason}`);
+  });
+
 export const computeStateHash = (
   lights: Light[],
   mirrors: Mirror[],
+  effects: EffectInstance[],
   tokenTemplates: TokenTemplate[],
   tokens: TokenInstance[],
 ): string => {
-  return JSON.stringify({ lights, mirrors, tokenTemplates, tokens });
+  return JSON.stringify({ lights, mirrors, effects, tokenTemplates, tokens });
 };

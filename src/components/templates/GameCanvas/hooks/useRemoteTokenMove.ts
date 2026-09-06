@@ -6,7 +6,10 @@ import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
 
-export function useRemoteTokenMove(sceneId?: string | null, remotePlayerId?: string | null) {
+export function useRemoteTokenMove(
+  sceneId?: string | null,
+  remotePlayerId?: string | null,
+) {
   const posthog = usePostHog();
   const moveTokenMutation = useMutation(api.players.moveToken);
   const lastRemoteMoveSuccessAtRef = useRef(0);
@@ -29,7 +32,8 @@ export function useRemoteTokenMove(sceneId?: string | null, remotePlayerId?: str
         }
       } catch (error) {
         posthog.capture(ANALYTICS_EVENTS.RemotePlayerTokenMoveFailed, {
-          error_category: error instanceof Error ? error.message.slice(0, 120) : "unknown",
+          error_category:
+            error instanceof Error ? error.message.slice(0, 120) : "unknown",
         });
       }
     })();

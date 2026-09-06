@@ -14,6 +14,7 @@ const getCombinedSyncState = (lightStore: LightStoreApi, tokenStore: TokenStoreA
   return {
     lights: lightState.lights,
     mirrors: lightState.mirrors,
+    effects: lightState.effects,
     tokenTemplates: tokenState.tokenTemplates,
     tokens: tokenState.tokens,
     activePresetId: lightState.activePresetId,
@@ -24,7 +25,11 @@ export const registerGmSync = (lightStore: LightStoreApi, tokenStore: TokenStore
   const schedulePersist = createScenePersister(lightStore, tokenStore);
 
   lightStore.subscribe((state, prevState) => {
-    if (state.lights !== prevState.lights || state.mirrors !== prevState.mirrors) {
+    if (
+      state.lights !== prevState.lights ||
+      state.mirrors !== prevState.mirrors ||
+      state.effects !== prevState.effects
+    ) {
       broadcastState(getCombinedSyncState(lightStore, tokenStore));
       schedulePersist();
       return;

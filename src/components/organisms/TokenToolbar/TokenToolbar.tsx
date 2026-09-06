@@ -36,7 +36,7 @@ export function TokenToolbar() {
     : "No token templates yet";
 
   return (
-    <HudSurface className="items-center">
+    <HudSurface className="flex-wrap items-center">
       <CreateTokenDialog form={form} />
       <TokenTemplateSearch
         searchQuery={searchQuery}

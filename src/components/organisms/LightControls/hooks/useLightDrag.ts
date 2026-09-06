@@ -1,3 +1,4 @@
+import { useWorkshopStore } from "@/stores/workshopStore";
 import { useRef, useState } from "react";
 import type { FederatedPointerEvent } from "pixi.js";
 import type { Light, LightUpdate } from "@shared/index";
@@ -28,6 +29,7 @@ export function useLightDrag({ onOpenContextMenu, onCloseContextMenu }: LightCon
     light: Light,
     handle: DragHandleType,
   ) => {
+    useWorkshopStore.getState().select({ kind: "light", id: light.id });
     event.stopPropagation();
     onCloseContextMenu();
     flush();

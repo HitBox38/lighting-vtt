@@ -5,14 +5,21 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 interface CanvasContextMenuProps {
   position: { x: number; y: number };
   onClose: () => void;
   children: React.ReactNode;
+  contentClassName?: string;
 }
 
-export function CanvasContextMenu({ position, onClose, children }: CanvasContextMenuProps) {
+export function CanvasContextMenu({
+  position,
+  onClose,
+  children,
+  contentClassName,
+}: CanvasContextMenuProps) {
   if (typeof document === "undefined") {
     return null;
   }
@@ -32,7 +39,7 @@ export function CanvasContextMenu({ position, onClose, children }: CanvasContext
           aria-hidden="true"
         />
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-48" align="start">
+      <DropdownMenuContent className={cn("w-48", contentClassName)} align="start">
         {children}
       </DropdownMenuContent>
     </DropdownMenu>,

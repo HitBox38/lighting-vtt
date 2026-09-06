@@ -1,5 +1,6 @@
 import { useEffect, type MutableRefObject } from "react";
 import type { Light, Mirror, TokenInstance, TokenTemplate } from "@shared/index";
+import type { EffectInstance } from "@shared/effects";
 
 import type { Doc } from "../../../../convex/_generated/dataModel";
 import { useLightStore } from "@/stores/lightStore/lightStore";
@@ -27,6 +28,7 @@ export function useSyncedSceneState({
       applySyncedState({
         lights: (scene.lights ?? []) as Light[],
         mirrors: (scene.mirrors ?? []) as Mirror[],
+        effects: (scene.effects ?? []) as EffectInstance[],
         tokenTemplates: (scene.tokenTemplates ?? []) as TokenTemplate[],
         tokens: (scene.tokens ?? []) as TokenInstance[],
         activePresetId: null,

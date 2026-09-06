@@ -91,7 +91,6 @@ export const drawLights = (
   lights: Light[],
   reflectionData: Map<string, LightReflectionData>,
 ): void => {
-  graphics.clear();
   for (const light of lights) {
     const alpha = light.intensity ?? 1;
     const reflection = reflectionData.get(light.id);
