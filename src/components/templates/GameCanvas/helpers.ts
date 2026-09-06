@@ -1,6 +1,9 @@
 import type { Application as PixiApplication } from "pixi.js";
 
-import { MAX_ZOOM, MIN_ZOOM } from "@/components/templates/GameCanvas/constants";
+import {
+  MAX_ZOOM,
+  MIN_ZOOM,
+} from "@/components/templates/GameCanvas/constants";
 
 export const getCanvasFromApp = (app: PixiApplication | null) => {
   if (!app) {
@@ -11,4 +14,5 @@ export const getCanvasFromApp = (app: PixiApplication | null) => {
     null) as HTMLCanvasElement | null;
 };
 
-export const clampScale = (value: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
+export const clampScale = (value: number) =>
+  Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));

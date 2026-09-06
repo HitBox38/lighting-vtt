@@ -1,0 +1,1 @@
+export { EffectParamsPanel } from "./EffectParamsPanel";

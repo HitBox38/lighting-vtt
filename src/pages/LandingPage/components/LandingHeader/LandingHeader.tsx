@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "@clerk/clerk-react";
 import { Zap } from "lucide-react";
 
@@ -13,7 +14,8 @@ export function LandingHeader() {
           <span className="text-base font-semibold tracking-tight select-none">Lighting VTT</span>
         </div>
         <div className="flex items-center gap-3">
-          <AppSettingsDialog />
+          <Button asChild size="sm" variant="ghost"><Link to="/effects">Effects</Link></Button>
+        <AppSettingsDialog />
           <SignedIn>
             <UserButton />
           </SignedIn>

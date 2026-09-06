@@ -1,6 +1,6 @@
-export type Point = { x: number; y: number };
-export type Ray = { origin: Point; direction: Point };
-export type RaySegment = { start: Point; end: Point };
+export type { Point, Ray, RaySegment } from "@/lib/geometry";
+
+import type { Point, RaySegment } from "@/lib/geometry";
 
 export interface LightReflectionData {
   reflectionSegments: RaySegment[];

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { AppSettingsDialog } from "@/components/organisms/AppSettingsDialog";
 import { Button } from "@/components/ui/button";
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "@clerk/clerk-react";
@@ -8,9 +9,10 @@ export const LibraryHeader = () => (
     <div className="flex h-14 items-center justify-between px-6">
       <div className="flex items-center gap-2.5">
         <Zap className="h-5 w-5 text-primary" />
-        <span className="select-none text-base font-semibold tracking-tight">Lighting VTT</span>
+        <span className="hidden sm:inline select-none text-base font-semibold tracking-tight">Lighting VTT</span>
       </div>
       <div className="flex items-center gap-3">
+        <nav aria-label="Library navigation" className="flex gap-1"><Button asChild size="sm" variant="secondary"><Link to="/library" aria-current="page">Scenes</Link></Button><Button asChild size="sm" variant="ghost"><Link to="/effects">Effects</Link></Button></nav>
         <AppSettingsDialog />
         <SignedIn>
           <UserButton />

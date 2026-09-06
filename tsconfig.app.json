@@ -20,7 +20,9 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
+    /* Off: convex-helpers ships .ts sources next to its .d.ts and tsc resolves the
+       .ts, which uses parameter properties. The flag only lints, never affects output. */
+    "erasableSyntaxOnly": false,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
 

@@ -1,10 +1,23 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import { lightSchema, mirrorSchema, type Light, type LightPreset, type Mirror } from "@shared/index";
+import {
+  EFFECT_LIMITS,
+  clampEffectRadius,
+  effectInstanceSchema,
+  sanitizeEffectInstances,
+} from "@shared/effects";
 
 import { cloneSerializable } from "@/lib/clone";
 import { createId } from "@/lib/createId";
-import { buildLight, buildMirror, computeStateHash, getIsGM } from "@/stores/lightStore/helpers";
+import {
+  buildEffect,
+  buildLight,
+  buildMirror,
+  computeStateHash,
+  getIsGM,
+  importEffects,
+} from "@/stores/lightStore/helpers";
 import { persistPreset, removePersistedPreset } from "@/stores/lightStore/persistScene";
 import { registerGmSync, registerPlayerSync } from "@/stores/lightStore/sync";
 import type { LightStoreState } from "@/stores/lightStore/types";
@@ -14,9 +27,11 @@ export const useLightStore = create<LightStoreState>()(
   devtools((set, get) => ({
     lights: [],
     mirrors: [],
+    effects: [],
     presets: [],
     activePresetId: null,
     hoveredLightId: null,
+    hoveredEffectId: null,
     sceneId: null,
     creatorId: null,
     initialStateHash: null,
@@ -69,6 +84,43 @@ export const useLightStore = create<LightStoreState>()(
         }
         return { mirrors: nextMirrors };
       }),
+    addEffect: (input) => {
+      if (get().effects.length >= EFFECT_LIMITS.maxInstancesPerScene) {
+        return null;
+      }
+      const effect = buildEffect(input);
+      set((state) => ({ effects: state.effects.concat(effect) }));
+      return effect.id;
+    },
+    updateEffect: (id, partial) =>
+      set((state) => {
+        const index = state.effects.findIndex((effect) => effect.id === id);
+        const current = state.effects[index];
+        if (index === -1 || !current) {
+          return state;
+        }
+        const merged = { ...current, ...partial };
+        if (partial.radius !== undefined) {
+          merged.radius = clampEffectRadius(partial.radius);
+        }
+        const parsed = effectInstanceSchema.safeParse(merged);
+        if (!parsed.success) {
+          console.warn("Ignoring invalid effect update", id, parsed.error.issues);
+          return state;
+        }
+        const effects = state.effects.slice();
+        effects[index] = parsed.data;
+        return { effects };
+      }),
+    removeEffect: (id) =>
+      set((state) => {
+        const nextEffects = state.effects.filter((effect) => effect.id !== id);
+        if (nextEffects.length === state.effects.length) {
+          return state;
+        }
+        return { effects: nextEffects };
+      }),
+    setHoveredEffectId: (id) => set({ hoveredEffectId: id }),
     savePreset: (name) => {
       const state = get();
       const newPreset: LightPreset = {
@@ -76,6 +128,7 @@ export const useLightStore = create<LightStoreState>()(
         name,
         lights: state.lights,
         mirrors: state.mirrors,
+        effects: state.effects,
       };
       set({ presets: [...state.presets, newPreset], activePresetId: newPreset.id });
       if (state.sceneId && state.creatorId) {
@@ -88,7 +141,12 @@ export const useLightStore = create<LightStoreState>()(
       const index = state.presets.findIndex((preset) => preset.id === id);
       const current = state.presets[index];
       if (index === -1 || !current) return;
-      const updatedPreset: LightPreset = { ...current, lights: state.lights, mirrors: state.mirrors };
+      const updatedPreset: LightPreset = {
+        ...current,
+        lights: state.lights,
+        mirrors: state.mirrors,
+        effects: state.effects,
+      };
       const nextPresets = [...state.presets];
       nextPresets[index] = updatedPreset;
       set({ presets: nextPresets });
@@ -102,6 +160,7 @@ export const useLightStore = create<LightStoreState>()(
       set({
         lights: cloneSerializable(preset.lights) as Light[],
         mirrors: cloneSerializable(preset.mirrors ?? []) as Mirror[],
+        effects: importEffects(preset.effects, `preset "${preset.name}"`),
         activePresetId: id,
       });
     },
@@ -123,28 +182,45 @@ export const useLightStore = create<LightStoreState>()(
       }
     },
     setHoveredLightId: (id) => set({ hoveredLightId: id }),
-    loadScene: (sceneId, creatorId, lights, mirrors, tokenTemplates, tokens, presets) => {
+    loadScene: (sceneId, creatorId, lights, mirrors, effects, tokenTemplates, tokens, presets) => {
       const lightsCopy = cloneSerializable(lights);
       const mirrorsCopy = cloneSerializable(mirrors);
+      const effectsCopy = importEffects(effects, "scene");
       set({
         sceneId,
         creatorId,
         lights: lightsCopy,
         mirrors: mirrorsCopy,
+        effects: effectsCopy,
         presets: cloneSerializable(presets),
-        initialStateHash: computeStateHash(lightsCopy, mirrorsCopy, tokenTemplates, tokens),
+        initialStateHash: computeStateHash(
+          lightsCopy,
+          mirrorsCopy,
+          effectsCopy,
+          tokenTemplates,
+          tokens,
+        ),
         activePresetId: null,
       });
     },
     getStateHash: () => {
       const state = get();
       const tokenState = useTokenStore.getState();
-      return computeStateHash(state.lights, state.mirrors, tokenState.tokenTemplates, tokenState.tokens);
+      return computeStateHash(
+        state.lights,
+        state.mirrors,
+        state.effects,
+        tokenState.tokenTemplates,
+        tokenState.tokens,
+      );
     },
     _applySyncedState: (syncedState) => {
       set({
         lights: syncedState.lights,
         mirrors: syncedState.mirrors,
+        effects: sanitizeEffectInstances(syncedState.effects ?? [], (index, reason) => {
+          console.warn(`[lightStore] dropped synced effect #${index}: ${reason}`);
+        }),
         activePresetId: syncedState.activePresetId,
       });
       useTokenStore.getState().applySyncedTokens(syncedState.tokenTemplates, syncedState.tokens);

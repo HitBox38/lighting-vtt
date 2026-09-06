@@ -96,8 +96,9 @@ function Sidebar({ className, side: sideProp, children, ...props }: SidebarProps
       data-state={isOpen ? "open" : "closed"}
       data-side={side}
       className={cn(
-        "bg-background/95 backdrop-blur-sm border-border flex h-full shrink-0 flex-col overflow-hidden transition-[width] duration-200 ease-in-out",
+        "bg-background/95 backdrop-blur-sm border-border flex h-full shrink-0 flex-col overflow-hidden transition-[width] duration-200 ease-in-out max-lg:absolute max-lg:top-20 max-lg:bottom-3 max-lg:z-30 max-lg:h-auto max-lg:rounded-xl",
         side === "left" ? "border-r" : "border-l order-last",
+        side === "left" ? "max-lg:left-3" : "max-lg:right-3",
         isOpen ? "w-(--sidebar-width)" : "w-(--sidebar-width-collapsed)",
         className
       )}

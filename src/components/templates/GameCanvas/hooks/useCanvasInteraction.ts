@@ -9,7 +9,10 @@ import type {
 import { usePostHog } from "@posthog/react";
 
 import { ZOOM_STEP } from "@/components/templates/GameCanvas/constants";
-import { clampScale, getCanvasFromApp } from "@/components/templates/GameCanvas/helpers";
+import {
+  clampScale,
+  getCanvasFromApp,
+} from "@/components/templates/GameCanvas/helpers";
 import { useTokenManager } from "@/stores/tokenStore/hooks/useTokenManager";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
 
@@ -72,7 +75,10 @@ export function useCanvasInteraction({
     };
   };
 
-  const attachInteractionHandlers = (canvas: HTMLCanvasElement, app: PixiApplication) => {
+  const attachInteractionHandlers = (
+    canvas: HTMLCanvasElement,
+    app: PixiApplication,
+  ) => {
     cleanupRef.current?.();
     canvas.style.touchAction = "none";
     const stage = app.stage;
@@ -91,7 +97,11 @@ export function useCanvasInteraction({
           return;
         }
         const worldPosition = event.getLocalPosition(container);
-        addTokenInstanceRef.current(activeTemplateId, worldPosition.x, worldPosition.y);
+        addTokenInstanceRef.current(
+          activeTemplateId,
+          worldPosition.x,
+          worldPosition.y,
+        );
         posthogRef.current.capture(ANALYTICS_EVENTS.TokenInstancePlaced);
         return;
       }
@@ -104,7 +114,11 @@ export function useCanvasInteraction({
     const handlePointerMove = (event: FederatedPointerEvent) => {
       const state = panStateRef.current;
       const container = containerRef.current;
-      if (!state.dragging || state.pointerId !== event.pointerId || !container) {
+      if (
+        !state.dragging ||
+        state.pointerId !== event.pointerId ||
+        !container
+      ) {
         return;
       }
       container.position.set(
@@ -130,14 +144,19 @@ export function useCanvasInteraction({
         return;
       }
       const currentScale = container.scale.x;
-      const nextScale = clampScale(currentScale * (event.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP));
+      const nextScale = clampScale(
+        currentScale * (event.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP),
+      );
       if (nextScale === currentScale) {
         return;
       }
       const worldX = (event.offsetX - container.x) / currentScale;
       const worldY = (event.offsetY - container.y) / currentScale;
       container.scale.set(nextScale);
-      container.position.set(event.offsetX - worldX * nextScale, event.offsetY - worldY * nextScale);
+      container.position.set(
+        event.offsetX - worldX * nextScale,
+        event.offsetY - worldY * nextScale,
+      );
     };
 
     const preventContextMenu = (event: Event) => event.preventDefault();
