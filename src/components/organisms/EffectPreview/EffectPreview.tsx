@@ -11,6 +11,7 @@ import {
 } from "pixi.js";
 
 import { watchDeviceLoss } from "@/lib/effects/deviceLoss";
+import { queuePreviewBoot } from "@/lib/effects/previewBootQueue";
 import {
   backendLanguage,
   createEffectShader,
@@ -254,6 +255,7 @@ interface Stage {
   mesh: PixiMesh<MeshGeometry, Shader> | null;
   handle: EffectShaderHandle | null;
   programKey: string | null;
+  ownedProgramKeys: Set<string>;
   startedAt: number;
   /**
    * Set by the boot effect's cleanup before `app.destroy`. React runs unmount
@@ -333,11 +335,17 @@ function dropMesh(stage: Stage): void {
 function destroyPreviewApp(app: PixiApplication): void {
   // Each preview requests its own device. Pixi disposes its resources but leaves
   // the device alive; release it explicitly across kind/renderer changes.
-  const device = getEffectBackend(app.renderer) === "webgpu"
-    ? (app.renderer as WebGPURenderer).gpu.device
-    : null;
+  const device =
+    getEffectBackend(app.renderer) === "webgpu"
+      ? (app.renderer as WebGPURenderer).gpu.device
+      : null;
   app.destroy(true, { children: true });
   device?.destroy();
+}
+
+function releasePreviewPrograms(stage: Stage): void {
+  for (const key of stage.ownedProgramKeys) effectRegistry.invalidate(key);
+  stage.ownedProgramKeys.clear();
 }
 
 /** What the author sees in the diagnostics panel when their shader took the GPU down. */
@@ -480,63 +488,63 @@ export function EffectPreview({
       );
     });
 
-    void app
-      .init({
+    void queuePreviewBoot(async () => {
+      if (disposed) return;
+      await app.init({
         preference,
         resizeTo: host,
         backgroundColor: BACKGROUND,
         antialias: true,
         autoDensity: true,
         resolution: window.devicePixelRatio || 1,
-      })
-      .then(() => {
-        if (disposed) {
-          destroyPreviewApp(app);
-          return;
-        }
-        host.appendChild(app.canvas);
-        app.ticker.maxFPS = 60;
-        const backdrop = new PixiGraphics();
-        backdrop.eventMode = "none";
-        const fallback = new PixiGraphics();
-        fallback.eventMode = "none";
-        const scriptLayer = new PixiGraphics();
-        const sampleLayer = new PixiGraphics();
-        sampleLayer.eventMode = "none";
-        scriptLayer.eventMode = "none";
-        scriptLayer.visible = false;
-        app.stage.addChild(backdrop, sampleLayer, fallback, scriptLayer);
-        drawBackdrop(backdrop, host.clientWidth, host.clientHeight);
-
-        const backend = getEffectBackend(app.renderer);
-        stageRef.current = {
-          app,
-          renderer: app.renderer,
-          backend,
-          backdrop,
-          sampleLayer,
-          fallback,
-          scriptLayer,
-          scriptModuleId: `preview:${crypto.randomUUID()}`,
-          mesh: null,
-          handle: null,
-          programKey: null,
-          startedAt: performance.now(),
-          disposed: false,
-          deviceLost: false,
-        };
-        resizeObserver.observe(host);
-        updateActivity();
-        onBackendRef.current?.(backend);
-        setStageReady((n) => n + 1);
-      })
-      .catch((error: unknown) => {
-        console.error("Effect preview failed to start", error);
-        if (!disposed)
-          setBootError(
-            "The graphics preview could not start. Reload to retry, or try a browser with hardware acceleration.",
-          );
       });
+      if (disposed) {
+        destroyPreviewApp(app);
+        return;
+      }
+      host.appendChild(app.canvas);
+      app.ticker.maxFPS = 60;
+      const backdrop = new PixiGraphics();
+      backdrop.eventMode = "none";
+      const fallback = new PixiGraphics();
+      fallback.eventMode = "none";
+      const scriptLayer = new PixiGraphics();
+      const sampleLayer = new PixiGraphics();
+      sampleLayer.eventMode = "none";
+      scriptLayer.eventMode = "none";
+      scriptLayer.visible = false;
+      app.stage.addChild(backdrop, sampleLayer, fallback, scriptLayer);
+      drawBackdrop(backdrop, host.clientWidth, host.clientHeight);
+
+      const backend = getEffectBackend(app.renderer);
+      stageRef.current = {
+        app,
+        renderer: app.renderer,
+        backend,
+        backdrop,
+        sampleLayer,
+        fallback,
+        scriptLayer,
+        scriptModuleId: `preview:${crypto.randomUUID()}`,
+        mesh: null,
+        handle: null,
+        programKey: null,
+        ownedProgramKeys: new Set(),
+        startedAt: performance.now(),
+        disposed: false,
+        deviceLost: false,
+      };
+      resizeObserver.observe(host);
+      updateActivity();
+      onBackendRef.current?.(backend);
+      setStageReady((n) => n + 1);
+    }).catch((error: unknown) => {
+      console.error("Effect preview failed to start", error);
+      if (!disposed)
+        setBootError(
+          "The graphics preview could not start. Reload to retry, or try a browser with hardware acceleration.",
+        );
+    });
 
     return () => {
       disposed = true;
@@ -548,11 +556,10 @@ export function EffectPreview({
       if (stage) {
         stage.disposed = true;
         dropMesh(stage);
+        releasePreviewPrograms(stage);
         getScriptSandbox().unload(stage.scriptModuleId);
         destroyPreviewApp(stage.app);
       }
-      // Unsaved drafts are keyed by source hash; nothing else will ever ask for them again.
-      effectRegistry.clearPreviews();
     };
   }, [preference]);
 
@@ -587,8 +594,7 @@ export function EffectPreview({
         stage.deviceLost = true;
         stage.app.ticker.stop();
         dropMesh(stage);
-        // Every cached preview program was compiled against the dead device.
-        effectRegistry.clearPreviews();
+        releasePreviewPrograms(stage);
         const result = deviceLostResult(stage.backend, detail);
         setCompiled({ key: `lost:${detail}:${performance.now()}`, result });
         onCompiledRef.current?.(result, stage.backend);
@@ -615,11 +621,18 @@ export function EffectPreview({
       setCompiled(null);
       return;
     }
-    const key = previewCacheKey(definition, stage.backend);
+    const key = `${previewCacheKey(definition, stage.backend)}:${stage.scriptModuleId}`;
+    stage.ownedProgramKeys.add(key);
     let cancelled = false;
 
     void effectRegistry.get(key, stage.renderer, definition).then((result) => {
-      if (cancelled) return;
+      if (cancelled) {
+        if (stage.disposed && result.status === "ok") {
+          result.glProgram?.destroy();
+          result.gpuProgram?.destroy();
+        }
+        return;
+      }
       setCompiled({ key, result });
       onCompiledRef.current?.(result, stage.backend);
     });

@@ -1,9 +1,24 @@
-import { useState, type ComponentProps } from "react";
-import { Pause, Play, RotateCcw } from "lucide-react";
+import { useState, type ComponentProps, type ReactNode } from "react";
+import { Eye, EyeOff, Pause, Play, RotateCcw } from "lucide-react";
 import { EffectPreview } from "./EffectPreview";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
-export function PreviewStage(props: ComponentProps<typeof EffectPreview>) {
+export function PreviewStage({
+  fill = false,
+  status,
+  ...props
+}: ComponentProps<typeof EffectPreview> & {
+  fill?: boolean;
+  status?: ReactNode;
+}) {
   const [environment, setEnvironment] = useState<"grid" | "room" | "lights">(
     "grid",
   );
@@ -20,38 +35,32 @@ export function PreviewStage(props: ComponentProps<typeof EffectPreview>) {
     mirrorY: 760,
   });
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <label className="min-w-0 text-xs">
-          <span className="sr-only">Preview environment</span>
-          <select
-            className="workshop-select"
-            value={environment}
-            onChange={(e) =>
-              setEnvironment(e.target.value as typeof environment)
-            }
+    <div className={cn("space-y-2", fill && "flex min-h-48 flex-1 flex-col")}>
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+        <Select
+          value={environment}
+          onValueChange={(value) => setEnvironment(value as typeof environment)}
+        >
+          <SelectTrigger
+            size="sm"
+            className="min-w-0 text-xs"
+            aria-label="Preview environment"
           >
-            <option value="grid">Grid</option>
-            <option value="room">Dim Room</option>
-            <option value="lights">Lights & Mirrors</option>
-          </select>
-        </label>
-        <label className="text-xs">
-          <span className="sr-only">Preview renderer</span>
-          <select
-            className="workshop-select"
-            value={preference}
-            onChange={(e) => setPreference(e.target.value as typeof preference)}
-          >
-            <option value="webgl">WebGL</option>
-            <option value="webgpu">WebGPU</option>
-          </select>
-        </label>
-        <div className="flex items-center gap-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="grid">Grid</SelectItem>
+            <SelectItem value="room">Dim Room</SelectItem>
+            <SelectItem value="lights">Lights & Mirrors</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-0.5 rounded-lg border bg-muted/20 p-0.5">
           <Button
             size="icon"
             variant="ghost"
             aria-label={paused ? "Play preview" : "Pause preview"}
+            title={paused ? "Play preview" : "Pause preview"}
+            className="size-7"
             onClick={() => setPaused(!paused)}
           >
             {paused ? (
@@ -64,6 +73,8 @@ export function PreviewStage(props: ComponentProps<typeof EffectPreview>) {
             size="icon"
             variant="ghost"
             aria-label="Restart preview"
+            title="Restart preview"
+            className="size-7"
             onClick={() => setRestart(restart + 1)}
           >
             <RotateCcw className="size-4" />
@@ -72,13 +83,25 @@ export function PreviewStage(props: ComponentProps<typeof EffectPreview>) {
             size="sm"
             variant={enabled ? "secondary" : "outline"}
             aria-pressed={enabled}
+            title="Compare the scene with and without this effect"
+            className="h-7 gap-1.5 text-xs"
             onClick={() => setEnabled(!enabled)}
           >
+            {enabled ? (
+              <Eye className="size-3.5" />
+            ) : (
+              <EyeOff className="size-3.5" />
+            )}
             {enabled ? "Effect on" : "Effect off"}
           </Button>
         </div>
       </div>
-      <div className="relative aspect-[4/3] max-h-[48vh] overflow-hidden rounded-xl border">
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-xl border",
+          fill ? "min-h-24 flex-1" : "aspect-[4/3] max-h-[48vh]",
+        )}
+      >
         <EffectPreview
           key={`${preference}:${restart}`}
           {...props}
@@ -91,8 +114,29 @@ export function PreviewStage(props: ComponentProps<typeof EffectPreview>) {
           sample={sample}
         />
       </div>
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+        <Select
+          value={preference}
+          onValueChange={(value) => setPreference(value as typeof preference)}
+        >
+          <SelectTrigger
+            size="sm"
+            aria-label="Preview renderer"
+            className="border-transparent bg-transparent px-1 text-[11px] shadow-none hover:border-border dark:bg-transparent"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="webgl">WebGL</SelectItem>
+            <SelectItem value="webgpu">WebGPU</SelectItem>
+          </SelectContent>
+        </Select>
+        {status ?? (
+          <span>{paused ? "Paused" : "Live preview"} · this browser</span>
+        )}
+      </div>
       {environment === "lights" ? (
-        <details className="rounded-lg border p-3 text-xs">
+        <details className="shrink-0 rounded-lg border p-3 text-xs">
           <summary className="cursor-pointer font-medium">
             Move sample light & mirror
           </summary>

@@ -24,7 +24,7 @@ export type EffectBackend = "webgpu" | "webgl";
 export type ShaderLanguage = "wgsl" | "glsl";
 
 /** Every language an author can type into the editor; `js` is the Stage 3 script contract. */
-export type EffectSourceLanguage = ShaderLanguage | "js";
+export type EffectSourceLanguage = ShaderLanguage | "js" | "ts";
 
 /** Names of the per-instance uniforms in the `effectUniforms` group. */
 export const EFFECT_UNIFORM_NAMES = {

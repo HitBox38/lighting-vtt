@@ -101,6 +101,75 @@ documentation, and signature hints. Browser checks covered JS property insertion
 WGSL/GLSL snippet expansion, independent snippet fields, keyboard exit, light/dark
 themes, and phone-width popup positioning using an isolated temporary fixture.
 
+## JavaScript and TypeScript scripts
+
+New script templates offer JavaScript and TypeScript. The Script language selector
+keeps separate recoverable buffers, including an intentionally emptied TypeScript
+buffer. Older versions and drafts default to JavaScript. TypeScript starts with
+self-contained effect input/output declarations and uses CodeMirror's TypeScript
+syntax mode with the same effect API assistance.
+
+Sucrase compiles TypeScript in the lazily loaded studio. The optional `typescript`
+version field retains authored source for editing/remix; `script` remains executable
+JavaScript for previews and existing scene/player runtimes. Syntax errors prevent
+saving and do not fall back to a previous JavaScript buffer. Semantic type checking
+is not enabled. Sandbox restrictions and runtime limits remain unchanged.
+
+The optional schema extension was deployed to the authorized development deployment.
+Six additional tests cover compilation/execution, error handling, version round trips,
+legacy drafts, recovery, sandbox lint rules, and TypeScript completions. Browser
+verification exercised typed preview execution, syntax diagnostics, and switching
+back to the original JavaScript without altering it. Authenticated browser saving
+remains dependent on the Clerk configuration described above.
+
+## Resizable workbench
+
+The studio uses shadcn Resizable (react-resizable-panels v4) for code/preview,
+code/Reference, code/diagnostics, and preview/controls. The main split starts at
+55/45. Dividers support pointer dragging, arrow keys, and double-click to restore
+default sizes. Minimum sizes and independent scrolling keep content reachable.
+The preview canvas follows its panel size while controls remain independently visible.
+
+Below 1024px, Code and Preview & controls occupy the workspace one at a time;
+the hidden panel is inert. The last desktop split is restored when returning to
+desktop without remounting the editors. Below 640px, Reference sits below code.
+Reference is accessed from the code toolbar. Diagnostics open
+for new runtime errors and can be collapsed even while an error is present.
+
+## Editor hierarchy and authoring workflow
+
+The compact header separates explicit version saving from the local recovery copy;
+it reports recovery failures and distinguishes a signed-out account from an account
+whose backend connection is unavailable. Secondary scene actions use a popover on
+smaller screens. Starters, Layout, and the single Reference toggle live with code.
+
+Controls combine live tuning with expandable key, range, type, and saved-default
+settings. Tuning never writes defaults; each control has an explicit promotion action.
+Player controls uses the same parameter fields as the scene inspector and can reset
+the preview to saved defaults. It does not grant players additional permissions.
+Details remains separate from tuning.
+
+Reference supports search, collapsible sections, documentation for the cursor's API
+symbol, and copy/insert examples. Insertion uses the editor selection and supports
+Undo. Balanced, Code focus, Preview focus, and Reset layout use the existing panel
+limits; all four split sizes recover from validated local preferences.
+
+The starter picker overlays the workspace and protects an unsaved draft before
+replacement. Four curated thumbnails are captured from the real preview renderer
+and cached as stills for the visit, releasing their canvases. Blank shader and
+JavaScript/TypeScript starters remain available. The preview groups environment,
+playback/comparison, renderer selection, and compact runtime/compatibility status.
+
+Multiple previews now own separate shader-cache entries; disposing a thumbnail
+cannot clear another preview's programs. Async renderer startup is serialized so
+cancelled Strict Mode initializations finish cleanup before a replacement starts.
+
+Verification covers desktop/tablet/phone layouts, parameter/default separation,
+template replacement protection, Reference insertion and cursor context, cold
+draft/layout recovery, and both preview backends with starter browsing/restarts.
+Four additional behavioral tests cover preference validation, focus bounds,
+language-specific examples, and renderer initialization/cleanup ordering.
+
 ## Measurement
 
 React components use `usePostHog`. `effect_placement_started`,

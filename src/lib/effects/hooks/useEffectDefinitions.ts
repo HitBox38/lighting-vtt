@@ -23,6 +23,7 @@ export function versionDocToDefinition(doc: Doc<"effectVersions">): EffectDefini
     wgsl: doc.wgsl,
     glsl: doc.glsl,
     script: doc.script,
+    typescript: doc.typescript,
     params: doc.params,
     coverage: doc.coverage,
     blend: doc.blend,

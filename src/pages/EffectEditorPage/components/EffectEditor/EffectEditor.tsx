@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useEffectEvent,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -9,9 +10,21 @@ import {
 } from "react";
 import { useBlocker, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation } from "convex/react";
-import { SignInButton } from "@clerk/clerk-react";
+import { SignInButton, useUser } from "@clerk/clerk-react";
 import { usePostHog } from "@posthog/react";
-import { ArrowLeft, BookOpen, Loader2, LogIn, Save } from "lucide-react";
+import {
+  ArrowLeft,
+  BookOpen,
+  Loader2,
+  LogIn,
+  Save,
+  PanelsTopLeft,
+  MoreHorizontal,
+  Sparkles,
+  Eye,
+  SlidersHorizontal,
+  RotateCcw,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { api } from "../../../../../convex/_generated/api";
@@ -22,12 +35,34 @@ import { PreviewStage } from "@/components/organisms/EffectPreview/PreviewStage"
 import type { PreviewHandle } from "@/components/organisms/EffectPreview/EffectPreview";
 import { useUploadThing } from "@/utils/uploadthing";
 import { PlaceEffectButton } from "@/components/molecules/PlaceEffectButton/PlaceEffectButton";
-import { EFFECT_STARTERS } from "@shared/effectStarters";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { TemplatePicker } from "./TemplatePicker";
+import { PreviewStatus } from "./PreviewStatus";
+import { useWorkbenchLayout } from "../../hooks/useWorkbenchLayout";
+import type { Entry } from "../CodeEditor/authoringReference";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { EFFECT_CATEGORIES } from "@shared/effects";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import { useWorkbenchMedia } from "../../hooks/useWorkbenchMedia";
 import {
   Select,
   SelectContent,
@@ -53,6 +88,10 @@ import {
   sanitizeReturnTo,
 } from "@/lib/effects/routes";
 import { lintScriptSource } from "@/lib/effects/scriptContract";
+import {
+  compileTypeScript,
+  typedScriptStarter,
+} from "../CodeEditor/typescriptCompiler";
 import {
   lintAuthorSource,
   type EffectBackend,
@@ -84,7 +123,6 @@ import { ParamsEditor } from "@/pages/EffectEditorPage/components/ParamsEditor";
 import {
   useEffectDraft,
   newEffectDraft,
-  draftFromDefinition,
   readRecoveredDraft,
   type EffectDraft,
 } from "@/pages/EffectEditorPage/hooks/useEffectDraft";
@@ -184,6 +222,7 @@ export function EffectEditor({
   signedIn,
 }: Props) {
   const navigate = useNavigate();
+  const { isSignedIn: clerkSignedIn } = useUser();
   const [searchParams] = useSearchParams();
   const browseFrom = sanitizeReturnTo(searchParams.get("browseFrom"));
   const posthog = usePostHog();
@@ -191,15 +230,50 @@ export function EffectEditor({
   const saveVersion = useMutation(api.effects.saveVersion);
 
   const recoveryKey = `workshop:draft:v1:${target.kind === "new" ? "new" : `${target.effectId}@${target.version}`}`;
-  const { draft, definition, issues, dirty, patch, setParams, reset } =
-    useEffectDraft(initialDraft, recoveryKey);
+  const {
+    draft,
+    definition,
+    issues,
+    dirty,
+    recoveryStatus,
+    patch,
+    setParams,
+    reset,
+  } = useEffectDraft(initialDraft, recoveryKey);
   const captureRef = useRef<PreviewHandle | null>(null);
   const { startUpload } = useUploadThing("imageUploader");
   const kindDrafts = useRef<Partial<Record<EffectKind, EffectDraft>>>({});
-  const [split, setSplit] = useState(55);
   const [mobilePanel, setMobilePanel] = useState("code");
+  const { isDesktop, isReferenceBeside } = useWorkbenchMedia();
+  const layout = useWorkbenchLayout();
+  const workbenchRef = layout.refs.workbench;
+  const desktopLayout = layout.saved;
+  const [referenceContext, setReferenceContext] = useState<Entry | null>(null);
+  const handleContextChange = useCallback(
+    (entry: Entry | null) =>
+      setReferenceContext((current) =>
+        current?.signature === entry?.signature &&
+        current?.description === entry?.description
+          ? current
+          : entry,
+      ),
+    [],
+  );
+  useLayoutEffect(() => {
+    workbenchRef.current?.setLayout(
+      isDesktop
+        ? desktopLayout.current.workbench
+        : {
+            source: mobilePanel === "code" ? 100 : 0,
+            preview: mobilePanel === "preview" ? 100 : 0,
+          },
+    );
+  }, [isDesktop, mobilePanel, workbenchRef, desktopLayout]);
   const [inspectorTab, setInspectorTab] = useState("controls");
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [dismissedDiagnostics, setDismissedDiagnostics] = useState<
+    string | null
+  >(null);
   const [showTemplates, setShowTemplates] = useState(
     target.kind === "new" && !dirty,
   );
@@ -228,6 +302,7 @@ export function EffectEditor({
       case "glsl":
         return glslEditorRef;
       case "js":
+      case "ts":
         return jsEditorRef;
       default: {
         const exhaustive: never = language;
@@ -237,6 +312,26 @@ export function EffectEditor({
   };
 
   const isScript = draft.kind === "script";
+  const scriptLanguage = draft.scriptLanguage;
+  const typeScriptDiagnostics = useMemo(
+    () =>
+      isScript && scriptLanguage === "ts"
+        ? compileTypeScript(draft.typescript).diagnostics
+        : [],
+    [isScript, scriptLanguage, draft.typescript],
+  );
+  const handleScriptLanguageChange = (language: "js" | "ts") => {
+    patch({
+      scriptLanguage: language,
+      ...(language === "ts" && !draft.typescriptInitialized
+        ? {
+            typescript: typedScriptStarter(draft.script),
+            typescriptInitialized: true,
+          }
+        : {}),
+    });
+    setActiveTab(language);
+  };
   const blocker = useBlocker(dirty && !saving);
   useEffect(() => {
     if (blocker.state === "blocked") {
@@ -442,14 +537,30 @@ export function EffectEditor({
   }, [debouncedKind, debouncedDefinition.glsl]);
 
   const allDiagnostics = useMemo(
-    () => [
-      ...lint.wgsl,
-      ...lint.glsl,
-      ...lint.js,
-      ...compileDiagnostics,
-      ...glslMissingWarning,
+    () =>
+      (typeScriptDiagnostics.length
+        ? typeScriptDiagnostics
+        : [
+            ...lint.wgsl,
+            ...lint.glsl,
+            ...lint.js,
+            ...compileDiagnostics,
+            ...glslMissingWarning,
+          ]
+      ).map(
+        (diagnostic): EffectDiagnostic =>
+          diagnostic.language === "js" && isScript && scriptLanguage === "ts"
+            ? { ...diagnostic, language: "ts" }
+            : diagnostic,
+      ),
+    [
+      lint,
+      compileDiagnostics,
+      glslMissingWarning,
+      typeScriptDiagnostics,
+      isScript,
+      scriptLanguage,
     ],
-    [lint, compileDiagnostics, glslMissingWarning],
   );
 
   const diagnosticsFor = useCallback(
@@ -465,7 +576,10 @@ export function EffectEditor({
     () => diagnosticsFor("glsl"),
     [diagnosticsFor],
   );
-  const jsDiagnostics = useMemo(() => diagnosticsFor("js"), [diagnosticsFor]);
+  const jsDiagnostics = useMemo(
+    () => diagnosticsFor(scriptLanguage),
+    [diagnosticsFor, scriptLanguage],
+  );
 
   const revealDiagnostic = useCallback((diagnostic: EffectDiagnostic) => {
     if (diagnostic.line === null) return;
@@ -501,14 +615,23 @@ export function EffectEditor({
   const hasLintErrors =
     lint.wgsl.length > 0 || lint.glsl.length > 0 || lint.js.length > 0;
   const compileFailed =
-    compileStatus.kind === "error" || compileStatus.kind === "script-error";
+    typeScriptDiagnostics.length > 0 ||
+    compileStatus.kind === "error" ||
+    compileStatus.kind === "script-error";
+  const diagnosticKey = JSON.stringify(allDiagnostics);
+  const diagnosticsOpen =
+    showDiagnostics ||
+    (compileFailed && dismissedDiagnostics !== diagnosticKey);
   const compileInFlight =
     compileStatus.kind === "compiling" ||
     compileStatus.kind === "running" ||
     compileStatus.kind === "idle";
 
   let saveBlocker: string | null = null;
-  if (!signedIn) saveBlocker = "Sign in to save effects.";
+  if (!signedIn)
+    saveBlocker = clerkSignedIn
+      ? "Your account is signed in, but the save service is not connected yet. Your local draft is still available."
+      : "Sign in to save effects.";
   else if (issues.size > 0)
     saveBlocker = issues.values().next().value ?? "Fix the highlighted fields.";
   else if (hasLintErrors)
@@ -653,263 +776,313 @@ export function EffectEditor({
   // ---------------------------------------------------------------------------
   const nameIssue = issues.get("name");
   const descriptionIssue = issues.get("description");
-  const sourceIssue = isScript ? issues.get("script") : issues.get("wgsl");
+  const sourceIssue = isScript
+    ? issues.get(scriptLanguage === "ts" ? "typescript" : "script")
+    : issues.get("wgsl");
 
+  const sceneActions =
+    target.kind === "existing" ? (
+      <div className="flex gap-2">
+        <PlaceEffectButton
+          item={{
+            kind: "effect",
+            effectId: target.effectId,
+            version: target.version,
+            name: draft.name,
+            params: coercedPreviewValues,
+          }}
+          returnTo={returnTo}
+          disabled={dirty}
+        />
+        {target.isOwner && target.visibility === "private" ? (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={dirty || saving}
+            onClick={() => {
+              if (
+                window.confirm(
+                  "Publish this saved version to the public library? Its source and controls will be available for others to use and remix. Preview compatibility is only verified for this browser.",
+                )
+              )
+                void publishEffect({ effectId: target.effectId })
+                  .then(() => {
+                    toast.success("Published to the effect library.");
+                    posthog.capture("effect_published", {
+                      effect_id: target.effectId,
+                    });
+                  })
+                  .catch(() => toast.error("Could not publish. Try again."));
+            }}
+          >
+            Publish
+          </Button>
+        ) : null}
+      </div>
+    ) : null;
   return (
     <div className="workshop-studio bg-background text-foreground flex h-dvh flex-col">
       <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
-        <Button type="button" variant="ghost" size="sm" onClick={handleBack}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={handleBack}
+          aria-label="Back"
+          className="px-2"
+        >
           <ArrowLeft className="mr-1 h-4 w-4" />
-          Back
+          <span className="hidden sm:inline">Back</span>
         </Button>
 
-        <div className="flex min-w-0 flex-1 basis-[calc(100%-5rem)] items-center gap-3 sm:basis-auto">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <Input
             value={draft.name}
             onChange={(event) => patch({ name: event.target.value })}
             maxLength={EFFECT_LIMITS.maxNameLength}
             aria-label="Effect name"
             aria-invalid={Boolean(nameIssue)}
-            className="h-9 max-w-xs font-medium"
+            className="h-9 min-w-20 max-w-xs font-medium"
             placeholder="Effect name"
           />
           {target.kind === "existing" ? (
-            <Badge variant="secondary" className="font-mono">
+            <Badge
+              variant="secondary"
+              className="hidden font-mono sm:inline-flex"
+            >
               v{target.version}
               {target.version !== target.latestVersion
                 ? ` of ${target.latestVersion}`
                 : ""}
             </Badge>
           ) : (
-            <Badge variant="secondary">New</Badge>
+            <Badge variant="secondary" className="hidden sm:inline-flex">
+              New
+            </Badge>
           )}
           {target.kind === "existing" ? (
             <Badge
               variant={target.visibility === "public" ? "default" : "outline"}
-              className="capitalize"
+              className="hidden capitalize lg:inline-flex"
             >
               {target.visibility}
             </Badge>
           ) : null}
           {target.kind === "existing" && !target.isOwner ? (
-            <Badge variant="outline">Remix · original stays unchanged</Badge>
+            <Badge
+              variant="outline"
+              className="hidden xl:inline-flex"
+              title="Saving creates a private copy. The original stays unchanged."
+            >
+              Remix
+            </Badge>
           ) : null}
-          {dirty ? (
-            <span className="text-muted-foreground text-xs">
-              Unsaved changes
+          <span
+            className="hidden min-w-32 text-[11px] leading-tight text-muted-foreground sm:block"
+            title={
+              recoveryStatus === "saved"
+                ? "Recovered on this device. Save a version to use this effect in scenes."
+                : recoveryStatus === "unavailable"
+                  ? "Browser storage is unavailable. Keep this page open until you save a version."
+                  : "Updating the recovery copy on this device."
+            }
+          >
+            {dirty
+              ? "Unsaved version"
+              : target.kind === "new"
+                ? "New draft"
+                : "Version saved"}
+            <span
+              className={cn(
+                "mt-0.5 block",
+                recoveryStatus === "unavailable" &&
+                  "text-amber-600 dark:text-amber-400",
+              )}
+            >
+              {recoveryStatus === "saved"
+                ? "Draft backed up locally"
+                : recoveryStatus === "unavailable"
+                  ? "Local recovery unavailable"
+                  : "Backing up draft…"}
             </span>
-          ) : null}
+          </span>
         </div>
 
-        <Badge
-          variant="outline"
-          className="font-mono"
-          title="Renderer backend used by this browser"
-        >
-          {backend ? backendLabel(backend) : "…"}
-        </Badge>
-
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              {/* Disabled buttons swallow pointer events; the span keeps the tooltip reachable. */}
-              <span tabIndex={canSave ? -1 : 0}>
+        {sceneActions &&
+          (isDesktop ? (
+            sceneActions
+          ) : (
+            <Popover>
+              <PopoverTrigger asChild>
                 <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleSave}
-                  disabled={!canSave}
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  aria-label="Scene actions"
                 >
-                  {saving ? (
-                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="mr-1 h-4 w-4" />
-                  )}
-                  {saveLabel}
+                  <MoreHorizontal className="size-4" />
                 </Button>
-              </span>
-            </TooltipTrigger>
-            {saveBlocker ? (
-              <TooltipContent>{saveBlocker}</TooltipContent>
-            ) : null}
-          </Tooltip>
-        </TooltipProvider>
-      </header>
-
-      {!signedIn ? (
-        <div className="bg-amber-500/10 text-amber-200 flex shrink-0 items-center justify-between gap-3 border-b border-amber-500/30 px-4 py-2 text-xs">
-          <span>
-            You can draft and preview without an account. Sign in to save this
-            effect and place it in your scenes.
-          </span>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-auto">
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Saved version actions
+                </p>
+                {sceneActions}
+              </PopoverContent>
+            </Popover>
+          ))}
+        {!signedIn && !clerkSignedIn ? (
           <SignInButton mode="modal">
-            <Button type="button" size="sm" variant="outline">
-              <LogIn className="mr-1 h-3.5 w-3.5" />
-              Sign in
+            <Button size="sm" className="workshop-primary">
+              <LogIn className="size-3.5" />
+              <span className="sm:hidden">Sign in</span>
+              <span className="hidden sm:inline">Sign in to save</span>
             </Button>
           </SignInButton>
+        ) : (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                {/* Disabled buttons swallow pointer events; the span keeps the tooltip reachable. */}
+                <span tabIndex={canSave ? -1 : 0}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleSave}
+                    className="workshop-primary"
+                    disabled={!canSave}
+                    aria-label={
+                      !signedIn && clerkSignedIn
+                        ? "Save unavailable"
+                        : saveLabel
+                    }
+                  >
+                    {saving ? (
+                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-1 h-4 w-4" />
+                    )}
+                    <span className="sm:hidden">Save</span>
+                    <span className="hidden sm:inline">
+                      {!signedIn && clerkSignedIn
+                        ? "Save unavailable"
+                        : saveLabel}
+                    </span>
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {saveBlocker ? (
+                <TooltipContent>{saveBlocker}</TooltipContent>
+              ) : null}
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        <div className="order-last flex w-full items-center justify-between gap-2 text-[10px] text-muted-foreground sm:hidden">
+          <span>
+            {target.kind === "existing"
+              ? `v${target.version} · ${target.visibility}${!target.isOwner ? " · Remix" : ""}`
+              : "New effect"}
+            {dirty ? " · Unsaved" : ""}
+          </span>
+          <span
+            className={recoveryStatus === "unavailable" ? "text-amber-500" : ""}
+          >
+            {recoveryStatus === "saved"
+              ? "Draft backed up locally"
+              : recoveryStatus === "unavailable"
+                ? "Local recovery unavailable"
+                : "Backing up draft…"}
+          </span>
         </div>
-      ) : null}
+      </header>
 
-      {showTemplates ? (
-        <div className="border-b bg-amber-500/5 p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <p className="workshop-eyebrow">Start something</p>
-              <h2 className="font-semibold">Choose a starting point</h2>
-            </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setShowTemplates(false)}
-            >
-              Close
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {EFFECT_STARTERS.map((template) => (
-              <Button
-                variant="outline"
-                key={template.name}
-                onClick={() => {
-                  patch(draftFromDefinition(template));
-                  setActiveTab(defaultTabFor(template.kind));
-                  setShowTemplates(false);
-                  posthog.capture("effect_template_selected", {
-                    template: template.name,
-                  });
-                }}
-              >
-                {template.name}
-              </Button>
-            ))}
-            <Button
-              variant="ghost"
-              onClick={() => {
-                patch(newEffectDraft("shader"));
-                setActiveTab("wgsl");
-                setShowTemplates(false);
-                posthog.capture("effect_template_selected", {
-                  template: "Blank shader",
-                });
-              }}
-            >
-              Blank shader
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                patch(newEffectDraft("script"));
-                setActiveTab("js");
-                setShowTemplates(false);
-                posthog.capture("effect_template_selected", {
-                  template: "Blank script",
-                });
-              }}
-            >
-              Blank script
-            </Button>
-          </div>
-        </div>
-      ) : null}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b px-3 py-2">
-        <div className="flex gap-1 lg:hidden">
+      <TemplatePicker
+        open={showTemplates}
+        onOpenChange={setShowTemplates}
+        dirty={dirty}
+        onChoose={(next, name) => {
+          patch(next);
+          setPreviewValues(defaultParamValues(next.params));
+          setReferenceContext(null);
+          setActiveTab(next.kind === "script" ? next.scriptLanguage : "wgsl");
+          setShowTemplates(false);
+          posthog.capture("effect_template_selected", {
+            template: name,
+            language: next.kind === "script" ? next.scriptLanguage : "wgsl",
+          });
+        }}
+      />
+      <div className="flex shrink-0 items-center justify-between border-b px-2 py-1.5 lg:hidden">
+        <div className="flex gap-1">
           {["code", "preview"].map((panel) => (
             <Button
+              key={panel}
               size="sm"
               variant={mobilePanel === panel ? "secondary" : "ghost"}
-              key={panel}
+              aria-pressed={mobilePanel === panel}
               onClick={() => setMobilePanel(panel)}
             >
               {panel === "code" ? "Code" : "Preview & controls"}
             </Button>
           ))}
         </div>
-        <label className="hidden items-center gap-2 text-xs text-muted-foreground lg:flex">
-          Workbench split
-          <input
-            aria-label="Code panel width"
-            type="range"
-            min="35"
-            max="70"
-            value={split}
-            onChange={(e) => setSplit(Number(e.target.value))}
-          />
-        </label>
         <Button
           size="sm"
           variant="ghost"
-          onClick={() => setShowTemplates(!showTemplates)}
+          onClick={() => setShowTemplates(true)}
         >
-          Templates
+          <Sparkles className="size-4" />
+          Starters
         </Button>
-        {target.kind === "existing" ? (
-          <div className="flex gap-2">
-            <PlaceEffectButton
-              item={{
-                kind: "effect",
-                effectId: target.effectId,
-                version: target.version,
-                name: draft.name,
-                params: coercedPreviewValues,
-              }}
-              returnTo={returnTo}
-              disabled={dirty}
-            />
-            {target.isOwner && target.visibility === "private" ? (
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={dirty || saving}
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      "Publish this saved version to the public library? Its source and controls will be available for others to use and remix. Preview compatibility is only verified for this browser.",
-                    )
-                  )
-                    void publishEffect({ effectId: target.effectId })
-                      .then(() => {
-                        toast.success("Published to the effect library.");
-                        posthog.capture("effect_published", {
-                          effect_id: target.effectId,
-                        });
-                      })
-                      .catch(() =>
-                        toast.error("Could not publish. Try again."),
-                      );
-                }}
-              >
-                Publish
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
       </div>
-      <div className="flex min-h-0 flex-1">
+      <ResizablePanelGroup
+        id="effect-workbench"
+        orientation="horizontal"
+        groupRef={workbenchRef}
+        disabled={!isDesktop}
+        className="flex-1"
+        onLayoutChanged={isDesktop ? layout.remember("workbench") : undefined}
+      >
         {/* Code column */}
-        <section
-          style={{ flexBasis: `${split}%` }}
+        <ResizablePanel
+          id="source"
+          defaultSize={`${layout.initial.workbench.source}%`}
+          minSize={isDesktop ? "35%" : mobilePanel === "code" ? "100%" : "0%"}
+          maxSize={isDesktop ? "70%" : mobilePanel === "code" ? "100%" : "0%"}
           className={cn(
-            "min-w-0 flex-1 flex-col border-r lg:flex",
-            mobilePanel !== "code" ? "hidden" : "flex",
+            "flex h-full min-h-0 flex-col",
+            !isDesktop && mobilePanel !== "code" && "hidden",
           )}
+          inert={!isDesktop && mobilePanel !== "code"}
+          aria-label="Effect source"
         >
-          <div className="flex h-10 shrink-0 items-center gap-1 border-b px-2">
+          <div className="flex min-h-11 shrink-0 flex-wrap items-center gap-1 border-b bg-muted/10 px-2 py-1">
             {isScript ? (
-              <TabButton
-                active={activeTab === "js"}
-                onClick={() => setActiveTab("js")}
-                problems={
-                  jsDiagnostics.filter((d) => d.severity === "error").length
+              <Select
+                value={scriptLanguage}
+                onValueChange={(value) =>
+                  handleScriptLanguageChange(value as "js" | "ts")
                 }
               >
-                JavaScript
-              </TabButton>
+                <SelectTrigger
+                  aria-label="Script language"
+                  className="h-8 w-36 text-xs"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="js">JavaScript</SelectItem>
+                  <SelectItem value="ts">TypeScript</SelectItem>
+                </SelectContent>
+              </Select>
             ) : (
               <>
                 <TabButton
                   active={activeTab === "wgsl"}
-                  onClick={() => setActiveTab("wgsl")}
+                  onClick={() => {
+                    setActiveTab("wgsl");
+                    setReferenceContext(null);
+                  }}
                   problems={
                     wgslDiagnostics.filter((d) => d.severity === "error").length
                   }
@@ -918,7 +1091,10 @@ export function EffectEditor({
                 </TabButton>
                 <TabButton
                   active={activeTab === "glsl"}
-                  onClick={() => setActiveTab("glsl")}
+                  onClick={() => {
+                    setActiveTab("glsl");
+                    setReferenceContext(null);
+                  }}
                   problems={
                     glslDiagnostics.filter((d) => d.severity === "error").length
                   }
@@ -931,6 +1107,48 @@ export function EffectEditor({
               </>
             )}
             <div className="flex-1" />
+            <Button
+              size="sm"
+              variant="ghost"
+              className="hidden h-7 text-xs lg:inline-flex"
+              onClick={() => setShowTemplates(true)}
+            >
+              <Sparkles className="size-3.5" />
+              Starters
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="hidden h-7 text-xs lg:inline-flex"
+                >
+                  <PanelsTopLeft className="size-3.5" />
+                  Layout
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Workspace</DropdownMenuLabel>
+                {(["Balanced", "Code focus", "Preview focus"] as const).map(
+                  (preset) => (
+                    <DropdownMenuItem
+                      key={preset}
+                      onSelect={() => layout.applyPreset(preset)}
+                    >
+                      {preset}
+                    </DropdownMenuItem>
+                  ),
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={layout.reset}>
+                  <RotateCcw className="size-3.5" />
+                  Reset layout
+                </DropdownMenuItem>
+                <p className="max-w-52 px-2 py-1.5 text-[11px] text-muted-foreground">
+                  Panel sizes are remembered on this device.
+                </p>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {sourceIssue ? (
               <span className="text-destructive text-xs">{sourceIssue}</span>
             ) : null}
@@ -946,291 +1164,439 @@ export function EffectEditor({
             </Button>
           </div>
 
-          <div className="flex min-h-0 flex-1">
-            <div className="relative min-w-0 flex-1">
-              {isScript ? (
-                <CodeEditor
-                  ref={jsEditorRef}
-                  language="js"
-                  params={draft.params}
-                  value={draft.script}
-                  onChange={(value) => patch({ script: value })}
-                  diagnostics={jsDiagnostics}
-                  className="h-full"
+          <ResizablePanelGroup
+            orientation="vertical"
+            id="source-diagnostics"
+            groupRef={layout.refs.diagnostics}
+            onLayoutChanged={layout.remember("diagnostics")}
+            className="flex-1"
+          >
+            <ResizablePanel
+              id="editor"
+              minSize="35%"
+              defaultSize={`${layout.initial.diagnostics.editor}%`}
+            >
+              <ResizablePanelGroup
+                orientation={isReferenceBeside ? "horizontal" : "vertical"}
+                id="source-reference"
+                groupRef={layout.refs.reference}
+                onLayoutChanged={layout.remember("reference")}
+              >
+                <ResizablePanel
+                  id="code"
+                  minSize="40%"
+                  defaultSize={`${layout.initial.reference.code}%`}
+                  className="relative h-full"
+                >
+                  {isScript ? (
+                    <CodeEditor
+                      onContextChange={handleContextChange}
+                      ref={jsEditorRef}
+                      key={scriptLanguage}
+                      language={scriptLanguage}
+                      params={draft.params}
+                      value={
+                        scriptLanguage === "ts"
+                          ? draft.typescript
+                          : draft.script
+                      }
+                      onChange={(value) =>
+                        patch(
+                          scriptLanguage === "ts"
+                            ? { typescript: value }
+                            : { script: value },
+                        )
+                      }
+                      diagnostics={jsDiagnostics}
+                      className="h-full"
+                    />
+                  ) : (
+                    <>
+                      <CodeEditor
+                        onContextChange={handleContextChange}
+                        ref={wgslEditorRef}
+                        language="wgsl"
+                        params={draft.params}
+                        value={draft.wgsl}
+                        onChange={(value) => patch({ wgsl: value })}
+                        diagnostics={wgslDiagnostics}
+                        className={cn(
+                          "h-full",
+                          activeTab !== "wgsl" && "hidden",
+                        )}
+                      />
+                      <CodeEditor
+                        onContextChange={handleContextChange}
+                        ref={glslEditorRef}
+                        language="glsl"
+                        params={draft.params}
+                        value={draft.glsl}
+                        onChange={(value) => patch({ glsl: value })}
+                        diagnostics={glslDiagnostics}
+                        className={cn(
+                          "h-full",
+                          activeTab !== "glsl" && "hidden",
+                        )}
+                      />
+                    </>
+                  )}
+                </ResizablePanel>
+                {showReference ? (
+                  <>
+                    <ResizableHandle
+                      withHandle
+                      aria-label="Resize code and reference"
+                    />
+                    <ResizablePanel
+                      id="reference"
+                      minSize="25%"
+                      maxSize="60%"
+                      defaultSize={`${layout.initial.reference.reference}%`}
+                      className="h-full overflow-y-auto p-3"
+                      aria-label="Effect API reference"
+                    >
+                      <ContractReference
+                        context={referenceContext}
+                        onInsert={(source) =>
+                          editorRefFor(
+                            isScript ? scriptLanguage : activeTab,
+                          ).current?.insertText(source)
+                        }
+                        language={isScript ? scriptLanguage : activeTab}
+                        params={draft.params}
+                      />
+                    </ResizablePanel>
+                  </>
+                ) : null}
+              </ResizablePanelGroup>
+            </ResizablePanel>
+            {diagnosticsOpen ? (
+              <>
+                <ResizableHandle
+                  withHandle
+                  aria-label="Resize code and diagnostics"
                 />
-              ) : (
-                <>
-                  <CodeEditor
-                    ref={wgslEditorRef}
-                    language="wgsl"
-                    params={draft.params}
-                    value={draft.wgsl}
-                    onChange={(value) => patch({ wgsl: value })}
-                    diagnostics={wgslDiagnostics}
-                    className={cn("h-full", activeTab !== "wgsl" && "hidden")}
+                <ResizablePanel
+                  id="diagnostics"
+                  defaultSize={`${layout.initial.diagnostics.diagnostics}%`}
+                  minSize="15%"
+                  maxSize="65%"
+                  aria-label="Diagnostics"
+                >
+                  <DiagnosticsPanel
+                    status={
+                      typeScriptDiagnostics.length
+                        ? { kind: "script-error" }
+                        : compileStatus
+                    }
+                    diagnostics={allDiagnostics}
+                    onSelect={revealDiagnostic}
                   />
-                  <CodeEditor
-                    ref={glslEditorRef}
-                    language="glsl"
-                    params={draft.params}
-                    value={draft.glsl}
-                    onChange={(value) => patch({ glsl: value })}
-                    diagnostics={glslDiagnostics}
-                    className={cn("h-full", activeTab !== "glsl" && "hidden")}
-                  />
-                </>
-              )}
-            </div>
-            {showReference ? (
-              <aside className="w-44 shrink-0 overflow-y-auto border-l p-3 sm:w-64 xl:w-72">
-                <ContractReference language={activeTab} params={draft.params} />
-              </aside>
+                </ResizablePanel>
+              </>
             ) : null}
-          </div>
+          </ResizablePanelGroup>
 
           <div className="shrink-0 border-t">
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setShowDiagnostics(!showDiagnostics)}
+              onClick={() => {
+                setShowDiagnostics(!diagnosticsOpen);
+                setDismissedDiagnostics(diagnosticsOpen ? diagnosticKey : null);
+              }}
+              aria-expanded={diagnosticsOpen}
             >
               {allDiagnostics.length
                 ? `${allDiagnostics.length} diagnostics`
                 : "No problems"}{" "}
-              · {showDiagnostics ? "Collapse" : "Expand"}
+              · {diagnosticsOpen ? "Collapse" : "Expand"}
             </Button>
-            <div
-              className={cn(
-                "h-40",
-                !showDiagnostics && !compileFailed && "hidden",
-              )}
-            >
-              <DiagnosticsPanel
-                status={compileStatus}
-                diagnostics={allDiagnostics}
-                onSelect={revealDiagnostic}
-              />
-            </div>
           </div>
-        </section>
+        </ResizablePanel>
+
+        {isDesktop ? (
+          <ResizableHandle withHandle aria-label="Resize code and preview" />
+        ) : null}
 
         {/* Inspector column */}
-        <aside
-          style={{ flexBasis: `${100 - split}%` }}
+        <ResizablePanel
+          id="preview"
+          defaultSize={`${layout.initial.workbench.preview}%`}
+          minSize={
+            isDesktop ? "30%" : mobilePanel === "preview" ? "100%" : "0%"
+          }
+          maxSize={
+            isDesktop ? "65%" : mobilePanel === "preview" ? "100%" : "0%"
+          }
           className={cn(
-            "min-w-0 flex-1 overflow-y-auto lg:block",
-            mobilePanel !== "preview" && "hidden",
+            "h-full",
+            !isDesktop && mobilePanel !== "preview" && "hidden",
           )}
+          inert={!isDesktop && mobilePanel !== "preview"}
+          aria-label="Effect preview and controls"
         >
-          <div className="border-b p-3">
-            <PreviewStage
-              captureRef={captureRef}
-              definition={debouncedDefinition}
-              params={coercedPreviewValues}
-              onCompiled={handleCompiled}
-              onScript={handleScript}
-              onBackend={setBackend}
-              className="aspect-square w-full overflow-hidden rounded-md border"
-            />
-            <p className="mt-2 text-xs text-muted-foreground">
-              Preview results apply to this browser and the selected renderer.
-              Other browsers remain untested. Shaders need GLSL for WebGL
-              fallback.
-            </p>
-            <div className="mt-3">
-              <h3 className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
-                Try controls
-              </h3>
-              <EffectParamFields
-                params={draft.params}
-                values={coercedPreviewValues}
-                onChange={setPreviewValues}
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-2 border-b p-3">
-            <Button
-              variant={inspectorTab === "controls" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setInspectorTab("controls")}
-            >
-              Define controls
-            </Button>
-            <Button
-              variant={inspectorTab === "details" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setInspectorTab("details")}
-            >
-              Details
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowReference(!showReference)}
-            >
-              Reference
-            </Button>
-          </div>
-          <div
-            className={cn(
-              "space-y-3 border-b p-3",
-              inspectorTab !== "details" && "hidden",
-            )}
+          <ResizablePanelGroup
+            orientation="vertical"
+            id="preview-inspector"
+            groupRef={layout.refs.inspector}
+            onLayoutChanged={layout.remember("inspector")}
           >
-            <h3 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-              Details
-            </h3>
-            <div className="space-y-1">
-              <Label
-                htmlFor="effect-description"
+            <ResizablePanel
+              id="stage"
+              defaultSize={`${layout.initial.inspector.stage}%`}
+              minSize="30%"
+              className="flex h-full flex-col overflow-y-auto p-3"
+            >
+              <PreviewStage
+                fill
+                status={
+                  <PreviewStatus
+                    status={compileStatus}
+                    failed={compileFailed}
+                    backend={backend}
+                    script={isScript}
+                    onDiagnostics={() => {
+                      setShowDiagnostics(true);
+                      if (!isDesktop) setMobilePanel("code");
+                    }}
+                  />
+                }
+                captureRef={captureRef}
+                definition={debouncedDefinition}
+                params={coercedPreviewValues}
+                onCompiled={handleCompiled}
+                onScript={handleScript}
+                onBackend={setBackend}
+                className="aspect-square w-full overflow-hidden rounded-md border"
+              />
+            </ResizablePanel>
+            <ResizableHandle
+              withHandle
+              aria-label="Resize preview and controls"
+            />
+            <ResizablePanel
+              id="inspector"
+              defaultSize={`${layout.initial.inspector.inspector}%`}
+              minSize="25%"
+              className="h-full overflow-y-auto"
+              aria-label="Effect controls and details"
+            >
+              <div
+                className="sticky top-0 z-10 flex items-center gap-1 border-b bg-background/95 p-2 backdrop-blur-sm"
+                aria-label="Inspector mode"
+              >
+                {[
+                  {
+                    id: "controls",
+                    label: "Controls",
+                    icon: SlidersHorizontal,
+                  },
+                  { id: "player", label: "Player controls", icon: Eye },
+                  { id: "details", label: "Details" },
+                ].map((tab) => (
+                  <Button
+                    key={tab.id}
+                    size="sm"
+                    variant={inspectorTab === tab.id ? "secondary" : "ghost"}
+                    aria-pressed={inspectorTab === tab.id}
+                    className="h-8 gap-1.5 px-2 text-xs"
+                    onClick={() => setInspectorTab(tab.id)}
+                  >
+                    {tab.icon && <tab.icon className="size-3.5" />}
+                    {tab.label}
+                  </Button>
+                ))}
+              </div>
+              {inspectorTab === "player" && (
+                <div className="space-y-4 p-4">
+                  <div>
+                    <p className="workshop-eyebrow">In the scene</p>
+                    <h3 className="mt-1 text-lg font-medium">
+                      {draft.name || "Untitled effect"}
+                    </h3>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      Your authored controls, as they appear in the scene
+                      inspector. Try the saved defaults before sharing.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border bg-card/30 p-4">
+                    <EffectParamFields
+                      params={draft.params}
+                      values={coercedPreviewValues}
+                      onChange={setPreviewValues}
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setPreviewValues(defaultParamValues(draft.params))
+                    }
+                  >
+                    <RotateCcw className="size-3.5" />
+                    Try saved defaults
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground">
+                    Preview values only. This does not change defaults or scene
+                    permissions.
+                  </p>
+                </div>
+              )}
+              <div
                 className={cn(
-                  "text-xs",
-                  descriptionIssue && "text-destructive",
+                  "space-y-3 border-b p-3",
+                  inspectorTab !== "details" && "hidden",
                 )}
               >
-                Description
-              </Label>
-              <textarea
-                id="effect-description"
-                value={draft.description}
-                onChange={(event) => patch({ description: event.target.value })}
-                maxLength={EFFECT_LIMITS.maxDescriptionLength}
-                rows={3}
-                placeholder="What does this effect do, and which params matter?"
-                className="border-input bg-transparent placeholder:text-muted-foreground focus-visible:ring-ring w-full resize-y rounded-md border px-3 py-2 text-xs shadow-xs outline-none focus-visible:ring-1"
-              />
-              {descriptionIssue ? (
-                <p className="text-destructive text-[11px]">
-                  {descriptionIssue}
-                </p>
-              ) : null}
-            </div>
-            <label className="block space-y-1 text-xs">
-              Category
-              <select
-                className="workshop-select"
-                value={draft.category ?? "Other"}
-                onChange={(e) =>
-                  patch({
-                    category: e.target.value as EffectDefinition["category"],
-                  })
-                }
-              >
-                {EFFECT_CATEGORIES.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-            </label>
-            <div className="space-y-1">
-              <Label className="text-xs">Kind</Label>
-              <Select
-                disabled={target.kind === "existing" && target.isOwner}
-                value={draft.kind}
-                onValueChange={(value) => handleKindChange(value as EffectKind)}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="shader" className="text-xs">
-                    Shader: paints colour and animation on the map
-                  </SelectItem>
-                  <SelectItem value="script" className="text-xs">
-                    Script: computes lit geometry from lights and mirrors
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Darkness coverage</Label>
-                <Select
-                  value={draft.coverage.kind}
-                  onValueChange={(value) =>
-                    patch({
-                      coverage: { kind: value as EffectCoverage["kind"] },
-                    })
-                  }
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="circle" className="text-xs">
-                      Circle (cuts darkness)
-                    </SelectItem>
-                    <SelectItem value="none" className="text-xs">
-                      None (paint only)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                <h3 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                  Details
+                </h3>
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="effect-description"
+                    className={cn(
+                      "text-xs",
+                      descriptionIssue && "text-destructive",
+                    )}
+                  >
+                    Description
+                  </Label>
+                  <textarea
+                    id="effect-description"
+                    value={draft.description}
+                    onChange={(event) =>
+                      patch({ description: event.target.value })
+                    }
+                    maxLength={EFFECT_LIMITS.maxDescriptionLength}
+                    rows={3}
+                    placeholder="What does this effect do, and which params matter?"
+                    className="border-input bg-transparent placeholder:text-muted-foreground focus-visible:ring-ring w-full resize-y rounded-md border px-3 py-2 text-xs shadow-xs outline-none focus-visible:ring-1"
+                  />
+                  {descriptionIssue ? (
+                    <p className="text-destructive text-[11px]">
+                      {descriptionIssue}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="effect-category" className="text-xs">
+                    Category
+                  </Label>
+                  <Select
+                    value={draft.category ?? "Other"}
+                    onValueChange={(value) =>
+                      patch({
+                        category: value as EffectDefinition["category"],
+                      })
+                    }
+                  >
+                    <SelectTrigger
+                      id="effect-category"
+                      size="sm"
+                      className="w-full text-xs"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {EFFECT_CATEGORIES.map((category) => (
+                        <SelectItem
+                          key={category}
+                          value={category}
+                          className="text-xs"
+                        >
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Kind</Label>
+                  <Select
+                    disabled={target.kind === "existing" && target.isOwner}
+                    value={draft.kind}
+                    onValueChange={(value) =>
+                      handleKindChange(value as EffectKind)
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="shader" className="text-xs">
+                        Shader: paints colour and animation on the map
+                      </SelectItem>
+                      <SelectItem value="script" className="text-xs">
+                        Script: computes lit geometry from lights and mirrors
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Darkness coverage</Label>
+                    <Select
+                      value={draft.coverage.kind}
+                      onValueChange={(value) =>
+                        patch({
+                          coverage: { kind: value as EffectCoverage["kind"] },
+                        })
+                      }
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="circle" className="text-xs">
+                          Circle (cuts darkness)
+                        </SelectItem>
+                        <SelectItem value="none" className="text-xs">
+                          None (paint only)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Blend</Label>
+                    <Select
+                      value={draft.blend}
+                      onValueChange={(value) =>
+                        patch({ blend: value as EffectBlend })
+                      }
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="normal" className="text-xs">
+                          Normal
+                        </SelectItem>
+                        <SelectItem value="add" className="text-xs">
+                          Additive
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Blend</Label>
-                <Select
-                  value={draft.blend}
-                  onValueChange={(value) =>
-                    patch({ blend: value as EffectBlend })
-                  }
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="normal" className="text-xs">
-                      Normal
-                    </SelectItem>
-                    <SelectItem value="add" className="text-xs">
-                      Additive
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
 
-          <div className={cn("p-3", inspectorTab !== "controls" && "hidden")}>
-            <div className="mb-3 flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setPreviewValues(defaultParamValues(draft.params))
-                }
+              <div
+                className={cn("p-3", inspectorTab !== "controls" && "hidden")}
               >
-                Reset preview
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setParams(
-                    draft.params.map(
-                      (p) =>
-                        ({
-                          ...p,
-                          default: coercedPreviewValues[p.key],
-                        }) as typeof p,
-                    ),
-                  )
-                }
-              >
-                Use these as defaults
-              </Button>
-            </div>
-            <h3 className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
-              Params
-            </h3>
-            <ParamsEditor
-              params={draft.params}
-              onChange={setParams}
-              issues={issues}
-              kind={draft.kind}
-            />
-          </div>
-        </aside>
-      </div>
+                <ParamsEditor
+                  values={coercedPreviewValues}
+                  onValuesChange={setPreviewValues}
+                  params={draft.params}
+                  onChange={setParams}
+                  issues={issues}
+                  kind={draft.kind}
+                />
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 }

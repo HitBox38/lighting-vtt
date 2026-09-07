@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { STARTER_SCRIPT } from "@/lib/effects/scriptContract";
 import { z } from "zod";
+import {
+  compileTypeScript,
+  typedScriptStarter,
+} from "../components/CodeEditor/typescriptCompiler";
 import { STARTER_GLSL, STARTER_WGSL } from "@/lib/effects/shaderContract";
 import {
   effectDefinitionSchema,
@@ -29,6 +33,9 @@ export interface EffectDraft {
   wgsl: string;
   glsl: string;
   script: string;
+  scriptLanguage: "js" | "ts";
+  typescript: string;
+  typescriptInitialized: boolean;
   params: EffectParam[];
   coverage: EffectCoverage;
   blend: EffectBlend;
@@ -36,6 +43,7 @@ export interface EffectDraft {
 
 export function newEffectDraft(
   kind: EffectDefinition["kind"] = "shader",
+  scriptLanguage: "js" | "ts" = "js",
 ): EffectDraft {
   const base = {
     name: "Untitled effect",
@@ -43,6 +51,10 @@ export function newEffectDraft(
     wgsl: STARTER_WGSL,
     glsl: STARTER_GLSL,
     script: STARTER_SCRIPT,
+    scriptLanguage,
+    typescriptInitialized: scriptLanguage === "ts",
+    typescript:
+      scriptLanguage === "ts" ? typedScriptStarter(STARTER_SCRIPT) : "",
   };
   switch (kind) {
     case "shader":
@@ -102,6 +114,9 @@ export function draftFromDefinition(definition: EffectDefinition): EffectDraft {
     wgsl: definition.wgsl,
     glsl: definition.glsl ?? "",
     script: definition.script ?? "",
+    scriptLanguage: definition.typescript !== undefined ? "ts" : "js",
+    typescript: definition.typescript ?? "",
+    typescriptInitialized: definition.typescript !== undefined,
     params: definition.params.map((param) => ({ ...param })),
     coverage: { ...definition.coverage },
     blend: definition.blend,
@@ -116,13 +131,24 @@ export function draftFromDefinition(definition: EffectDefinition): EffectDraft {
 export function toDefinition(draft: EffectDraft): EffectDefinition {
   const glsl = draft.glsl.trim().length > 0 ? draft.glsl : undefined;
   const script = draft.script.trim().length > 0 ? draft.script : undefined;
-  let sources: Pick<EffectDefinition, "wgsl" | "glsl" | "script">;
+  let sources: Pick<
+    EffectDefinition,
+    "wgsl" | "glsl" | "script" | "typescript"
+  >;
   switch (draft.kind) {
     case "shader":
       sources = { wgsl: draft.wgsl, glsl, script: undefined };
       break;
     case "script":
-      sources = { wgsl: "", glsl: undefined, script };
+      sources =
+        draft.scriptLanguage === "ts"
+          ? {
+              wgsl: "",
+              glsl: undefined,
+              script: compileTypeScript(draft.typescript).code,
+              typescript: draft.typescript,
+            }
+          : { wgsl: "", glsl: undefined, script };
       break;
     default: {
       const exhaustive: never = draft.kind;
@@ -154,6 +180,7 @@ export interface EffectDraftState {
   issues: DraftIssues;
   /** True when the draft differs from what was last loaded or saved. */
   dirty: boolean;
+  recoveryStatus: "pending" | "saved" | "unavailable";
   patch: (partial: Partial<EffectDraft>) => void;
   setParams: (params: EffectParam[]) => void;
   /** Replace the draft and the dirty baseline, e.g. after loading a version or saving. */
@@ -161,7 +188,12 @@ export interface EffectDraftState {
 }
 
 function serialize(draft: EffectDraft): string {
-  return JSON.stringify(toDefinition(draft));
+  // Recovery parses fields in schema order; compare values independently of key order.
+  return JSON.stringify(
+    Object.fromEntries(
+      Object.entries(draft).sort(([a], [b]) => a.localeCompare(b)),
+    ),
+  );
 }
 
 // Recovery validates structure, not save-time constraints: an unfinished name,
@@ -174,6 +206,9 @@ export const recoveryDraftSchema = z.object({
   wgsl: z.string(),
   glsl: z.string(),
   script: z.string(),
+  scriptLanguage: z.enum(["js", "ts"]).default("js"),
+  typescript: z.string().default(""),
+  typescriptInitialized: z.boolean().default(false),
   params: z.array(
     z.discriminatedUnion("type", [
       z.object({
@@ -209,7 +244,15 @@ export function readRecoveredDraft(key: string): EffectDraft | undefined {
     const result = recoveryDraftSchema.safeParse(
       JSON.parse(localStorage.getItem(key) ?? "null"),
     );
-    return result.success ? result.data : undefined;
+    return result.success
+      ? {
+          ...result.data,
+          typescriptInitialized:
+            result.data.typescriptInitialized ||
+            result.data.scriptLanguage === "ts" ||
+            result.data.typescript.length > 0,
+        }
+      : undefined;
   } catch {
     return undefined;
   }
@@ -220,6 +263,9 @@ export function useEffectDraft(
   recoveryKey?: string,
 ): EffectDraftState {
   const recoveryCleared = useRef(false);
+  const [recoveryStatus, setRecoveryStatus] = useState<
+    "pending" | "saved" | "unavailable"
+  >("pending");
   const [draft, setDraft] = useState<EffectDraft>(() => {
     return (recoveryKey && readRecoveredDraft(recoveryKey)) || initial;
   });
@@ -233,8 +279,9 @@ export function useEffectDraft(
           `${recoveryKey}:${draft.kind}`,
           JSON.stringify(draft),
         );
+        setRecoveryStatus("saved");
       } catch {
-        /* Storage can be full or disabled. */
+        setRecoveryStatus("unavailable");
       }
     };
     const timer = window.setTimeout(persist, 300);
@@ -246,11 +293,13 @@ export function useEffectDraft(
   const [baseline, setBaseline] = useState<string>(() => serialize(initial));
 
   const patch = useCallback((partial: Partial<EffectDraft>) => {
+    setRecoveryStatus("pending");
     recoveryCleared.current = false;
     setDraft((current) => ({ ...current, ...partial }));
   }, []);
 
   const setParams = useCallback((params: EffectParam[]) => {
+    setRecoveryStatus("pending");
     recoveryCleared.current = false;
     setDraft((current) => ({ ...current, params }));
   }, []);
@@ -289,5 +338,14 @@ export function useEffectDraft(
 
   const dirty = useMemo(() => serialize(draft) !== baseline, [draft, baseline]);
 
-  return { draft, definition, issues, dirty, patch, setParams, reset };
+  return {
+    draft,
+    definition,
+    issues,
+    dirty,
+    recoveryStatus,
+    patch,
+    setParams,
+    reset,
+  };
 }

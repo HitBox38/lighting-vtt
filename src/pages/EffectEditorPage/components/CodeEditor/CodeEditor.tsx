@@ -18,12 +18,17 @@ import type { EffectSourceLanguage } from "@/lib/effects/shaderContract";
 import type { EffectParam } from "@shared/effects";
 import { useThemeStore } from "@/stores/themeStore";
 import { startCompletion } from "@codemirror/autocomplete";
-import { effectAuthoringExtensions } from "./authoringExtensions";
+import {
+  documentationAt,
+  effectAuthoringExtensions,
+} from "./authoringExtensions";
+import type { Entry } from "./authoringReference";
 import { workshopEditorThemes } from "./editorTheme";
 
 export interface CodeEditorHandle {
   /** Scrolls to and selects the given 1-based line. No-op for lines outside the document. */
   revealLine: (line: number) => void;
+  insertText: (text: string) => void;
 }
 
 interface Props {
@@ -34,6 +39,7 @@ interface Props {
   diagnostics: readonly EffectDiagnostic[];
   params: readonly EffectParam[];
   className?: string;
+  onContextChange?: (entry: Entry | null) => void;
 }
 
 /**
@@ -48,6 +54,8 @@ function languageExtension(language: EffectSourceLanguage): Extension {
       return cpp();
     case "js":
       return javascript();
+    case "ts":
+      return javascript({ typescript: true });
     default: {
       const exhaustive: never = language;
       throw new Error(`Unhandled source language: ${String(exhaustive)}`);
@@ -77,7 +85,15 @@ function toCodeMirrorDiagnostics(
 
 export const CodeEditor = forwardRef<CodeEditorHandle, Props>(
   function CodeEditor(
-    { language, value, onChange, diagnostics, params, className },
+    {
+      language,
+      value,
+      onChange,
+      diagnostics,
+      params,
+      className,
+      onContextChange,
+    },
     ref,
   ) {
     const editorRef = useRef<ReactCodeMirrorRef>(null);
@@ -109,6 +125,16 @@ export const CodeEditor = forwardRef<CodeEditorHandle, Props>(
     useImperativeHandle(
       ref,
       () => ({
+        insertText(text: string) {
+          const view = editorRef.current?.view;
+          if (!view) return;
+          view.dispatch({
+            ...view.state.replaceSelection(text),
+            scrollIntoView: true,
+            userEvent: "input",
+          });
+          view.focus();
+        },
         revealLine(line: number) {
           const view = editorRef.current?.view;
           if (!view) return;
@@ -133,6 +159,23 @@ export const CodeEditor = forwardRef<CodeEditorHandle, Props>(
               ref={editorRef}
               value={value}
               onChange={onChange}
+              onUpdate={(update) => {
+                if (
+                  update.view.hasFocus &&
+                  (update.selectionSet ||
+                    update.docChanged ||
+                    update.focusChanged)
+                ) {
+                  onContextChange?.(
+                    documentationAt(
+                      update.state,
+                      update.state.selection.main.head,
+                      language,
+                      params,
+                    )?.entry ?? null,
+                  );
+                }
+              }}
               extensions={extensions}
               theme="none"
               height="100%"
@@ -149,7 +192,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, Props>(
           </div>
           <div className="bg-muted/30 text-muted-foreground flex shrink-0 items-center justify-between gap-2 border-t px-3 py-1 text-[11px]">
             <span>
-              Effect API{" "}
+              {language === "ts" ? "TypeScript · syntax checks" : "Effect API"}{" "}
               <span className="hidden sm:inline">
                 · Ctrl+Space for suggestions
               </span>

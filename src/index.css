@@ -131,6 +131,14 @@
 }
 
 .workshop-studio input[type="range"] { accent-color: #dba44e; }
+.workshop-studio .workshop-primary { background-color: #dba44e; color: #1c1917; }
+.workshop-studio .workshop-primary:hover { background-color: #e9b966; }
+.workshop-studio { color-scheme: light; }
+.dark .workshop-studio { color-scheme: dark; }
+.workshop-studio * { scrollbar-width: thin; scrollbar-color: var(--muted-foreground) transparent; }
+.workshop-studio [data-slot="resizable-handle"]:is(:hover, :focus-visible) {
+  background-color: #dba44e;
+}
 
 
 @keyframes fadeSlideUp {

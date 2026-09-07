@@ -132,6 +132,8 @@ export const effectDefinitionSchema = z
     glsl: sourceSchema.optional(),
     /** JS module source. Required when `kind === "script"` (Stage 3). */
     script: sourceSchema.optional(),
+    /** Original TypeScript source. When present, script contains its compiled JavaScript. */
+    typescript: sourceSchema.optional(),
     params: z.array(effectParamSchema).max(EFFECT_LIMITS.maxParams),
     coverage: effectCoverageSchema,
     blend: effectBlendSchema,
@@ -161,6 +163,9 @@ export const effectDefinitionSchema = z
         }
         break;
       case "script":
+        if (def.typescript !== undefined && !def.typescript.trim()) {
+          ctx.addIssue({ code: "custom", message: "TypeScript source is required", path: ["typescript"] });
+        }
         if (!def.script || def.script.trim().length === 0) {
           ctx.addIssue({ code: "custom", message: "Script source is required", path: ["script"] });
         }
