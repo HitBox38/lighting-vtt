@@ -4,6 +4,8 @@ type EventProperties = Record<string, string | number | boolean | null | undefin
 
 export const ANALYTICS_EVENTS = {
   ActivationLandingViewed: "activation_landing_viewed",
+  LandingCtaClicked: "landing_cta_clicked",
+  LandingShowcaseChanged: "landing_showcase_changed",
   ActivationLibraryViewed: "activation_library_viewed",
   CreateSceneDialogOpened: "create_scene_dialog_opened",
   SceneCreated: "scene_created",

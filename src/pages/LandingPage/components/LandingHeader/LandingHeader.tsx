@@ -1,36 +1,65 @@
+import {
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  UserButton,
+} from "@clerk/clerk-react";
+import { usePostHog } from "@posthog/react";
 import { Link } from "react-router-dom";
-import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "@clerk/clerk-react";
-
-import { AppSettingsDialog } from "@/components/organisms/AppSettingsDialog";
+import { ThemeToggle } from "@/components/atoms/ThemeToggle";
 import { Button } from "@/components/ui/button";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { LandingAction } from "../LandingAction";
 
 export function LandingHeader() {
+  const posthog = usePostHog();
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl">
-      <div className="flex h-14 items-center justify-between px-6">
-        <div className="flex items-center gap-2.5">
-          <img src="/lightling.svg" alt="" width={24} height={24} className="size-6 shrink-0" />
-          <span className="text-base font-semibold tracking-tight select-none">Lighting VTT</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button asChild size="sm" variant="ghost"><Link to="/effects">Effects</Link></Button>
-        <AppSettingsDialog />
+    <header className="landing-header">
+      <div className="landing-container landing-header-inner">
+        <Link to="/" className="landing-brand" aria-label="Lighting VTT home">
+          <img src="/lightling.svg" alt="" width={32} height={32} />
+          <span>
+            Lighting <span className="landing-brand-suffix">VTT</span>
+          </span>
+        </Link>
+        <nav aria-label="Main navigation" className="landing-nav">
+          <a className="landing-desktop-link" href="#how-it-works">
+            How it works
+          </a>
+          <Link
+            className="landing-desktop-link"
+            to="/effects"
+            onClick={() =>
+              posthog.capture(ANALYTICS_EVENTS.LandingCtaClicked, {
+                placement: "header",
+                action: "explore_effects",
+              })
+            }
+          >
+            Effects
+          </Link>
+          <ThemeToggle />
+          <SignedOut>
+            <SignInButton mode="modal" forceRedirectUrl="/library">
+              <Button
+                variant="ghost"
+                className="landing-sign-in"
+                onClick={() =>
+                  posthog.capture(ANALYTICS_EVENTS.LandingCtaClicked, {
+                    placement: "header",
+                    action: "sign_in",
+                  })
+                }
+              >
+                Sign in
+              </Button>
+            </SignInButton>
+          </SignedOut>
           <SignedIn>
             <UserButton />
           </SignedIn>
-          <SignedOut>
-            <SignInButton mode="modal" forceRedirectUrl="/library">
-              <Button variant="default" size="sm">
-                Sign In
-              </Button>
-            </SignInButton>
-            <SignUpButton mode="modal" forceRedirectUrl="/library">
-              <Button variant="outline" size="sm">
-                Sign Up
-              </Button>
-            </SignUpButton>
-          </SignedOut>
-        </div>
+          <LandingAction placement="header" />
+        </nav>
       </div>
     </header>
   );
