@@ -25,9 +25,6 @@ A high-performance 2D Virtual Tabletop (VTT) application designed for TV/Table g
 
 ## Tech Stack
 
-Effect-library shader thumbnails are rendered asynchronously in Convex. See the
-[effect thumbnail architecture and operations](docs/effect-thumbnails.md).
-
 - **Frontend**: React 18 with TypeScript
 - **Build Tool**: Vite
 - **Runtime**: Bun

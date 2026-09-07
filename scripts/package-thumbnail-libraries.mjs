@@ -16,7 +16,7 @@ const packages = [
 const assets = [];
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const tar = (args) => execFileSync("tar", args, { encoding: "utf8", windowsHide: true });
-mkdirSync("docs/native", { recursive: true });
+mkdirSync("third_party/thumbnail-native", { recursive: true });
 for (const [name, packagePath, expected, filename] of packages) {
   const directory = resolve(".tmp/thumbnail-native", name);
   mkdirSync(directory, { recursive: true });
@@ -38,7 +38,7 @@ for (const [name, packagePath, expected, filename] of packages) {
   tar(["-xf", dataPath, "-C", directory, library, license]);
   const bytes = readFileSync(join(directory, library));
   assets.push({ filename, sha256: sha256(bytes), gzip: gzipSync(bytes, { level: 9 }).toString("base64") });
-  copyFileSync(join(directory, license), `docs/native/${name}-copyright.txt`);
+  copyFileSync(join(directory, license), `third_party/thumbnail-native/${name}-copyright.txt`);
   console.log(`${filename}: ${bytes.length} bytes; ${sha256(bytes)}`);
 }
 writeFileSync("convex/lib/vulkanLoader.generated.ts",
