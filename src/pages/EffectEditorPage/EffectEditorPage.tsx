@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { useUser } from "@clerk/clerk-react";
+import { useUser } from "@clerk/react";
 import { useConvexAuth, useQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
 

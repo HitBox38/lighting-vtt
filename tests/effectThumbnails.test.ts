@@ -23,7 +23,12 @@ afterEach(() => { timers.mockRestore(); delete process.env.EFFECT_THUMBNAILS_ENA
 
 async function setup() {
   const t = convexTest(schema, modules);
-  for (const [name, pkg] of [["rateLimiter", "rate-limiter"], ["thumbnailWorkpool", "workpool"]]) {
+  // Workpool 0.4 delegates execution to its nested Batch Worker component.
+  for (const [name, pkg] of [
+    ["rateLimiter", "rate-limiter"],
+    ["thumbnailWorkpool", "workpool"],
+    ["thumbnailWorkpool/batchWorker", "batch-worker"],
+  ]) {
     const root = join(import.meta.dir, "../node_modules/@convex-dev", pkg, "src/component");
     const componentModules = Object.fromEntries([...new Bun.Glob("**/*.ts").scanSync(root)].filter((p) => !p.endsWith(".d.ts")).map((p) => ["./component/" + p.replaceAll("\\", "/"), () => import(pathToFileURL(join(root, p)).href)]));
     t.registerComponent(name, (await import(pathToFileURL(join(root, "schema.ts")).href)).default, componentModules);

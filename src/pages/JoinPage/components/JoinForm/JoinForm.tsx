@@ -1,4 +1,4 @@
-import { SignedIn, SignedOut, SignInButton } from "@clerk/clerk-react";
+import { Show, SignInButton } from "@clerk/react";
 import { Loader2, LogIn } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,7 @@ export function JoinForm({
           required
         />
       </div>
-      <SignedOut>
+      <Show when="signed-out">
         <div className="space-y-2 rounded-lg border border-dashed p-3 text-center">
           <p className="text-xs text-muted-foreground">
             Sign in to save this scene to your library for quick access later.
@@ -65,13 +65,13 @@ export function JoinForm({
             </Button>
           </SignInButton>
         </div>
-      </SignedOut>
-      <SignedIn>
+      </Show>
+      <Show when="signed-in">
         <p className="text-xs text-muted-foreground">
           Signed in as <span className="font-medium">{signedInLabel}</span>. This scene will be saved
           to your library.
         </p>
-      </SignedIn>
+      </Show>
       {error ? (
         <p className="text-sm text-destructive" role="alert">
           {error}

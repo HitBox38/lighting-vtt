@@ -10,7 +10,7 @@ import {
 } from "react";
 import { useBlocker, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation } from "convex/react";
-import { SignInButton, useUser } from "@clerk/clerk-react";
+import { SignInButton, useUser } from "@clerk/react";
 import { usePostHog } from "@posthog/react";
 import {
   ArrowLeft,
@@ -235,9 +235,19 @@ export function EffectEditor({
   const kindDrafts = useRef<Partial<Record<EffectKind, EffectDraft>>>({});
   const [mobilePanel, setMobilePanel] = useState("code");
   const { isDesktop, isReferenceBeside } = useWorkbenchMedia();
-  const layout = useWorkbenchLayout();
-  const workbenchRef = layout.refs.workbench;
-  const desktopLayout = layout.saved;
+  const {
+    initial: initialLayout,
+    saved: desktopLayoutRef,
+    refs: {
+      workbench: workbenchRef,
+      diagnostics: diagnosticsRef,
+      reference: referenceRef,
+      inspector: inspectorRef,
+    },
+    remember,
+    applyPreset,
+    reset: resetLayout,
+  } = useWorkbenchLayout();
   const [referenceContext, setReferenceContext] = useState<Entry | null>(null);
   const handleContextChange = useCallback(
     (entry: Entry | null) =>
@@ -252,13 +262,13 @@ export function EffectEditor({
   useLayoutEffect(() => {
     workbenchRef.current?.setLayout(
       isDesktop
-        ? desktopLayout.current.workbench
+        ? desktopLayoutRef.current.workbench
         : {
             source: mobilePanel === "code" ? 100 : 0,
             preview: mobilePanel === "preview" ? 100 : 0,
           },
     );
-  }, [isDesktop, mobilePanel, workbenchRef, desktopLayout]);
+  }, [isDesktop, mobilePanel, workbenchRef, desktopLayoutRef]);
   const [inspectorTab, setInspectorTab] = useState("controls");
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [dismissedDiagnostics, setDismissedDiagnostics] = useState<
@@ -370,7 +380,9 @@ export function EffectEditor({
     PREVIEW_DEBOUNCE_MS,
   );
   const debouncedRef = useRef(debouncedDefinition);
-  debouncedRef.current = debouncedDefinition;
+  useLayoutEffect(() => {
+    debouncedRef.current = debouncedDefinition;
+  }, [debouncedDefinition]);
 
   const handleCompiled = useCallback(
     (result: CompiledEffect, compiledOn: EffectBackend) => {
@@ -1011,12 +1023,12 @@ export function EffectEditor({
         groupRef={workbenchRef}
         disabled={!isDesktop}
         className="flex-1"
-        onLayoutChanged={isDesktop ? layout.remember("workbench") : undefined}
+        onLayoutChanged={isDesktop ? remember("workbench") : undefined}
       >
         {/* Code column */}
         <ResizablePanel
           id="source"
-          defaultSize={`${layout.initial.workbench.source}%`}
+          defaultSize={`${initialLayout.workbench.source}%`}
           minSize={isDesktop ? "35%" : mobilePanel === "code" ? "100%" : "0%"}
           maxSize={isDesktop ? "70%" : mobilePanel === "code" ? "100%" : "0%"}
           className={cn(
@@ -1103,14 +1115,14 @@ export function EffectEditor({
                   (preset) => (
                     <DropdownMenuItem
                       key={preset}
-                      onSelect={() => layout.applyPreset(preset)}
+                      onSelect={() => applyPreset(preset)}
                     >
                       {preset}
                     </DropdownMenuItem>
                   ),
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={layout.reset}>
+                <DropdownMenuItem onSelect={resetLayout}>
                   <RotateCcw className="size-3.5" />
                   Reset layout
                 </DropdownMenuItem>
@@ -1137,25 +1149,25 @@ export function EffectEditor({
           <ResizablePanelGroup
             orientation="vertical"
             id="source-diagnostics"
-            groupRef={layout.refs.diagnostics}
-            onLayoutChanged={layout.remember("diagnostics")}
+            groupRef={diagnosticsRef}
+            onLayoutChanged={remember("diagnostics")}
             className="flex-1"
           >
             <ResizablePanel
               id="editor"
               minSize="35%"
-              defaultSize={`${layout.initial.diagnostics.editor}%`}
+              defaultSize={`${initialLayout.diagnostics.editor}%`}
             >
               <ResizablePanelGroup
                 orientation={isReferenceBeside ? "horizontal" : "vertical"}
                 id="source-reference"
-                groupRef={layout.refs.reference}
-                onLayoutChanged={layout.remember("reference")}
+                groupRef={referenceRef}
+                onLayoutChanged={remember("reference")}
               >
                 <ResizablePanel
                   id="code"
                   minSize="40%"
-                  defaultSize={`${layout.initial.reference.code}%`}
+                  defaultSize={`${initialLayout.reference.code}%`}
                   className="relative h-full"
                 >
                   {isScript ? (
@@ -1221,7 +1233,7 @@ export function EffectEditor({
                       id="reference"
                       minSize="25%"
                       maxSize="60%"
-                      defaultSize={`${layout.initial.reference.reference}%`}
+                      defaultSize={`${initialLayout.reference.reference}%`}
                       className="h-full overflow-y-auto p-3"
                       aria-label="Effect API reference"
                     >
@@ -1248,7 +1260,7 @@ export function EffectEditor({
                 />
                 <ResizablePanel
                   id="diagnostics"
-                  defaultSize={`${layout.initial.diagnostics.diagnostics}%`}
+                  defaultSize={`${initialLayout.diagnostics.diagnostics}%`}
                   minSize="15%"
                   maxSize="65%"
                   aria-label="Diagnostics"
@@ -1292,7 +1304,7 @@ export function EffectEditor({
         {/* Inspector column */}
         <ResizablePanel
           id="preview"
-          defaultSize={`${layout.initial.workbench.preview}%`}
+          defaultSize={`${initialLayout.workbench.preview}%`}
           minSize={
             isDesktop ? "30%" : mobilePanel === "preview" ? "100%" : "0%"
           }
@@ -1309,12 +1321,12 @@ export function EffectEditor({
           <ResizablePanelGroup
             orientation="vertical"
             id="preview-inspector"
-            groupRef={layout.refs.inspector}
-            onLayoutChanged={layout.remember("inspector")}
+            groupRef={inspectorRef}
+            onLayoutChanged={remember("inspector")}
           >
             <ResizablePanel
               id="stage"
-              defaultSize={`${layout.initial.inspector.stage}%`}
+              defaultSize={`${initialLayout.inspector.stage}%`}
               minSize="30%"
               className="flex h-full flex-col overflow-y-auto p-3"
             >
@@ -1347,7 +1359,7 @@ export function EffectEditor({
             />
             <ResizablePanel
               id="inspector"
-              defaultSize={`${layout.initial.inspector.inspector}%`}
+              defaultSize={`${initialLayout.inspector.inspector}%`}
               minSize="25%"
               className="h-full overflow-y-auto"
               aria-label="Effect controls and details"

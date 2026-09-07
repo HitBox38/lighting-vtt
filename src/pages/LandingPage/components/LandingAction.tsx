@@ -1,4 +1,4 @@
-import { SignedIn, SignedOut, SignUpButton } from "@clerk/clerk-react";
+import { Show, SignUpButton } from "@clerk/react";
 import { usePostHog } from "@posthog/react";
 import { ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -15,7 +15,7 @@ export function LandingAction({
     posthog.capture(ANALYTICS_EVENTS.LandingCtaClicked, { placement, action });
   return (
     <>
-      <SignedOut>
+      <Show when="signed-out">
         <SignUpButton mode="modal" forceRedirectUrl="/library">
           <Button
             className="landing-primary"
@@ -26,8 +26,8 @@ export function LandingAction({
             <ArrowUpRight aria-hidden="true" />
           </Button>
         </SignUpButton>
-      </SignedOut>
-      <SignedIn>
+      </Show>
+      <Show when="signed-in">
         <Button
           className="landing-primary"
           size={placement === "header" ? "default" : "lg"}
@@ -38,7 +38,7 @@ export function LandingAction({
             <ArrowUpRight aria-hidden="true" />
           </Link>
         </Button>
-      </SignedIn>
+      </Show>
     </>
   );
 }

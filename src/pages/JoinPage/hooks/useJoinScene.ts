@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { usePostHog } from "@posthog/react";
-import { useUser } from "@clerk/clerk-react";
+import { useUser } from "@clerk/react";
 import { useMutation, useQuery } from "convex/react";
 import { useNavigate, useParams } from "react-router-dom";
 

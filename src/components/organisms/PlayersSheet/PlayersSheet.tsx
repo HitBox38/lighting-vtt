@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react";
-import { useUser } from "@clerk/clerk-react";
+import { useUser } from "@clerk/react";
 import { usePostHog } from "@posthog/react";
 import type { ScenePlayer } from "@shared/index";
 

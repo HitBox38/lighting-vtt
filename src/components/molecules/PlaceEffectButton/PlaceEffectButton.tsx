@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useUser, SignInButton } from "@clerk/clerk-react";
+import { useUser, SignInButton } from "@clerk/react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";

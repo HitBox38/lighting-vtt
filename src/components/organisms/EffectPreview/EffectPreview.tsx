@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Application as PixiApplication,
   Graphics as PixiGraphics,
@@ -379,7 +379,6 @@ export function EffectPreview({
   const [stageReady, setStageReady] = useState(0);
   const [bootError, setBootError] = useState<string | null>(null);
   const environmentRef = useRef(environment);
-  environmentRef.current = environment;
   const [compiled, setCompiled] = useState<{
     key: string;
     result: CompiledEffect;
@@ -387,9 +386,12 @@ export function EffectPreview({
   const onCompiledRef = useRef(onCompiled);
   const onScriptRef = useRef(onScript);
   const onBackendRef = useRef(onBackend);
-  onCompiledRef.current = onCompiled;
-  onScriptRef.current = onScript;
-  onBackendRef.current = onBackend;
+  useLayoutEffect(() => {
+    environmentRef.current = environment;
+    onCompiledRef.current = onCompiled;
+    onScriptRef.current = onScript;
+    onBackendRef.current = onBackend;
+  }, [environment, onCompiled, onScript, onBackend]);
   const isScript = definition?.kind === "script";
   const clockRef = useRef({ seconds: 0, last: 0 });
   useEffect(() => {
