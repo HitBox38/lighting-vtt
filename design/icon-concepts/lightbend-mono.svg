@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="lightbend-mono-title lightbend-mono-desc">
-  <title id="lightbend-mono-title">Lightbend — monochrome icon</title>
-  <desc id="lightbend-mono-desc">An L-shaped beam turns through a diamond prism into a broad cone. Inherits the surrounding text color when embedded inline.</desc>
-  <path fill="currentColor" d="M25 15H49V53L37 65L25 53ZM62 69L116 52Q120 51 120 55V105Q120 109 116 108L62 91L51 80ZM37 64L53 80L37 96L21 80Z"/>
-</svg>
