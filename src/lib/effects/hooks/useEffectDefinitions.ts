@@ -2,32 +2,14 @@ import { useMemo } from "react";
 import { useQuery } from "convex/react";
 
 import { api } from "../../../../convex/_generated/api";
-import type { Doc, Id } from "../../../../convex/_generated/dataModel";
+import type { Id } from "../../../../convex/_generated/dataModel";
 import type { EffectDefinition, EffectInstance } from "@shared/effects";
+import { versionDocToDefinition } from "@shared/effectVersion";
+export { versionDocToDefinition } from "@shared/effectVersion";
 
 /** `effectId@version`: the key a scene instance uses to pin a definition. */
 export function effectRefKey(effectId: string, version: number): string {
   return `${effectId}@${version}`;
-}
-
-/** Strips Convex bookkeeping from an `effectVersions` row so the runtime sees a plain definition. */
-export function versionDocToDefinition(doc: Doc<"effectVersions">): EffectDefinition {
-  return {
-    category: doc.category,
-    thumbnailUrl: doc.thumbnailUrl,
-    thumbnailKey: doc.thumbnailKey,
-    source: doc.source,
-    name: doc.name,
-    description: doc.description,
-    kind: doc.kind,
-    wgsl: doc.wgsl,
-    glsl: doc.glsl,
-    script: doc.script,
-    typescript: doc.typescript,
-    params: doc.params,
-    coverage: doc.coverage,
-    blend: doc.blend,
-  };
 }
 
 export interface EffectDefinitionsResult {

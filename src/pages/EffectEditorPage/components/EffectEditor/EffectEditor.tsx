@@ -633,7 +633,7 @@ export function EffectEditor({
     try {
       let savedDefinition = { ...definition };
       try {
-        const blob = await captureRef.current?.capture();
+        const blob = definition.kind === "script" ? await captureRef.current?.capture() : null;
         if (blob) {
           let timeout: ReturnType<typeof setTimeout> | undefined;
           const uploaded = await Promise.race([
@@ -680,6 +680,10 @@ export function EffectEditor({
           { replace: true },
         );
       } else {
+        if (savedDefinition.kind === "shader") {
+          delete savedDefinition.thumbnailUrl;
+          delete savedDefinition.thumbnailKey;
+        }
         if (target.kind === "existing") {
           savedDefinition.source = {
             effectId: target.effectId,

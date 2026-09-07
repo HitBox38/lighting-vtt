@@ -72,6 +72,9 @@ export const effectParamValidator = zodToConvex(effectParamSchema);
 export const effectParamValuesValidator = zodToConvex(effectParamValuesSchema);
 /** Matches `EffectKind` in shared/effects.ts. */
 export const effectKindValidator = zodToConvex(effectKindSchema);
+export const thumbnailJobFields = {
+  effectId: v.id("effects"), version: v.number(), revision: v.number(), generation: v.number(),
+};
 /** Matches `EffectDefinition` in shared/effects.ts (the immutable per-version payload). */
 export const effectDefinitionValidator = zodToConvex(effectDefinitionSchema);
 /** Field map of `EffectDefinition`, spread into the `effectVersions` table. */
@@ -98,6 +101,9 @@ export const effectVisibilityValidator = v.union(
 /** `effects` document including system fields, for query `returns`. */
 export const effectDocValidator = v.object({
   ...effectCatalogFields,
+  generatedThumbnailUrl: v.optional(v.string()),
+  thumbnailStatus: v.optional(v.string()),
+  thumbnailVersion: v.optional(v.number()),
   _id: v.id("effects"),
   _creationTime: v.number(),
   authorId: v.string(),
@@ -187,6 +193,22 @@ export const sceneDocValidator = v.object({
 // ---------------------------------------------------------------------------
 
 export default defineSchema({
+  effectThumbnails: defineTable({
+    effectId: v.id("effects"),
+    requestedVersion: v.number(),
+    rendererRevision: v.number(),
+    generation: v.number(),
+    status: v.union(v.literal("pending"), v.literal("rendering"), v.literal("ready"), v.literal("failed"), v.literal("canceled")),
+    attempts: v.number(),
+    nextRunAt: v.number(),
+    dispatchScheduled: v.boolean(),
+    startedAt: v.optional(v.number()),
+    workId: v.optional(v.string()),
+    storageId: v.optional(v.id("_storage")),
+    renderedVersion: v.optional(v.number()),
+    renderedRevision: v.optional(v.number()),
+    failureCategory: v.optional(v.string()),
+  }).index("by_effectId", ["effectId"]),
   scenes: defineTable({
     creatorId: v.string(),
     name: v.string(),
