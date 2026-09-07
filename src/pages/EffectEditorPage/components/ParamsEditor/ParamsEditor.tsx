@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { ArrowDown, ArrowUp, Plus, Settings2, Trash2 } from "lucide-react";
+import { EffectParamFields } from "@/components/molecules/EffectParamFields";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import {
   EFFECT_LIMITS,
   type EffectParam,
   type EffectParamType,
+  type EffectParamValues,
 } from "@shared/effects";
 import type { DraftIssues } from "@/pages/EffectEditorPage/hooks/useEffectDraft";
 
@@ -25,6 +27,8 @@ interface Props {
   params: EffectParam[];
   onChange: (params: EffectParam[]) => void;
   issues: DraftIssues;
+  values: EffectParamValues;
+  onValuesChange: (values: EffectParamValues) => void;
 }
 
 const TYPE_LABELS: Record<EffectParamType, string> = {
@@ -80,6 +84,8 @@ export function ParamsEditor({
   onChange,
   issues,
   kind = "shader",
+  values,
+  onValuesChange,
 }: Props) {
   const atLimit = params.length >= EFFECT_LIMITS.maxParams;
 
@@ -112,16 +118,7 @@ export function ParamsEditor({
       <div className="flex items-center justify-between">
         <p className="text-muted-foreground text-xs">
           {params.length} / {EFFECT_LIMITS.maxParams} controls.{" "}
-          {kind === "script" ? (
-            <>
-              Read a control with <code>input.params.key</code>.
-            </>
-          ) : (
-            <>
-              Read slot <code>i</code> with <code>effectParam(i)</code> or{" "}
-              <code>effectParamVec(i)</code>.
-            </>
-          )}
+          <span className="block">Tune here. Define defaults in settings.</span>
         </p>
         <Button
           type="button"
@@ -131,7 +128,7 @@ export function ParamsEditor({
           disabled={atLimit}
         >
           <Plus className="mr-1 h-3.5 w-3.5" />
-          Add param
+          Add control
         </Button>
       </div>
 
@@ -151,6 +148,9 @@ export function ParamsEditor({
             issues={issues}
             isFirst={index === 0}
             isLast={index === params.length - 1}
+            kind={kind}
+            values={values}
+            onValuesChange={onValuesChange}
             onChange={(next) => replaceAt(index, next)}
             onRemove={() => removeAt(index)}
             onMove={(delta) => move(index, delta)}
@@ -170,6 +170,9 @@ interface RowProps {
   onChange: (next: EffectParam) => void;
   onRemove: () => void;
   onMove: (delta: -1 | 1) => void;
+  kind: "shader" | "script";
+  values: EffectParamValues;
+  onValuesChange: (values: EffectParamValues) => void;
 }
 
 function ParamRow({
@@ -181,7 +184,15 @@ function ParamRow({
   onChange,
   onRemove,
   onMove,
+  kind,
+  values,
+  onValuesChange,
 }: RowProps) {
+  const [expanded, setExpanded] = useState(param.label === "Param");
+  const hasIssues = [...issues.keys()].some((key) =>
+    key.startsWith(`params.${index}.`),
+  );
+  const settingsOpen = expanded || hasIssues;
   const issueFor = (field: string) => issues.get(`params.${index}.${field}`);
   const keyIssue = issueFor("key");
   const labelIssue = issueFor("label");
@@ -192,98 +203,146 @@ function ParamRow({
   };
 
   return (
-    <li className="bg-card/60 rounded-md border p-3">
-      <div className="flex items-start gap-2">
-        <span className="bg-muted text-muted-foreground mt-6 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded font-mono text-xs">
-          {index}
-        </span>
-
-        <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-3">
-          <Field label="Key" issue={keyIssue}>
-            <Input
-              aria-label={`Control ${index + 1} key`}
-              value={param.key}
-              onChange={(event) =>
-                onChange({ ...param, key: event.target.value })
-              }
-              placeholder="speed"
-              maxLength={EFFECT_LIMITS.maxParamKeyLength}
-              aria-invalid={Boolean(keyIssue)}
-              className="h-8 font-mono text-xs"
-              spellCheck={false}
-            />
-          </Field>
-          <Field label="Label" issue={labelIssue}>
-            <Input
-              aria-label={`Control ${index + 1} label`}
-              value={param.label}
-              onChange={(event) =>
-                onChange({ ...param, label: event.target.value })
-              }
-              placeholder="Speed"
-              maxLength={EFFECT_LIMITS.maxParamLabelLength}
-              aria-invalid={Boolean(labelIssue)}
-              className="h-8 text-xs"
-            />
-          </Field>
-          <Field label="Type">
-            <Select
-              value={param.type}
-              onValueChange={(value) => changeType(value as EffectParamType)}
-            >
-              <SelectTrigger
+    <li
+      className={cn(
+        "rounded-lg border bg-card/40",
+        hasIssues && "border-destructive/60",
+      )}
+    >
+      <div className="flex items-start gap-3 p-3">
+        <div className="min-w-0 flex-1 space-y-2">
+          <EffectParamFields
+            params={[param]}
+            values={values}
+            onChange={(next) => onValuesChange({ ...values, ...next })}
+          />
+          <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] text-muted-foreground">
+            <span>
+              Preview value · saved default{" "}
+              <span className="font-mono">{String(param.default)}</span>
+            </span>
+            <code>
+              {kind === "script"
+                ? `input.params.${param.key}`
+                : `slot ${index}`}
+            </code>
+          </div>
+        </div>
+        <Button
+          variant={settingsOpen ? "secondary" : "ghost"}
+          size="icon"
+          className="size-7 shrink-0"
+          aria-label={`${param.label} settings`}
+          aria-expanded={settingsOpen}
+          onClick={() => setExpanded(!settingsOpen)}
+        >
+          <Settings2 className="size-4" />
+        </Button>
+      </div>
+      <div
+        className={cn("border-t bg-muted/20 p-3", !settingsOpen && "hidden")}
+      >
+        <div className="flex items-start gap-2">
+          <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
+            <Field label="Key" issue={keyIssue}>
+              <Input
+                aria-label={`Control ${index + 1} key`}
+                value={param.key}
+                onChange={(event) =>
+                  onChange({ ...param, key: event.target.value })
+                }
+                placeholder="speed"
+                maxLength={EFFECT_LIMITS.maxParamKeyLength}
+                aria-invalid={Boolean(keyIssue)}
+                className="h-8 font-mono text-xs"
+                spellCheck={false}
+              />
+            </Field>
+            <Field label="Label" issue={labelIssue}>
+              <Input
+                aria-label={`Control ${index + 1} label`}
+                value={param.label}
+                onChange={(event) =>
+                  onChange({ ...param, label: event.target.value })
+                }
+                placeholder="Speed"
+                maxLength={EFFECT_LIMITS.maxParamLabelLength}
+                aria-invalid={Boolean(labelIssue)}
                 className="h-8 text-xs"
-                aria-label={`Control ${index + 1} type`}
+              />
+            </Field>
+            <Field label="Type">
+              <Select
+                value={param.type}
+                onValueChange={(value) => changeType(value as EffectParamType)}
               >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PARAM_TYPES.map((type) => (
-                  <SelectItem key={type} value={type} className="text-xs">
-                    {TYPE_LABELS[type]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
+                <SelectTrigger
+                  className="h-8 text-xs"
+                  aria-label={`Control ${index + 1} type`}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PARAM_TYPES.map((type) => (
+                    <SelectItem key={type} value={type} className="text-xs">
+                      {TYPE_LABELS[type]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
 
-          <TypeFields param={param} issueFor={issueFor} onChange={onChange} />
-        </div>
+            <TypeFields param={param} issueFor={issueFor} onChange={onChange} />
+          </div>
 
-        <div className="mt-5 flex shrink-0 flex-col gap-1">
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="h-6 w-6"
-            onClick={() => onMove(-1)}
-            disabled={isFirst}
-            aria-label="Move up"
-          >
-            <ArrowUp className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="h-6 w-6"
-            onClick={() => onMove(1)}
-            disabled={isLast}
-            aria-label="Move down"
-          >
-            <ArrowDown className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="text-destructive h-6 w-6"
-            onClick={onRemove}
-            aria-label="Remove param"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          <div className="mt-5 flex shrink-0 flex-col gap-1">
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6"
+              onClick={() => onMove(-1)}
+              disabled={isFirst}
+              aria-label="Move up"
+            >
+              <ArrowUp className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6"
+              onClick={() => onMove(1)}
+              disabled={isLast}
+              aria-label="Move down"
+            >
+              <ArrowDown className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="text-destructive h-6 w-6"
+              onClick={onRemove}
+              aria-label="Remove param"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="mt-2 h-7 text-xs"
+          onClick={() =>
+            onChange({
+              ...param,
+              default: values[param.key] ?? param.default,
+            } as EffectParam)
+          }
+        >
+          Use preview value as default
+        </Button>
       </div>
     </li>
   );
@@ -303,7 +362,7 @@ function TypeFields({ param, issueFor, onChange }: TypeFieldsProps) {
           key={field}
           label={
             field === "default"
-              ? "Default"
+              ? "Saved default"
               : field[0].toUpperCase() + field.slice(1)
           }
           issue={issueFor(field)}
@@ -336,7 +395,7 @@ function TypeFields({ param, issueFor, onChange }: TypeFieldsProps) {
     case "color":
       return (
         <Field
-          label="Default"
+          label="Saved default"
           issue={issueFor("default")}
           className="sm:col-span-3"
         >
@@ -365,7 +424,7 @@ function TypeFields({ param, issueFor, onChange }: TypeFieldsProps) {
       );
     case "boolean":
       return (
-        <Field label="Default">
+        <Field label="Saved default">
           <div className="flex h-8 items-center gap-2">
             <Switch
               aria-label={`${param.label} default`}

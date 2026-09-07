@@ -172,6 +172,7 @@ export function sectionsFor(
         rules: SHADER_RULES,
       };
     case "js":
+    case "ts":
       return {
         sections: [
           ...SCRIPT_SECTIONS,
@@ -202,7 +203,13 @@ export function sectionsFor(
             entries: parameterEntries(language, params),
           },
         ],
-        rules: SCRIPT_RULES,
+        rules:
+          language === "ts"
+            ? [
+                "TypeScript is compiled to JavaScript for preview and saving. Syntax is checked; semantic type checking is not enabled. Use self-contained types (effectTypes inserts the API declarations).",
+                ...SCRIPT_RULES,
+              ]
+            : SCRIPT_RULES,
       };
     default: {
       const exhaustive: never = language;
@@ -217,10 +224,10 @@ export function parameterEntries(
 ): Entry[] {
   return params.map((param, index) => ({
     signature:
-      language === "js"
+      language === "js" || language === "ts"
         ? `input.params.${param.key}`
         : `${param.type === "color" ? "effectParamVec" : "effectParam"}(${index})`,
-    description: `${param.label} (${param.key}) · ${param.type}. Default: ${param.default}.${param.type === "number" ? ` Range: ${param.min}–${param.max}.` : ""}${language !== "js" && param.type === "boolean" ? " Returns 0 or 1." : ""}`,
+    description: `${param.label} (${param.key}) · ${param.type}. Default: ${param.default}.${param.type === "number" ? ` Range: ${param.min}–${param.max}.` : ""}${language !== "js" && language !== "ts" && param.type === "boolean" ? " Returns 0 or 1." : ""}`,
   }));
 }
 

@@ -15,6 +15,7 @@ import { hoverTooltip, showTooltip, type Tooltip } from "@codemirror/view";
 import type { EffectParam } from "@shared/effects";
 import type { EffectSourceLanguage } from "@/lib/effects/shaderContract";
 import { apiEntries, parameterEntries, type Entry } from "./authoringReference";
+import { SCRIPT_TYPES } from "./typescriptCompiler";
 
 /** Language parsers handle comments/strings, including multiline block comments. */
 function inNonCode(state: EditorState, pos: number): boolean {
@@ -30,10 +31,12 @@ function inNonCode(state: EditorState, pos: number): boolean {
 }
 
 function snippets(language: EffectSourceLanguage): Completion[] {
-  if (language === "js")
+  if (language === "js" || language === "ts")
     return [
       snippetCompletion(
-        "export function compute(input) {\n\treturn { polygons: [], segments: [] };\n}",
+        language === "ts"
+          ? "export function compute(input: EffectInput): EffectOutput {\n\treturn { polygons: [], segments: [] };\n}"
+          : "export function compute(input) {\n\treturn { polygons: [], segments: [] };\n}",
         {
           label: "compute",
           type: "function",
@@ -50,6 +53,16 @@ function snippets(language: EffectSourceLanguage): Completion[] {
           info: "A lit line segment in map pixels. Add it to the returned segments array.",
         },
       ),
+      ...(language === "ts"
+        ? [
+            snippetCompletion(SCRIPT_TYPES, {
+              label: "effectTypes",
+              type: "text",
+              detail: "Effect API types · snippet",
+              info: "Add self-contained Point, Segment, EffectInput, and EffectOutput declarations once at the top of your script.",
+            }),
+          ]
+        : []),
     ];
   const wgsl = language === "wgsl";
   return [
@@ -102,6 +115,7 @@ export function effectCompletionSource(
     const before = context.state.sliceDoc(line.from, context.pos);
     const slot =
       language !== "js" &&
+      language !== "ts" &&
       /\b(effectParamVec|effectParam)\(\s*(\d*)$/.exec(before);
     if (slot)
       return {
@@ -139,7 +153,7 @@ export function effectCompletionSource(
     if (!parent) {
       options.push(...rootSnippets);
       options.push(
-        ...(language === "js"
+        ...(language === "js" || language === "ts"
           ? [
               {
                 label: "input",
@@ -155,7 +169,7 @@ export function effectCompletionSource(
               },
             ]),
       );
-      if (language !== "js")
+      if (language !== "js" && language !== "ts")
         options.push(
           ...params.map((param, index) => ({
             label: param.key,
@@ -224,7 +238,7 @@ export function callDocumentation(
   const call = /\b(effectParamVec|effectParam|sampleMap)\(\s*([^()]*)$/.exec(
     before,
   );
-  if (!call || language === "js") return null;
+  if (!call || language === "js" || language === "ts") return null;
   const entry = apiEntries(language, params).find(
     (entry) => entry.name === call[1],
   );
@@ -261,7 +275,9 @@ export function effectAuthoringExtensions(
     autocompletion({
       override: [
         effectCompletionSource(language, params),
-        ...(language === "js" ? [localCompletionSource] : []),
+        ...(language === "js" || language === "ts"
+          ? [localCompletionSource]
+          : []),
       ],
       activateOnTyping: true,
       positionInfo(view, list, option, info, space) {
