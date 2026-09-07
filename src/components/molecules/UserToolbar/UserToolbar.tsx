@@ -1,9 +1,8 @@
 import {
-  SignedIn,
+  Show,
   SignInButton,
-  SignedOut,
   UserButton,
-} from "@clerk/clerk-react";
+} from "@clerk/react";
 import { PanelLeftOpen, PanelRightOpen } from "lucide-react";
 
 import { HudSurface } from "@/components/atoms/HudSurface";
@@ -41,14 +40,14 @@ export const UserToolbar = () => {
         <ToggleIcon className="size-4" />
       </Button>
       <AppSettingsDialog />
-      <SignedIn>
+      <Show when="signed-in">
         <UserButton />
-      </SignedIn>
-      <SignedOut>
+      </Show>
+      <Show when="signed-out">
         <SignInButton mode="modal" forceRedirectUrl={"/library"}>
           <Button>Sign in</Button>
         </SignInButton>
-      </SignedOut>
+      </Show>
     </HudSurface>
   );
 };

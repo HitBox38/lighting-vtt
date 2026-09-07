@@ -1,9 +1,8 @@
 import {
-  SignedIn,
-  SignedOut,
+  Show,
   SignInButton,
   UserButton,
-} from "@clerk/clerk-react";
+} from "@clerk/react";
 import { usePostHog } from "@posthog/react";
 import { Link } from "react-router-dom";
 import { ThemeToggle } from "@/components/atoms/ThemeToggle";
@@ -39,7 +38,7 @@ export function LandingHeader() {
             Effects
           </Link>
           <ThemeToggle />
-          <SignedOut>
+          <Show when="signed-out">
             <SignInButton mode="modal" forceRedirectUrl="/library">
               <Button
                 variant="ghost"
@@ -54,10 +53,10 @@ export function LandingHeader() {
                 Sign in
               </Button>
             </SignInButton>
-          </SignedOut>
-          <SignedIn>
+          </Show>
+          <Show when="signed-in">
             <UserButton />
-          </SignedIn>
+          </Show>
           <LandingAction placement="header" />
         </nav>
       </div>

@@ -23,7 +23,11 @@ export function PlacementOverlay({
   const complete = useWorkshopStore((s) => s.complete);
   const { placeEffect } = useEffectManager();
   const posthog = usePostHog();
-  const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
+  const [pointer, setPointer] = useState<{
+    x: number;
+    y: number;
+    scale: number;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const centerButtonRef = useRef<HTMLButtonElement>(null);
@@ -109,7 +113,7 @@ export function PlacementOverlay({
       setBusy(false);
     }
   };
-  const scale = containerRef.current?.scale.x ?? 1;
+  const scale = pointer?.scale ?? 1;
   const radius =
     (pending.kind === "effect" ? DEFAULT_EFFECT_RADIUS : DEFAULT_LIGHT_RADIUS) *
     scale;
@@ -120,13 +124,18 @@ export function PlacementOverlay({
         aria-label={`Place ${catalogName(pending)} on map`}
         onPointerMove={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
-          setPointer({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+          setPointer({
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+            scale: containerRef.current?.scale.x ?? 1,
+          });
         }}
         onPointerDown={(e) => {
           if (e.button !== 0) return;
           e.preventDefault();
           const rect = e.currentTarget.getBoundingClientRect();
           const c = containerRef.current;
+          const scale = c?.scale.x ?? 1;
           void place({
             x: (e.clientX - rect.left - (c?.x ?? 0)) / scale,
             y: (e.clientY - rect.top - (c?.y ?? 0)) / scale,

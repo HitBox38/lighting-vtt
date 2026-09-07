@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import react, { reactCompilerPreset } from "@vitejs/plugin-react";
+import babel from "@rolldown/plugin-babel";
 import path from "path";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -10,39 +11,29 @@ const vendorChunks: ReadonlyArray<readonly [packagePath: string, chunkName: stri
   ["/node_modules/radix-ui/", "radix-ui"],
 ];
 
-function manualChunks(id: string) {
-  const normalizedId = id.replaceAll("\\", "/");
-
-  for (const [packagePath, chunkName] of vendorChunks) {
-    if (normalizedId.includes(packagePath)) {
-      return chunkName;
-    }
-  }
-
-  return undefined;
-}
-
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    react({
-      babel: {
-        plugins: ["babel-plugin-react-compiler"],
-      },
-    }),
+    react(),
+    babel({ presets: [reactCompilerPreset()] }),
     tailwindcss(),
   ],
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks,
+        codeSplitting: {
+          groups: vendorChunks.map(([packagePath, name]) => ({
+            name,
+            test: (id: string) => id.replaceAll("\\", "/").includes(packagePath),
+          })),
+        },
       },
     },
   },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "@shared": path.resolve(__dirname, "./shared"),
+      "@": path.resolve(import.meta.dirname, "./src"),
+      "@shared": path.resolve(import.meta.dirname, "./shared"),
     },
   },
 });

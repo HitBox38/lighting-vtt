@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { Workpool, vOnCompleteValidator } from "@convex-dev/workpool";
+import { Workpool, vOnCompleteArgs } from "@convex-dev/workpool";
 import { components, internal } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
 import { effectVersionDocValidator, thumbnailJobFields as jobFields } from "./schema";
@@ -79,7 +79,7 @@ export const discard = internalMutation({
 });
 
 export const completed = internalMutation({
-  args: vOnCompleteValidator(jobValidator), returns: v.null(),
+  args: vOnCompleteArgs(jobValidator), returns: v.null(),
   handler: async (ctx, { workId, context: job, result }) => {
     const row = await findThumbnail(ctx, job.effectId);
     if (row?.workId !== workId || row.generation !== job.generation) return null;

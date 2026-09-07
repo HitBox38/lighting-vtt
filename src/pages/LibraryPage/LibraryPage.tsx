@@ -1,4 +1,4 @@
-import { SignedIn, SignedOut, useUser } from "@clerk/clerk-react";
+import { Show, useUser } from "@clerk/react";
 import { useQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { Suspense, useState } from "react";
@@ -37,7 +37,7 @@ export function LibraryPage() {
     <div className="min-h-screen bg-background">
       <LibraryHeader />
       <main className="flex-1">
-        <SignedIn>
+        <Show when="signed-in">
           <Suspense
             fallback={
               <div className="flex h-64 items-center justify-center">
@@ -83,10 +83,10 @@ export function LibraryPage() {
               {user?.id ? <PlayerScenesSection clerkUserId={user.id} /> : null}
             </div>
           </Suspense>
-        </SignedIn>
-        <SignedOut>
+        </Show>
+        <Show when="signed-out">
           <SignedOutState />
-        </SignedOut>
+        </Show>
       </main>
     </div>
   );

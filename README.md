@@ -25,9 +25,9 @@ A high-performance 2D Virtual Tabletop (VTT) application designed for TV/Table g
 
 ## Tech Stack
 
-- **Frontend**: React 18 with TypeScript
+- **Frontend**: React 19 with TypeScript 7
 - **Build Tool**: Vite
-- **Runtime**: Bun
+- **Runtime**: Bun 1.4.2
 - **State Management**: Zustand
 - **UI Framework**: TailwindCSS + shadcn/ui
 - **Rendering Engine**: Pixi.js v8 + @pixi/react
@@ -37,8 +37,8 @@ A high-performance 2D Virtual Tabletop (VTT) application designed for TV/Table g
 
 ### Prerequisites
 
-- [Bun](https://bun.sh/) runtime
-- Node.js (for some tooling compatibility)
+- [Bun](https://bun.com/) 1.4.2 (run `bun upgrade` to update your installation)
+- Node.js 24 LTS (for tooling compatibility)
 
 ### Installation
 
@@ -52,7 +52,7 @@ cd lighting-vtt
 2. Install dependencies:
 
 ```bash
-bun install
+bun install --frozen-lockfile
 ```
 
 3. Start the development server:
@@ -69,11 +69,50 @@ bun run dev
 bun run build
 ```
 
+### Dependency tooling
+
+Bun is the package manager; commit `bun.lock` when updating dependencies. The
+`packageManager` field and the project Bun dependency track Bun 1.4.2.
+
+`bun run build` uses TypeScript 7 (`tsc`). The `typescript` package name aliases
+`@typescript/typescript6` so ESLint and other compiler-API consumers use the
+compatible TypeScript 6 API. `@typescript/native` supplies TypeScript 7 without
+an executable name collision. Vite 8 uses Rolldown, with the Babel React Compiler
+preset enabled for production builds as well as development.
+
+Checks: `bun run lint`, `bun run test:workshop`, `bun run build`, and
+`bunx --no-install tsc --noEmit -p convex/tsconfig.json`.
+
+Workpool upgrade rollback: once Workpool 0.4 has stored large job payloads,
+rollback requires at least 0.3.2; do not redeploy 0.3.0 against that data.
+See the [Workpool changelog](https://github.com/get-convex/workpool/blob/main/CHANGELOG.md).
+
 ### Preview Production Build
 
 ```bash
 bun run preview
 ```
+
+### Vercel previews
+
+`vercel.json` pins the install to Bun 1.4.2 with a frozen lockfile and runs
+`convex deploy` before completing the deployment. Convex supplies both
+`VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` to the frontend build, so uploads
+target the same backend as the rest of the app.
+
+Configure separate `CONVEX_DEPLOY_KEY` values in Vercel: the production key must
+be scoped only to Production, and a Convex **preview deploy key** must be scoped
+only to Preview. Convex selects an isolated preview backend using the Git branch
+name. Never bypass Convex's production-key check for a preview build.
+
+Use a Clerk development instance's `VITE_CLERK_PUBLISHABLE_KEY` in Vercel Preview.
+Set the matching `CLERK_JWT_ISSUER_DOMAIN` in Convex's default environment
+variables for preview deployments. Uploads also require `UPLOADTHING_TOKEN` in
+the preview **Convex backend** environment. To exercise thumbnail generation,
+enable `EFFECT_THUMBNAILS_ENABLED=true` there. Preview backends have their own
+data; production library contents are not copied automatically.
+
+See [Convex's Vercel preview setup](https://docs.convex.dev/production/hosting/vercel#preview-deployments).
 
 ## Project Structure
 

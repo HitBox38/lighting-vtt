@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { SignInButton } from "@clerk/clerk-react";
+import { SignInButton } from "@clerk/react";
 
 /** Shown when the user is not authenticated. */
 export const SignedOutState = () => (

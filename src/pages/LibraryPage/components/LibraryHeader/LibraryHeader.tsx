@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { AppSettingsDialog } from "@/components/organisms/AppSettingsDialog";
 import { Button } from "@/components/ui/button";
-import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "@clerk/clerk-react";
+import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/react";
 
 export const LibraryHeader = () => (
   <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl">
@@ -13,10 +13,10 @@ export const LibraryHeader = () => (
       <div className="flex items-center gap-3">
         <nav aria-label="Library navigation" className="flex gap-1"><Button asChild size="sm" variant="secondary"><Link to="/library" aria-current="page">Scenes</Link></Button><Button asChild size="sm" variant="ghost"><Link to="/effects">Effects</Link></Button></nav>
         <AppSettingsDialog />
-        <SignedIn>
+        <Show when="signed-in">
           <UserButton />
-        </SignedIn>
-        <SignedOut>
+        </Show>
+        <Show when="signed-out">
           <SignInButton mode="modal" forceRedirectUrl="/library">
             <Button variant="default" size="sm">
               Sign in
@@ -27,7 +27,7 @@ export const LibraryHeader = () => (
               Sign up
             </Button>
           </SignUpButton>
-        </SignedOut>
+        </Show>
       </div>
     </div>
   </header>

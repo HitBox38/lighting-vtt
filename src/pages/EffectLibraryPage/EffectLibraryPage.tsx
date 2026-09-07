@@ -3,10 +3,9 @@ import { Link, useSearchParams } from "react-router-dom";
 import {
   useUser,
   UserButton,
-  SignedIn,
-  SignedOut,
+  Show,
   SignInButton,
-} from "@clerk/clerk-react";
+} from "@clerk/react";
 import { useConvexAuth, usePaginatedQuery, useQuery } from "convex/react";
 import { usePostHog } from "@posthog/react";
 import { ArrowLeft, Plus, Sparkles } from "lucide-react";
@@ -98,16 +97,16 @@ export function EffectLibraryPage() {
               Create effect
             </Link>
           </Button>
-          <SignedIn>
+          <Show when="signed-in">
             <UserButton />
-          </SignedIn>
-          <SignedOut>
+          </Show>
+          <Show when="signed-out">
             <SignInButton mode="modal">
               <Button variant="ghost" size="sm">
                 Sign in
               </Button>
             </SignInButton>
-          </SignedOut>
+          </Show>
         </div>
       </header>
       <div className="flex min-h-0 flex-1">
