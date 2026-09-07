@@ -27,6 +27,7 @@ import {
 } from "../shared/effects";
 import { zodToConvex } from "convex-helpers/server/zod4";
 import { EFFECT_STARTERS } from "../shared/effectStarters";
+import { findThumbnail, requestThumbnail, withThumbnail } from "./lib/thumbnailJobs";
 
 /** Search the entire catalog; never search only a page already loaded by React. */
 export const browse = query({
@@ -50,6 +51,7 @@ export const browse = query({
     ),
   }),
   handler: async (ctx, args) => {
+    const result = await (async () => {
     const userId = args.mine ? await getCurrentUserIdOrNull(ctx) : null;
     if (args.mine && !userId)
       return { page: [], isDone: true, continueCursor: "" };
@@ -96,6 +98,8 @@ export const browse = query({
           .withIndex("by_visibility", (q) => q.eq("visibility", "public"))
           .order("desc")
           .paginate(args.paginationOpts);
+    })();
+    return { ...result, page: await Promise.all(result.page.map((effect) => withThumbnail(ctx, effect))) };
   },
 });
 
@@ -264,11 +268,12 @@ export const listMine = query({
   handler: async (ctx) => {
     const userId = await getCurrentUserIdOrNull(ctx);
     if (userId === null) return [];
-    return await ctx.db
+    const effects = await ctx.db
       .query("effects")
       .withIndex("by_author", (q) => q.eq("authorId", userId))
       .order("desc")
       .collect();
+    return await Promise.all(effects.map((effect) => withThumbnail(ctx, effect)));
   },
 });
 
@@ -289,11 +294,12 @@ export const listPublic = query({
     ),
   }),
   handler: async (ctx, args) => {
-    return await ctx.db
+    const result = await ctx.db
       .query("effects")
       .withIndex("by_visibility", (q) => q.eq("visibility", "public"))
       .order("desc")
       .paginate(args.paginationOpts);
+    return { ...result, page: await Promise.all(result.page.map((effect) => withThumbnail(ctx, effect))) };
   },
 });
 
@@ -307,7 +313,7 @@ export const getEffect = query({
     const effect = await ctx.db.get(id);
     if (!effect) return null;
     const userId = await getCurrentUserIdOrNull(ctx);
-    return canReadEffect(effect, userId) ? effect : null;
+    return canReadEffect(effect, userId) ? await withThumbnail(ctx, effect) : null;
   },
 });
 
@@ -433,6 +439,10 @@ export const createEffect = mutation({
     const userId = await getCurrentUserId(ctx);
     await rateLimiter.limit(ctx, "createEffect", { key: userId, throws: true });
     const definition = parseDefinition(args.definition);
+    if (definition.kind === "shader" && definition.source) {
+      delete definition.thumbnailUrl;
+      delete definition.thumbnailKey;
+    }
     if (definition.source) {
       const sourceId = ctx.db.normalizeId(
         "effects",
@@ -473,6 +483,8 @@ export const createEffect = mutation({
     });
     await insertVersion(ctx, effectId, 1, definition, now);
 
+    if (definition.kind === "shader") await requestThumbnail(ctx, effectId, 1);
+
     return { effectId, version: 1 };
   },
 });
@@ -490,6 +502,10 @@ export const saveVersion = mutation({
     const effect = await getOwnedEffect(ctx, args.effectId, userId);
     const definition = parseDefinition(args.definition);
     definition.source = effect.source;
+    if (definition.kind === "shader") {
+      definition.thumbnailUrl ??= effect.thumbnailUrl;
+      definition.thumbnailKey ??= effect.thumbnailKey;
+    }
     if (definition.kind !== effect.kind) {
       throw new Error(
         "An effect cannot change kind between versions; create a new effect instead",
@@ -511,6 +527,8 @@ export const saveVersion = mutation({
       latestVersion: version,
       updatedAt: now,
     });
+
+    if (definition.kind === "shader") await requestThumbnail(ctx, args.effectId, version);
 
     return { version };
   },
@@ -538,6 +556,11 @@ export const deleteEffect = mutation({
       .collect();
     for (const version of versions) {
       await ctx.db.delete(version._id);
+    }
+    const thumbnail = await findThumbnail(ctx, args.effectId);
+    if (thumbnail) {
+      if (thumbnail.storageId) await ctx.storage.delete(thumbnail.storageId);
+      await ctx.db.delete(thumbnail._id);
     }
     await ctx.db.delete(args.effectId);
     return null;

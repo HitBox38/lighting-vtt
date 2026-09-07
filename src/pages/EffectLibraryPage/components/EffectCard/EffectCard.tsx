@@ -1,11 +1,12 @@
 import { EffectGlyph } from "@/components/molecules/EffectGlyph/EffectGlyph";
+import { useState } from "react";
 import type { Doc } from "../../../../../convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { authorLabel } from "@/pages/EffectLibraryPage/helpers";
 
 interface Props {
-  effect: Doc<"effects">;
+  effect: Doc<"effects"> & { generatedThumbnailUrl?: string; thumbnailStatus?: string; thumbnailVersion?: number };
   selected: boolean;
   /** True when the signed-in user authored this effect. */
   mine: boolean;
@@ -50,6 +51,8 @@ function kindBadge(kind: Doc<"effects">["kind"]) {
 
 /** One row in the library list. Clicking selects it for the detail pane. */
 export function EffectCard({ effect, selected, mine, onSelect }: Props) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const thumbnailUrl = effect.generatedThumbnailUrl ?? effect.thumbnailUrl;
   return (
     <button
       type="button"
@@ -60,9 +63,10 @@ export function EffectCard({ effect, selected, mine, onSelect }: Props) {
         selected && "border-primary bg-accent/60",
       )}
     >
-      {effect.thumbnailUrl ? (
+      {thumbnailUrl && thumbnailUrl !== failedUrl ? (
         <img
-          src={effect.thumbnailUrl}
+          src={thumbnailUrl}
+          onError={() => setFailedUrl(thumbnailUrl)}
           alt=""
           width={320}
           height={180}
