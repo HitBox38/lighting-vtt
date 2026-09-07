@@ -42,7 +42,7 @@ const SHADER_INPUT_FIELDS: readonly Entry[] = [
 
 const SHADER_RULES: readonly string[] = [
   "Write only functions and constants. Uniforms, bindings, textures and entry points are provided.",
-  "WGSL is required; it runs on WebGPU. GLSL is optional and runs on WebGL. Without GLSL, WebGL users see a plain circle.",
+  "WGSL is required; it runs on WebGPU. GLSL is optional and runs on WebGL. Without GLSL, WebGL users see a plain circle. Authors supply each language independently; publishing never converts shaders.",
   'Coverage "circle" cuts a hole in the darkness like a light; "none" only paints on top.',
 ];
 

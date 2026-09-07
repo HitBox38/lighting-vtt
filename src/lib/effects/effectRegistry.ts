@@ -38,6 +38,8 @@ import {
   type ShaderLanguage,
 } from "./shaderContract";
 import type { DiagnosticSeverity, EffectDiagnostic } from "./diagnostics";
+import { backendLanguage, hasShaderSource } from "./compatibility";
+export { backendLanguage } from "./compatibility";
 
 // Re-exported so existing callers keep one import path for compile results and their diagnostics.
 export type { DiagnosticSeverity, EffectDiagnostic } from "./diagnostics";
@@ -72,19 +74,6 @@ export type CompiledEffect =
 
 export function getEffectBackend(renderer: Renderer): EffectBackend {
   return renderer.type === RendererType.WEBGPU ? "webgpu" : "webgl";
-}
-
-export function backendLanguage(backend: EffectBackend): ShaderLanguage {
-  switch (backend) {
-    case "webgpu":
-      return "wgsl";
-    case "webgl":
-      return "glsl";
-    default: {
-      const exhaustive: never = backend;
-      throw new Error(`Unhandled backend: ${String(exhaustive)}`);
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -358,6 +347,10 @@ function compileGlsl(renderer: WebGLRenderer, definition: EffectDefinition, name
 /** Compiles `definition` for the renderer's active backend. Never throws. */
 export async function compileEffect(renderer: Renderer, definition: EffectDefinition, name = definition.name): Promise<CompiledEffect> {
   const backend = getEffectBackend(renderer);
+  const language = backendLanguage(backend);
+  if (!hasShaderSource(definition[language])) {
+    return { status: "missing-program", backend, language };
+  }
   try {
     switch (backend) {
       case "webgpu":

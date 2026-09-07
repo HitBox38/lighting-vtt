@@ -10,6 +10,7 @@ import {
   type WebGPURenderer,
 } from "pixi.js";
 
+import { drawEffectFallback } from "@/lib/effects/fallback";
 import { watchDeviceLoss } from "@/lib/effects/deviceLoss";
 import { queuePreviewBoot } from "@/lib/effects/previewBootQueue";
 import {
@@ -256,6 +257,8 @@ interface Stage {
   handle: EffectShaderHandle | null;
   programKey: string | null;
   ownedProgramKeys: Set<string>;
+  fallbackStatus: "compiling" | "missing-program" | "error";
+  fallbackRadius: number | null;
   startedAt: number;
   /**
    * Set by the boot effect's cleanup before `app.destroy`. React runs unmount
@@ -301,23 +304,6 @@ function drawBackdrop(
     graphics.moveTo(0, y).lineTo(width, y);
   }
   graphics.stroke();
-}
-
-function fallbackColor(
-  definition: EffectDefinition | null,
-  params: EffectParamValues,
-): number {
-  const colorParam = definition?.params.find((param) => param.type === "color");
-  if (!colorParam) return 0xffffff;
-  const raw = params[colorParam.key];
-  const [r, g, b] = hexToRgba(
-    typeof raw === "string" ? raw : colorParam.default,
-  );
-  return (
-    (Math.round(r * 255) << 16) |
-    (Math.round(g * 255) << 8) |
-    Math.round(b * 255)
-  );
 }
 
 function dropMesh(stage: Stage): void {
@@ -530,6 +516,8 @@ export function EffectPreview({
         handle: null,
         programKey: null,
         ownedProgramKeys: new Set(),
+        fallbackStatus: "compiling",
+        fallbackRadius: null,
         startedAt: performance.now(),
         disposed: false,
         deviceLost: false,
@@ -758,17 +746,10 @@ export function EffectPreview({
     }
 
     stage.fallback.visible = !program && !isScript;
-    if (!program && !isScript) {
-      stage.fallback.clear();
-      stage.fallback
-        .circle(0, 0, 1)
-        .fill({ color: fallbackColor(definition, params), alpha: 0.18 });
-      stage.fallback.circle(0, 0, 1).stroke({
-        width: 0.02,
-        color: compiled ? 0xef4444 : 0x9ca3af,
-        alpha: 0.9,
-      });
-    }
+    stage.fallbackStatus = compiled?.result.status === "missing-program"
+      ? "missing-program"
+      : compiled?.result.status === "error" ? "error" : "compiling";
+    stage.fallbackRadius = null;
 
     if (stage.mesh && definition) {
       stage.mesh.blendMode = definition.blend;
@@ -800,7 +781,11 @@ export function EffectPreview({
       stage.scriptLayer.visible = enabled && isScript;
 
       stage.fallback.position.set(cx, cy);
-      stage.fallback.scale.set(radius);
+      stage.fallback.scale.set(1);
+      if (stage.fallback.visible && stage.fallbackRadius !== radius) {
+        drawEffectFallback(stage.fallback, definition, params, stage.fallbackStatus, radius, true);
+        stage.fallbackRadius = radius;
+      }
 
       // The script scene is authored in SCRIPT_SCENE_SIZE units around its centre.
       const scriptScale = Math.min(width, height) / SCRIPT_SCENE_SIZE;

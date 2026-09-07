@@ -26,7 +26,7 @@ export function PreviewStatus({
   const label = failed
     ? "Needs attention"
     : fallback
-      ? "Fallback circle"
+      ? `Fallback circle · ${status.backend === "webgpu" ? "WebGPU" : "WebGL"}`
       : busy
         ? "Updating preview"
         : script
@@ -76,6 +76,7 @@ export function PreviewStatus({
             <p className="text-muted-foreground">
               Shaders use WGSL on WebGPU and GLSL on WebGL. Without GLSL, WebGL
               displays a fallback circle.
+              {" "}Each language is supplied by the author; publishing does not convert shaders.
             </p>
           )}
           <Button size="sm" variant="outline" onClick={onDiagnostics}>

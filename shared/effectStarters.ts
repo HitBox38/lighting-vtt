@@ -20,15 +20,9 @@ function shader(
   color: string,
 ): EffectDefinition {
   const wgsl = `fn effectMain(fx: EffectInput) -> vec4<f32> {\n  let color = effectParamVec(0);\n  let t = fx.time * effectParam(1);\n  let alpha = ${expression};\n  return vec4<f32>(color.rgb, color.a * alpha);\n}`;
-  const glsl = wgsl
-    .replace(
-      "fn effectMain(fx: EffectInput) -> vec4<f32>",
-      "vec4 effectMain(EffectInput fx)",
-    )
-    .replace("let color", "vec4 color")
-    .replace("let t", "float t")
-    .replace("let alpha", "float alpha")
-    .replace("vec4<f32>", "vec4");
+  // These curated expressions use syntax common to both languages. Each program
+  // has its own template; authored WGSL is never translated into GLSL.
+  const glsl = `vec4 effectMain(EffectInput fx) {\n  vec4 color = effectParamVec(0);\n  float t = fx.time * effectParam(1);\n  float alpha = ${expression};\n  return vec4(color.rgb, color.a * alpha);\n}`;
   return {
     name,
     description,
