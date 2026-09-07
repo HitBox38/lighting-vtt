@@ -25,7 +25,9 @@ import {
   type CompiledEffect,
   type EffectShaderHandle,
 } from "@/lib/effects/effectRegistry";
-import { hexToRgba, packParamValues, type EffectDefinition, type EffectInstance } from "@shared/effects";
+import { packParamValues } from "@shared/effects";
+
+import { drawEffectFallback } from "@/lib/effects/fallback";
 
 interface Props {
   isGM?: boolean;
@@ -47,17 +49,6 @@ interface InstanceNode {
   fallback: PixiGraphics | null;
 }
 
-const FALLBACK_FILL_ALPHA = 0.18;
-const FALLBACK_STROKE_WIDTH = 2;
-const FALLBACK_STROKE: Record<Exclude<EffectInstanceStatus["kind"], "ok">, number> = {
-  loading: 0x9ca3af,
-  compiling: 0x9ca3af,
-  "missing-definition": 0x6b7280,
-  "missing-program": 0xf59e0b,
-  error: 0xef4444,
-  disabled: 0xef4444,
-};
-
 /**
  * If the GPU context is lost within this window after an effect first drew,
  * that effect is the prime suspect and gets disabled. Heuristic, but the only
@@ -69,32 +60,6 @@ function destroyNode(node: InstanceNode): void {
   node.mesh?.destroy({ children: false, texture: false, textureSource: false });
   node.handle?.destroy();
   node.fallback?.destroy();
-}
-
-/** First declared colour param, used to tint the degraded circle so it still reads as "that effect". */
-function fallbackColor(definition: EffectDefinition | undefined, instance: EffectInstance): number {
-  const colorParam = definition?.params.find((param) => param.type === "color");
-  if (!colorParam) return 0xffffff;
-  const raw = instance.params[colorParam.key];
-  const [r, g, b] = hexToRgba(typeof raw === "string" ? raw : colorParam.default);
-  return (Math.round(r * 255) << 16) | (Math.round(g * 255) << 8) | Math.round(b * 255);
-}
-
-function drawFallback(
-  graphics: PixiGraphics,
-  instance: EffectInstance,
-  definition: EffectDefinition | undefined,
-  status: EffectInstanceStatus,
-  isGM: boolean,
-): void {
-  graphics.clear();
-  graphics.circle(0, 0, 1).fill({ color: fallbackColor(definition, instance), alpha: FALLBACK_FILL_ALPHA });
-  if (isGM && status.kind !== "ok") {
-    // Scale-independent stroke: the graphics is scaled by radius, so divide the width out.
-    graphics
-      .circle(0, 0, 1)
-      .stroke({ width: FALLBACK_STROKE_WIDTH / Math.max(instance.radius, 1), color: FALLBACK_STROKE[status.kind], alpha: 0.9 });
-  }
 }
 
 function statusFromCompiled(compiled: CompiledEffect): EffectInstanceStatus {
@@ -282,9 +247,9 @@ export function EffectLayer({ isGM = true, mapTexture }: Props) {
       } else if (node.fallback) {
         const fallback = node.fallback;
         fallback.position.set(instance.x, instance.y);
-        fallback.scale.set(instance.radius);
+        fallback.scale.set(1);
         fallback.zIndex = index;
-        drawFallback(fallback, instance, definition, status, isGM);
+        drawEffectFallback(fallback, definition, instance.params, status.kind === "ok" ? "compiling" : status.kind, instance.radius, isGM);
       }
     });
 

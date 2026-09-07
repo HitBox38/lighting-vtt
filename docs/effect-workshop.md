@@ -101,6 +101,59 @@ documentation, and signature hints. Browser checks covered JS property insertion
 WGSL/GLSL snippet expansion, independent snippet fields, keyboard exit, light/dark
 themes, and phone-width popup positioning using an isolated temporary fixture.
 
+## Shader compatibility
+
+Shader effects require nonblank WGSL when saved. Authors may independently supply
+GLSL for WebGL; an empty or whitespace-only GLSL tab means no WebGL program.
+Saving, versioning, remixing, and publishing preserve authored source. Publishing
+changes visibility only: there is no WGSL/GLSL translation or naga/WASM dependency.
+Curated starters include explicit templates for both languages; editing one never
+updates the other automatically.
+
+The active renderer selects only its own language. An absent program produces
+`missing-program` before GPU compilation; a present but invalid program produces
+an error. Blank WGSL in an unfinished preview also shows the missing-program
+fallback, while required-source validation still prevents saving it.
+
+Preview and scene fallbacks use the same plain circle, tinted with the first color
+parameter (or white) at 18% fill opacity. Author/GM views distinguish missing
+programs with amber outlines, compilation errors with red, and loading with gray.
+Players see the fill without diagnostic outlines. Circles are drawn at their
+displayed radius to avoid enlarged polygon edges; preview outlines remain two
+pixels wide when the preview resizes. Darkness coverage remains independent:
+`coverage: none` stays decorative, and `coverage: circle` continues revealing its
+declared area. Hidden effects, instance positions, radii, order, and version pins
+retain their existing behavior.
+
+Compatibility notices distinguish absent programs from compilation failures and
+identify the active backend. Missing optional GLSL does not block saving or
+publishing. A successful preview only verifies the observed backend/browser;
+other browsers remain untested.
+
+Verification on 2026-09-07, based on `origin/pre-prod` at `32f305d`:
+
+- 41 Bun tests passed, including 12 shader compatibility/publishing tests. These
+  cover source preservation, required WGSL, optional GLSL, GPU short-circuiting,
+  compile failures, save eligibility, fallback styles, darkness coverage, and
+  immutable versions. Publishing tests call the real mutation handlers against a
+  local database double; they do not publish to a deployment.
+- `bun run lint` and `bun run build` passed with production React Compiler
+  enabled. The build retained the existing large-chunk warnings.
+- The isolated browser harness exercised the actual `EffectPreview` component on
+  WebGL and WebGPU: all three curated shader starters, WGSL-only rendering,
+  missing GLSL and blank WGSL fallback, invalid source diagnostics, restoring
+  programs, and backend switching. Visual checks confirmed smooth amber and red
+  fallback circles and successful portal rendering.
+- This worktree has no Clerk/Convex environment configuration. Authenticated
+  save/publish/place/reload and live GM/player scene synchronization were not
+  verified. Automated graphics tests cover player fill-only styling and declared
+  darkness coverage; they are not a substitute for those live scene checks.
+- On this Windows installation, `bun run test:workshop` encountered a broken
+  project-local Bun executable shim even after reinstalling locked dependencies.
+  The repository script passed with `bun run --bun test:workshop`, which uses the
+  working installed Bun runtime (1.3.14). Direct invocation of that executable
+  with `test --tsconfig-override tsconfig.app.json tests` also passed.
+
 ## JavaScript and TypeScript scripts
 
 New script templates offer JavaScript and TypeScript. The Script language selector

@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/popover";
 import { TemplatePicker } from "./TemplatePicker";
 import { PreviewStatus } from "./PreviewStatus";
+import { previewSaveBlocker } from "./previewValidation";
 import { useWorkbenchLayout } from "../../hooks/useWorkbenchLayout";
 import type { Entry } from "../CodeEditor/authoringReference";
 import {
@@ -77,6 +78,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { shaderCompatibilityDiagnostics } from "@/lib/effects/compatibility";
 import { describeMutationError } from "@/lib/effects/errors";
 import type {
   CompiledEffect,
@@ -191,18 +193,6 @@ function lintDiagnostics(
   }));
 }
 
-function backendLabel(backend: EffectBackend): string {
-  switch (backend) {
-    case "webgpu":
-      return "WebGPU";
-    case "webgl":
-      return "WebGL";
-    default: {
-      const exhaustive: never = backend;
-      throw new Error(`Unhandled backend: ${String(exhaustive)}`);
-    }
-  }
-}
 
 interface CompileRecord {
   sourceKey: string;
@@ -489,14 +479,7 @@ export function EffectEditor({
           case "error":
             return compile.result.diagnostics;
           case "missing-program":
-            return [
-              {
-                severity: "warning",
-                language: compile.result.language,
-                line: null,
-                message: `No ${compile.result.language.toUpperCase()} program: on ${backendLabel(compile.result.backend)} this effect renders as a plain circle.`,
-              },
-            ];
+            return []; // One shared compatibility notice below covers this state.
           default: {
             const exhaustive: never = compile.result;
             throw new Error(`Unhandled compile result: ${String(exhaustive)}`);
@@ -523,18 +506,10 @@ export function EffectEditor({
     }
   }, [debouncedKind, compile, compileCurrent, scriptRun, scriptCurrent]);
 
-  const glslMissingWarning = useMemo<EffectDiagnostic[]>(() => {
-    if (debouncedKind !== "shader" || debouncedDefinition.glsl) return [];
-    return [
-      {
-        severity: "info",
-        language: "glsl",
-        line: null,
-        message:
-          "No GLSL program. Players on WebGL will see a plain coverage circle instead of this effect.",
-      },
-    ];
-  }, [debouncedKind, debouncedDefinition.glsl]);
+  const compatibilityDiagnostics = useMemo(
+    () => shaderCompatibilityDiagnostics(debouncedDefinition, backend),
+    [debouncedDefinition, backend],
+  );
 
   const allDiagnostics = useMemo(
     () =>
@@ -545,7 +520,7 @@ export function EffectEditor({
             ...lint.glsl,
             ...lint.js,
             ...compileDiagnostics,
-            ...glslMissingWarning,
+            ...compatibilityDiagnostics,
           ]
       ).map(
         (diagnostic): EffectDiagnostic =>
@@ -556,7 +531,7 @@ export function EffectEditor({
     [
       lint,
       compileDiagnostics,
-      glslMissingWarning,
+      compatibilityDiagnostics,
       typeScriptDiagnostics,
       isScript,
       scriptLanguage,
@@ -622,10 +597,7 @@ export function EffectEditor({
   const diagnosticsOpen =
     showDiagnostics ||
     (compileFailed && dismissedDiagnostics !== diagnosticKey);
-  const compileInFlight =
-    compileStatus.kind === "compiling" ||
-    compileStatus.kind === "running" ||
-    compileStatus.kind === "idle";
+  const previewBlocker = previewSaveBlocker(compileStatus, pendingPreview, isScript, typeScriptDiagnostics.length > 0);
 
   let saveBlocker: string | null = null;
   if (!signedIn)
@@ -636,14 +608,8 @@ export function EffectEditor({
     saveBlocker = issues.values().next().value ?? "Fix the highlighted fields.";
   else if (hasLintErrors)
     saveBlocker = "Fix the problems listed under the code first.";
-  else if (pendingPreview || compileInFlight)
-    saveBlocker = isScript
-      ? "Waiting for the preview to run."
-      : "Waiting for the preview to compile.";
-  else if (compileFailed)
-    saveBlocker = isScript
-      ? "The script fails in the preview."
-      : "The shader does not compile on this machine.";
+  else if (previewBlocker)
+    saveBlocker = previewBlocker;
   else if (target.kind === "existing" && target.isOwner && !dirty)
     saveBlocker = "No changes since the last version.";
 
