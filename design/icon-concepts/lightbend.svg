@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="lightbend-title lightbend-desc">
+  <title id="lightbend-title">Lightbend — Lighting VTT icon concept</title>
+  <desc id="lightbend-desc">An amber L-shaped beam turns through a coral diamond prism and fans outward into a broad cone.</desc>
+  <path fill="#FFB547" d="M25 15H49V53L37 65L25 53ZM62 69L116 52Q120 51 120 55V105Q120 109 116 108L62 91L51 80Z"/>
+  <path fill="#FF704D" d="M37 64L53 80L37 96L21 80Z"/>
+</svg>

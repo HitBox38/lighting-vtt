@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="revealed-table-mono-title revealed-table-mono-desc">
+  <title id="revealed-table-mono-title">Revealed Table — monochrome icon</title>
+  <desc id="revealed-table-mono-desc">A diamond tabletop with a circular light source, map seams, and an outlined illumination cone. Inherits text color when embedded inline.</desc>
+  <defs>
+    <clipPath id="revealed-table-mono-edge"><path d="M71 11L117 57Q124 64 117 71L71 117Q64 124 57 117L11 71Q4 64 11 57L57 11Q64 4 71 11Z"/></clipPath>
+    <mask id="revealed-table-mono-cuts" maskUnits="userSpaceOnUse" x="0" y="0" width="128" height="128" style="mask-type:luminance">
+      <path fill="#fff" d="M0 0H128V128H0Z"/>
+      <path fill="#000" d="M67 0H73V128H67ZM73 61H128V67H73Z"/>
+      <path d="M38 64L118 21M38 64L118 107" fill="none" stroke="#000" stroke-width="5"/>
+      <circle cx="38" cy="64" r="15" fill="#000"/>
+    </mask>
+  </defs>
+  <path fill="currentColor" clip-path="url(#revealed-table-mono-edge)" mask="url(#revealed-table-mono-cuts)" d="M0 0H128V128H0Z"/>
+  <circle cx="38" cy="64" r="9" fill="currentColor"/>
+</svg>

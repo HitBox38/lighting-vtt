@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="lightling-title lightling-desc">
+  <title id="lightling-title">Lightling — Lighting VTT icon concept</title>
+  <desc id="lightling-desc">An amber flame spirit with two transparent eyes and a curling coral tail.</desc>
+  <path fill="#FFB547" fill-rule="evenodd" d="M76 8C77 30 99 33 99 56C110 50 115 40 114 31C135 76 113 117 76 119C42 121 19 103 17 80C15 65 25 53 30 43C31 60 39 62 43 53C49 39 43 22 76 8ZM40 70L54 73V82C54 90 40 90 40 82ZM68 73L82 70V82C82 90 68 90 68 82Z"/>
+  <path fill="#FF704D" d="M114 31C135 76 113 117 76 119C42 121 19 103 17 80C29 110 75 115 98 88C113 70 120 48 114 31Z"/>
+</svg>
