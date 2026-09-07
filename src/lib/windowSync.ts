@@ -1,10 +1,12 @@
 import type { Light, Mirror, TokenInstance, TokenTemplate } from "@shared/index";
+import type { EffectInstance } from "@shared/effects";
 
 const CHANNEL_NAME = "lighting-vtt-sync";
 
 export interface SyncState {
   lights: Light[];
   mirrors: Mirror[];
+  effects: EffectInstance[];
   tokenTemplates: TokenTemplate[];
   tokens: TokenInstance[];
   activePresetId: string | null;

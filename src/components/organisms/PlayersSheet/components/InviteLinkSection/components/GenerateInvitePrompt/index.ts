@@ -1,0 +1,1 @@
+export { GenerateInvitePrompt } from "./GenerateInvitePrompt";

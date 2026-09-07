@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { scenePlayerValidator } from "./schema";
+import { assertCreatorMatchesIdentity } from "./lib/auth";
 
 const DM_ONLINE_THRESHOLD_MS = 45_000;
 
@@ -21,6 +22,7 @@ export const createInviteCode = mutation({
   },
   returns: v.string(),
   handler: async (ctx, args) => {
+    await assertCreatorMatchesIdentity(ctx, args.creatorId);
     const scene = await ctx.db.get(args.sceneId);
     if (!scene) throw new Error("Scene not found");
     if (scene.creatorId !== args.creatorId) {
@@ -45,6 +47,7 @@ export const regenerateInviteCode = mutation({
   },
   returns: v.string(),
   handler: async (ctx, args) => {
+    await assertCreatorMatchesIdentity(ctx, args.creatorId);
     const scene = await ctx.db.get(args.sceneId);
     if (!scene) throw new Error("Scene not found");
     if (scene.creatorId !== args.creatorId) {
@@ -102,6 +105,7 @@ export const dmHeartbeat = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await assertCreatorMatchesIdentity(ctx, args.creatorId);
     const scene = await ctx.db.get(args.sceneId);
     if (!scene) throw new Error("Scene not found");
     if (scene.creatorId !== args.creatorId) {
@@ -200,6 +204,7 @@ export const updatePlayer = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await assertCreatorMatchesIdentity(ctx, args.creatorId);
     const scene = await ctx.db.get(args.sceneId);
     if (!scene) throw new Error("Scene not found");
     if (scene.creatorId !== args.creatorId) {
@@ -232,6 +237,7 @@ export const removePlayer = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await assertCreatorMatchesIdentity(ctx, args.creatorId);
     const scene = await ctx.db.get(args.sceneId);
     if (!scene) throw new Error("Scene not found");
     if (scene.creatorId !== args.creatorId) {
@@ -263,6 +269,7 @@ export const setPlayerActive = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await assertCreatorMatchesIdentity(ctx, args.creatorId);
     const scene = await ctx.db.get(args.sceneId);
     if (!scene) throw new Error("Scene not found");
     if (scene.creatorId !== args.creatorId) {

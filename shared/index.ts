@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { EffectInstance } from "./effects";
 
 // --- LIGHTS ---
 const HEX_COLOR = /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
@@ -185,4 +186,6 @@ export type LightPreset = {
   name: string;
   lights: Light[];
   mirrors: Mirror[];
+  /** Optional for presets saved before effects existed. */
+  effects?: EffectInstance[];
 };

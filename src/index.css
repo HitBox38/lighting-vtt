@@ -1,7 +1,17 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@clerk/ui/themes/shadcn.css";
 
 @custom-variant dark (&:is(.dark *));
+
+@layer components {
+  .workshop-panel { @apply rounded-xl border border-border bg-background/95 text-foreground shadow-xl backdrop-blur-xl; }
+  .workshop-eyebrow { @apply text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-400; }
+  .workshop-primary { @apply bg-amber-500 text-stone-950 hover:bg-amber-400; }
+  .workshop-card { @apply min-w-0 rounded-lg border border-border bg-card p-3 transition-colors hover:border-amber-600 hover:bg-amber-500/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500; }
+  .workshop-select { @apply w-full rounded-md border bg-background px-2 py-2 text-foreground; }
+  .workshop-stage { background-color: #141413; background-image: linear-gradient(#a8a29e0d 1px, transparent 1px), linear-gradient(90deg, #a8a29e0d 1px, transparent 1px); background-size: 24px 24px; }
+}
 
 @theme inline {
   --font-sans: "Outfit", ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -119,6 +129,16 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+.workshop-studio input[type="range"] { accent-color: #dba44e; }
+.workshop-studio .workshop-primary { background-color: #dba44e; color: #1c1917; }
+.workshop-studio .workshop-primary:hover { background-color: #e9b966; }
+.workshop-studio { color-scheme: light; }
+.dark .workshop-studio { color-scheme: dark; }
+.workshop-studio * { scrollbar-width: thin; scrollbar-color: var(--muted-foreground) transparent; }
+.workshop-studio [data-slot="resizable-handle"]:is(:hover, :focus-visible) {
+  background-color: #dba44e;
 }
 
 

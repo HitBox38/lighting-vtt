@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import {
+  effectInstanceValidator,
   lightValidator,
   mirrorValidator,
   presetValidator,
@@ -8,6 +9,8 @@ import {
   tokenTemplateValidator,
   tokenInstanceValidator,
 } from "./schema";
+import { assertCreatorMatchesIdentity } from "./lib/auth";
+import { assertEffectInstances } from "./lib/effectInstances";
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -47,12 +50,14 @@ export const create = mutation({
   },
   returns: v.id("scenes"),
   handler: async (ctx, args) => {
+    await assertCreatorMatchesIdentity(ctx, args.creatorId);
     return await ctx.db.insert("scenes", {
       creatorId: args.creatorId,
       name: args.name,
       mapUrl: args.mapUrl,
       lights: [],
       mirrors: [],
+      effects: [],
       presets: [],
       tokenTemplates: [],
       tokens: [],
@@ -71,11 +76,13 @@ export const update = mutation({
     creatorId: v.string(),
     lights: v.array(lightValidator),
     mirrors: v.array(mirrorValidator),
+    effects: v.optional(v.array(effectInstanceValidator)),
     tokenTemplates: v.array(tokenTemplateValidator),
     tokens: v.array(tokenInstanceValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await assertCreatorMatchesIdentity(ctx, args.creatorId);
     const scene = await ctx.db.get(args.id);
     if (!scene) {
       throw new Error("Scene not found");
@@ -84,9 +91,12 @@ export const update = mutation({
       throw new Error("Unauthorized: only the scene creator can update this scene");
     }
 
+    const effects = assertEffectInstances(args.effects ?? [], "a scene");
+
     await ctx.db.patch(args.id, {
       lights: args.lights,
       mirrors: args.mirrors,
+      effects,
       tokenTemplates: args.tokenTemplates,
       tokens: args.tokens,
       updatedAt: Date.now(),
@@ -109,6 +119,7 @@ export const savePreset = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await assertCreatorMatchesIdentity(ctx, args.creatorId);
     const scene = await ctx.db.get(args.id);
     if (!scene) {
       throw new Error("Scene not found");
@@ -117,13 +128,17 @@ export const savePreset = mutation({
       throw new Error("Unauthorized: only the scene creator can modify presets");
     }
 
-    const existingIndex = scene.presets.findIndex((p) => p.id === args.preset.id);
+    const preset = {
+      ...args.preset,
+      effects: assertEffectInstances(args.preset.effects ?? [], "a preset"),
+    };
+    const existingIndex = scene.presets.findIndex((p) => p.id === preset.id);
     const updatedPresets = [...scene.presets];
 
     if (existingIndex >= 0) {
-      updatedPresets[existingIndex] = args.preset;
+      updatedPresets[existingIndex] = preset;
     } else {
-      updatedPresets.push(args.preset);
+      updatedPresets.push(preset);
     }
 
     await ctx.db.patch(args.id, {
@@ -144,6 +159,7 @@ export const deletePreset = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await assertCreatorMatchesIdentity(ctx, args.creatorId);
     const scene = await ctx.db.get(args.id);
     if (!scene) {
       throw new Error("Scene not found");
