@@ -489,4 +489,3 @@ vec4 effectMain(EffectInput fx) {
   return vec4(color.rgb, color.a * falloff * pulse);
 }
 `;
-
