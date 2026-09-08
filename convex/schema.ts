@@ -193,6 +193,12 @@ export const sceneDocValidator = v.object({
 // ---------------------------------------------------------------------------
 
 export default defineSchema({
+  // Populated only by verified UploadThing completion callbacks.
+  uploadedFiles: defineTable({
+    key: v.string(),
+    ownerId: v.string(),
+    url: v.string(),
+  }).index("by_key", ["key"]),
   effectThumbnails: defineTable({
     effectId: v.id("effects"),
     requestedVersion: v.number(),
@@ -227,6 +233,13 @@ export default defineSchema({
   })
     .index("by_creatorId", ["creatorId"])
     .index("by_inviteCode", ["inviteCode"]),
+
+  // Private capabilities never appear in a scene document or public player roster.
+  guestPlayerSessions: defineTable({
+    sceneId: v.id("scenes"),
+    playerId: v.string(),
+    tokenHash: v.string(),
+  }).index("by_sceneId_and_playerId", ["sceneId", "playerId"]),
 
   playerSceneBookmarks: defineTable({
     clerkUserId: v.string(),

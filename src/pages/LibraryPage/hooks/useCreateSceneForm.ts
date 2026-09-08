@@ -4,7 +4,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { deleteUploadedFile, useUploadThing } from "@/utils/uploadthing";
+import { useDeleteUploadedFile, useUploadThing } from "@/utils/uploadthing";
 import { ANALYTICS_EVENTS, setSceneEntrySource } from "@/lib/analytics";
 import type { NewSceneFormData } from "../types";
 
@@ -20,6 +20,7 @@ import type { NewSceneFormData } from "../types";
  * because React Compiler flags ref access on hook return objects.
  */
 export function useCreateSceneForm(userId: string | undefined) {
+  const deleteUploadedFile = useDeleteUploadedFile();
   const navigate = useNavigate();
   const posthog = usePostHog();
 

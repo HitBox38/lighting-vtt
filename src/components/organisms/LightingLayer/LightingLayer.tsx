@@ -14,9 +14,10 @@ interface Props {
   width: number;
   height: number;
   isGM?: boolean;
+  remotePlayerId?: string | null;
 }
 
-export function LightingLayer({ width, height, isGM = true }: Props) {
+export function LightingLayer({ width, height, isGM = true, remotePlayerId }: Props) {
   const lights = useLightStore((state) => state.lights);
   const mirrors = useLightStore((state) => state.mirrors);
   const effects = useLightStore((state) => state.effects);
@@ -48,7 +49,7 @@ export function LightingLayer({ width, height, isGM = true }: Props) {
     () => (isGM ? effects : effects.filter((effect) => !effect.hidden)),
     [isGM, effects],
   );
-  const { definitions: effectDefinitions } = useEffectDefinitions(visibleEffects, sceneId);
+  const { definitions: effectDefinitions } = useEffectDefinitions(visibleEffects, sceneId, remotePlayerId);
   const scriptGeometry = useScriptEffects(
     visibleEffects,
     effectDefinitions,

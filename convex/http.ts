@@ -81,7 +81,11 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     try {
       const serialized = await serializeRequest(req);
-      const result = await ctx.runAction(internal.uploadthingActions.handleRequest, serialized);
+      const identity = await ctx.auth.getUserIdentity();
+      const result = await ctx.runAction(internal.uploadthingActions.handleRequest, {
+        ...serialized,
+        ownerId: identity?.subject ?? null,
+      });
       return withCors(deserializeResponse(result));
     } catch (error) {
       console.error("UploadThing GET failed:", error);
@@ -101,7 +105,11 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     try {
       const serialized = await serializeRequest(req);
-      const result = await ctx.runAction(internal.uploadthingActions.handleRequest, serialized);
+      const identity = await ctx.auth.getUserIdentity();
+      const result = await ctx.runAction(internal.uploadthingActions.handleRequest, {
+        ...serialized,
+        ownerId: identity?.subject ?? null,
+      });
       return withCors(deserializeResponse(result));
     } catch (error) {
       console.error("UploadThing POST failed:", error);
@@ -128,10 +136,20 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, req) => {
     try {
-      const body = (await req.json()) as { key?: string };
-      if (!body.key) {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
+        return withCors(Response.json({ error: "Sign in to delete files" }, { status: 401 }));
+      }
+      let body: unknown;
+      try {
+        body = await req.json();
+      } catch {
+        return withCors(Response.json({ error: "Invalid key" }, { status: 400 }));
+      }
+      if (typeof body !== "object" || body === null || !("key" in body) ||
+          typeof body.key !== "string" || !body.key.trim()) {
         return withCors(
-          new Response(JSON.stringify({ error: "Missing key" }), {
+          new Response(JSON.stringify({ error: "Invalid key" }), {
             status: 400,
             headers: { "Content-Type": "application/json" },
           }),
@@ -140,12 +158,13 @@ http.route({
 
       const result = await ctx.runAction(internal.uploadthingActions.deleteFile, {
         key: body.key,
+        ownerId: identity.subject,
       });
 
       if (!result.success) {
         return withCors(
           new Response(JSON.stringify({ error: result.error }), {
-            status: 500,
+            status: result.status,
             headers: { "Content-Type": "application/json" },
           }),
         );

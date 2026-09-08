@@ -9,9 +9,10 @@ import {
 } from "@/components/organisms/TokenToolbar/constants";
 import { useTokenManager } from "@/stores/tokenStore/hooks/useTokenManager";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
-import { deleteUploadedFile, useUploadThing } from "@/utils/uploadthing";
+import { useDeleteUploadedFile, useUploadThing } from "@/utils/uploadthing";
 
 export function useCreateTokenForm() {
+  const deleteUploadedFile = useDeleteUploadedFile();
   const posthog = usePostHog();
   const { addTokenTemplate } = useTokenManager();
   const [isDialogOpen, setIsDialogOpen] = useState(false);

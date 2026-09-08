@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { usePostHog } from "@posthog/react";
 import { useUser } from "@clerk/react";
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../../../../convex/_generated/api";
 import { ANALYTICS_EVENTS, setSceneEntrySource } from "@/lib/analytics";
+import { createGuestPlayerToken, saveGuestPlayerToken } from "@/lib/playerSession";
 import {
   getClerkDisplayName,
-  getErrorCategory,
   getJoinErrorMessage,
 } from "@/pages/JoinPage/helpers";
 
@@ -17,9 +17,10 @@ export function useJoinScene() {
   const navigate = useNavigate();
   const posthog = usePostHog();
   const { user } = useUser();
+  const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
   const sceneInfo = useQuery(
     api.players.getSceneByInviteCode,
-    inviteCode ? { inviteCode } : "skip",
+    inviteCode && !authLoading ? { inviteCode } : "skip",
   );
   const joinScene = useMutation(api.players.joinScene);
   const [playerNameDraft, setPlayerNameDraft] = useState("");
@@ -28,8 +29,7 @@ export function useJoinScene() {
   const [error, setError] = useState<string | null>(null);
   const inviteStateTrackedRef = useRef<string | null>(null);
   const playerName = playerNameDraft || getClerkDisplayName(user);
-  const alreadyJoined =
-    sceneInfo && user?.id ? sceneInfo.players.some((player) => player.clerkUserId === user.id) : false;
+  const alreadyJoined = sceneInfo?.alreadyJoined ?? false;
 
   useEffect(() => {
     inviteStateTrackedRef.current = null;
@@ -60,7 +60,7 @@ export function useJoinScene() {
   }, [sceneInfo, alreadyJoined, posthog]);
 
   const handleJoin = async () => {
-    if (!sceneInfo || !playerName.trim() || !characterName.trim()) {
+    if (!sceneInfo || authLoading || (user && !isAuthenticated) || !playerName.trim() || !characterName.trim()) {
       return;
     }
     setIsJoining(true);
@@ -73,19 +73,23 @@ export function useJoinScene() {
 
     async function submitJoin(): Promise<{ ok: true } | { ok: false; message: string }> {
       try {
+        const guestToken = user ? undefined : createGuestPlayerToken();
         const playerId = await joinScene({
           sceneId: sceneInfo!._id,
+          inviteCode,
           playerName: playerName.trim(),
           characterName: characterName.trim(),
           clerkUserId: user?.id,
+          guestToken,
         });
+        if (guestToken) saveGuestPlayerToken(sceneInfo!._id, playerId, guestToken);
         posthog.capture(ANALYTICS_EVENTS.JoinSceneSucceeded);
         setSceneEntrySource("join");
         navigate(`/scene?id=${sceneInfo!._id}&playerId=${playerId}`);
         return { ok: true };
       } catch (joinError) {
         posthog.capture(ANALYTICS_EVENTS.JoinSceneFailed, {
-          error_category: getErrorCategory(joinError),
+          error_category: "join_failed",
         });
         return { ok: false, message: getJoinErrorMessage(joinError) };
       }

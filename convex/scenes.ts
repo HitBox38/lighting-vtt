@@ -1,3 +1,4 @@
+import { canReadScene } from "./lib/sceneAuth";
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import {
@@ -10,7 +11,7 @@ import {
   tokenInstanceValidator,
 } from "./schema";
 import { assertCreatorMatchesIdentity } from "./lib/auth";
-import { assertEffectInstances } from "./lib/effectInstances";
+import { assertSceneEffectInstances } from "./lib/effectInstances";
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -21,6 +22,7 @@ export const getByCreatorId = query({
   args: { creatorId: v.string() },
   returns: v.array(sceneDocValidator),
   handler: async (ctx, args) => {
+    await assertCreatorMatchesIdentity(ctx, args.creatorId);
     return await ctx.db
       .query("scenes")
       .withIndex("by_creatorId", (q) => q.eq("creatorId", args.creatorId))
@@ -28,12 +30,13 @@ export const getByCreatorId = query({
   },
 });
 
-/** Fetch a single scene by its document ID. Returns null when not found. */
+/** Fetch a scene for its creator or a current authenticated player. */
 export const getById = query({
-  args: { id: v.id("scenes") },
+  args: { id: v.id("scenes"), playerId: v.optional(v.string()), guestToken: v.optional(v.string()) },
   returns: v.union(sceneDocValidator, v.null()),
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const scene = await ctx.db.get(args.id);
+    return scene && await canReadScene(ctx, scene, args) ? scene : null;
   },
 });
 
@@ -91,7 +94,7 @@ export const update = mutation({
       throw new Error("Unauthorized: only the scene creator can update this scene");
     }
 
-    const effects = assertEffectInstances(args.effects ?? [], "a scene");
+    const effects = await assertSceneEffectInstances(ctx, scene, args.effects ?? [], "a scene");
 
     await ctx.db.patch(args.id, {
       lights: args.lights,
@@ -130,7 +133,7 @@ export const savePreset = mutation({
 
     const preset = {
       ...args.preset,
-      effects: assertEffectInstances(args.preset.effects ?? [], "a preset"),
+      effects: await assertSceneEffectInstances(ctx, scene, args.preset.effects ?? [], "a preset"),
     };
     const existingIndex = scene.presets.findIndex((p) => p.id === preset.id);
     const updatedPresets = [...scene.presets];

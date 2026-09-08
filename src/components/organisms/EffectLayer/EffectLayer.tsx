@@ -31,6 +31,7 @@ import { drawEffectFallback } from "@/lib/effects/fallback";
 
 interface Props {
   isGM?: boolean;
+  remotePlayerId?: string | null;
   /** The scene map, exposed to shaders as `uMap`. */
   mapTexture: PixiTexture | null;
 }
@@ -77,7 +78,7 @@ function statusFromCompiled(compiled: CompiledEffect): EffectInstanceStatus {
   }
 }
 
-export function EffectLayer({ isGM = true, mapTexture }: Props) {
+export function EffectLayer({ isGM = true, mapTexture, remotePlayerId }: Props) {
   const { app, isInitialised } = useApplication();
   const effects = useLightStore((state) => state.effects);
   const sceneId = useLightStore((state) => state.sceneId);
@@ -90,7 +91,7 @@ export function EffectLayer({ isGM = true, mapTexture }: Props) {
     () => (isGM ? effects : effects.filter((effect) => !effect.hidden)),
     [effects, isGM],
   );
-  const { definitions, isLoading } = useEffectDefinitions(visibleEffects, sceneId);
+  const { definitions, isLoading } = useEffectDefinitions(visibleEffects, sceneId, remotePlayerId);
 
   const [compiled, setCompiled] = useState<Map<string, CompiledEffect>>(() => new Map());
   /** Bumped after a context loss so every program is compiled again against the new device. */
