@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 
 import { api } from "../../../../../convex/_generated/api";
 import { Separator } from "@/components/ui/separator";
@@ -9,7 +9,8 @@ interface PlayerScenesSectionProps {
 }
 
 export function PlayerScenesSection({ clerkUserId }: PlayerScenesSectionProps) {
-  const bookmarks = useQuery(api.players.getPlayerBookmarks, { clerkUserId });
+  const { isAuthenticated } = useConvexAuth();
+  const bookmarks = useQuery(api.players.getPlayerBookmarks, isAuthenticated ? { clerkUserId } : "skip");
   const removeBookmark = useMutation(api.players.removeBookmark);
 
   if (!bookmarks || bookmarks.length === 0) {

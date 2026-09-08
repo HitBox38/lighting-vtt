@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { scenePlayerValidator } from "./schema";
 import { assertCreatorMatchesIdentity } from "./lib/auth";
+import { getCurrentUserId } from "./lib/auth";
 
 const DM_ONLINE_THRESHOLD_MS = 45_000;
 
@@ -351,9 +352,13 @@ export const getPlayerBookmarks = query({
     }),
   ),
   handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (args.clerkUserId !== userId) {
+      throw new Error("Unauthorized: bookmarks belong to another account");
+    }
     const bookmarks = await ctx.db
       .query("playerSceneBookmarks")
-      .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", args.clerkUserId))
+      .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", userId))
       .collect();
 
     const results = [];
@@ -387,6 +392,12 @@ export const removeBookmark = mutation({
   args: { bookmarkId: v.id("playerSceneBookmarks") },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    const bookmark = await ctx.db.get(args.bookmarkId);
+    if (!bookmark) return null;
+    if (bookmark.clerkUserId !== userId) {
+      throw new Error("Unauthorized: bookmarks belong to another account");
+    }
     await ctx.db.delete(args.bookmarkId);
     return null;
   },
