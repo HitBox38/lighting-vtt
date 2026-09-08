@@ -1,5 +1,5 @@
 import { Show, useUser } from "@clerk/react";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { Suspense, useState } from "react";
 
@@ -21,12 +21,13 @@ import { SignedOutState } from "@/pages/LibraryPage/components/SignedOutState";
 
 export function LibraryPage() {
   const { user, isLoaded } = useUser();
+  const { isAuthenticated } = useConvexAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("updated-newest");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [filters, setFilters] = useState<Filters>({ ...DEFAULT_FILTERS });
   const form = useCreateSceneForm(user?.id);
-  const scenes = useQuery(api.scenes.getByCreatorId, user?.id ? { creatorId: user.id } : "skip");
+  const scenes = useQuery(api.scenes.getByCreatorId, isAuthenticated && user?.id ? { creatorId: user.id } : "skip");
   const filteredScenes = filterAndSortScenes(scenes, searchQuery, filters, sortBy);
   const isFiltered = searchQuery.trim() !== "" || filters.hasLights || filters.hasPresets;
   const totalSceneCount = scenes?.length ?? 0;

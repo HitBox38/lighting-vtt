@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { canReadScene } from "./lib/sceneAuth";
 import { paginationOptsValidator } from "convex/server";
 import { RateLimiter, HOUR, MINUTE } from "@convex-dev/rate-limiter";
 import { components } from "./_generated/api";
@@ -354,13 +355,16 @@ export const getVersions = query({
      * The GM placing an effect on a shared table is the act of sharing it.
      */
     sceneId: v.optional(v.id("scenes")),
+    playerId: v.optional(v.string()),
+    guestToken: v.optional(v.string()),
   },
   returns: v.array(effectVersionDocValidator),
   handler: async (ctx, args) => {
     const userId = await getCurrentUserIdOrNull(ctx);
     const scene = args.sceneId ? await ctx.db.get(args.sceneId) : null;
+    const readableScene = scene && await canReadScene(ctx, scene, args) ? scene : null;
     const pinnedByScene = new Set(
-      (scene?.effects ?? []).map(
+      (readableScene?.effects ?? []).map(
         (instance) => `${instance.effectId}@${instance.version}`,
       ),
     );

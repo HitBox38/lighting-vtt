@@ -1,9 +1,8 @@
-import { useQuery } from "convex/react";
+import { useSceneQuery } from "@/lib/hooks/useSceneQuery";
 import { useUser } from "@clerk/react";
 import { usePostHog } from "@posthog/react";
 import type { ScenePlayer } from "@shared/index";
 
-import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { InviteLinkSection } from "@/components/organisms/PlayersSheet/components/InviteLinkSection";
 import { PartyMembersSection } from "@/components/organisms/PlayersSheet/components/PartyMembersSection";
@@ -26,7 +25,7 @@ export function PlayersSheet({ sceneId }: PlayersSheetProps) {
   const posthog = usePostHog();
   const { user } = useUser();
   const creatorId = user?.id ?? "";
-  const scene = useQuery(api.scenes.getById, sceneId ? { id: sceneId as Id<"scenes"> } : "skip");
+  const scene = useSceneQuery(sceneId);
   const tokenTemplates = useTokenStore((state) => state.tokenTemplates);
   const tokens = useTokenStore((state) => state.tokens);
   useDmHeartbeat(creatorId);
