@@ -29,6 +29,11 @@ async function setup(visibility: "public" | "private" | "hidden" = "private") {
   });
   const authorScene = await author.mutation(api.scenes.create, { creatorId: "effect-author", name: "Author", mapUrl: "map" });
   const otherScene = await other.mutation(api.scenes.create, { creatorId: "other-gm", name: "Other", mapUrl: "map" });
+  // Sharing controls use a real table member so scene-read authorization can
+  // independently restrict outsiders without weakening these pin checks.
+  await t.run((ctx) => ctx.db.patch(authorScene, {
+    players: [{ id: "table-member", clerkUserId: "other-gm", playerName: "Member", characterName: "Hero", tokenInstanceIds: [] }],
+  }));
   const pin: EffectInstance = { id: "pin", effectId, version: 1, x: 0, y: 0, radius: 100, rotation: 0, params: {} };
   const update = (effects: EffectInstance[], owned = false) => (owned ? author : other).mutation(api.scenes.update, {
     id: owned ? authorScene : otherScene, creatorId: owned ? "effect-author" : "other-gm",
@@ -87,7 +92,7 @@ test("author-owned scenes share only actively pinned private versions", async ()
   await preset([pin], true);
   expect(await t.query(api.effects.getVersions, { refs, sceneId: authorScene })).toEqual([]);
   await update([pin], true);
-  for (const viewer of [t, other]) {
+  for (const viewer of [other]) {
     const rows = await viewer.query(api.effects.getVersions, { refs, sceneId: authorScene });
     expect(rows.map((row) => row.version)).toEqual([1]);
     expect(await viewer.query(api.effects.getVersions, { refs })).toEqual([]);
@@ -97,14 +102,14 @@ test("author-owned scenes share only actively pinned private versions", async ()
 });
 
 test("public versions can be pinned by another GM but privatization revokes source access", async () => {
-  const { t, author, effectId, authorScene, otherScene, pin, refs, update, preset } = await setup("public");
+  const { t, other, author, effectId, authorScene, otherScene, pin, refs, update, preset } = await setup("public");
   await update([pin]);
   await preset([pin]);
   await update([pin], true);
   expect(await t.query(api.effects.getVersions, { refs, sceneId: otherScene })).toHaveLength(2);
   await author.mutation(api.effects.unpublishEffect, { effectId });
   expect(await t.query(api.effects.getVersions, { refs, sceneId: otherScene })).toEqual([]);
-  expect((await t.query(api.effects.getVersions, { refs, sceneId: authorScene })).map((row) => row.version)).toEqual([1]);
+  expect((await other.query(api.effects.getVersions, { refs, sceneId: authorScene })).map((row) => row.version)).toEqual([1]);
   // Switching away and loading a saved preset must not trap autosave in errors.
   await update([]);
   await update([{ ...pin, x: 30 }]);
