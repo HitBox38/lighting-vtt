@@ -1,6 +1,8 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { assertCreatorMatchesIdentity, getCurrentUserIdOrNull } from "./lib/auth";
+import { canAuthenticatePlayer, hashGuestPlayerToken } from "./lib/playerAuth";
+import { isGuestPlayerToken } from "../shared/playerSession";
 
 const DM_ONLINE_THRESHOLD_MS = 45_000;
 
@@ -121,6 +123,7 @@ export const joinScene = mutation({
     characterName: v.string(),
     // Retained for older clients; authenticated identity is authoritative.
     clerkUserId: v.optional(v.string()),
+    guestToken: v.optional(v.string()),
   },
   returns: v.string(),
   handler: async (ctx, args) => {
@@ -154,6 +157,9 @@ export const joinScene = mutation({
     if (!scene.inviteCode || args.inviteCode !== scene.inviteCode) {
       throw new Error("Invalid scene invite");
     }
+    if (clerkUserId === null && !isGuestPlayerToken(args.guestToken)) {
+      throw new ConvexError("GUEST_SESSION_REQUIRED");
+    }
     const playerId = crypto.randomUUID();
 
     const newPlayer = {
@@ -168,6 +174,13 @@ export const joinScene = mutation({
       players: [...existingPlayers, newPlayer],
     });
 
+    if (clerkUserId === null && args.guestToken !== undefined) {
+      await ctx.db.insert("guestPlayerSessions", {
+        sceneId: args.sceneId,
+        playerId,
+        tokenHash: await hashGuestPlayerToken(args.guestToken),
+      });
+    }
     if (clerkUserId !== null) {
       const existingBookmark = await ctx.db
         .query("playerSceneBookmarks")
@@ -262,6 +275,10 @@ export const removePlayer = mutation({
     );
 
     await ctx.db.patch(args.sceneId, { players: nextPlayers, activePlayerIds });
+    const session = await ctx.db.query("guestPlayerSessions")
+      .withIndex("by_sceneId_and_playerId", (q) => q.eq("sceneId", args.sceneId).eq("playerId", args.playerId))
+      .unique();
+    if (session) await ctx.db.delete(session._id);
     return null;
   },
 });
@@ -304,6 +321,7 @@ export const moveToken = mutation({
   args: {
     sceneId: v.id("scenes"),
     playerId: v.string(),
+    guestToken: v.optional(v.string()),
     tokenId: v.string(),
     x: v.number(),
     y: v.number(),
@@ -313,6 +331,9 @@ export const moveToken = mutation({
     const scene = await ctx.db.get(args.sceneId);
     if (!scene) throw new Error("Scene not found");
 
+    if (!await canAuthenticatePlayer(ctx, scene, args.playerId, args.guestToken)) {
+      throw new ConvexError("PLAYER_AUTH_REQUIRED");
+    }
     const players = scene.players ?? [];
     const player = players.find((p) => p.id === args.playerId);
     if (!player) throw new Error("Player not found in this scene");
