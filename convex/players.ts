@@ -1,8 +1,8 @@
+import { getCurrentUserId } from "./lib/auth";
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { scenePlayerValidator } from "./schema";
 import { assertCreatorMatchesIdentity } from "./lib/auth";
-import { getCurrentUserId } from "./lib/auth";
 
 const DM_ONLINE_THRESHOLD_MS = 45_000;
 
