@@ -13,8 +13,9 @@ async function setup() {
   const sceneId = await t.run((ctx) => ctx.db.insert("scenes", {
     creatorId: "dm", name: "Table", mapUrl: "https://example.com/map.png",
     lights: [], mirrors: [], presets: [], updatedAt: Date.now(), dmLastSeen: Date.now(),
+    inviteCode: "join-invite",
   }));
-  const args = { sceneId, playerName: "Player", characterName: "Character" };
+  const args = { sceneId, inviteCode: "join-invite", playerName: "Player", characterName: "Character" };
   const snapshot = () => t.run(async (ctx) => ({
     scene: await ctx.db.get(sceneId),
     bookmarks: await ctx.db.query("playerSceneBookmarks").collect(),

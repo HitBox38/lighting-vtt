@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
+import { readGuestPlayerToken } from "@/lib/playerSession";
 
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -27,7 +28,9 @@ export interface EffectDefinitionsResult {
 export function useEffectDefinitions(
   instances: readonly EffectInstance[],
   sceneId: string | null,
+  playerId?: string | null,
 ): EffectDefinitionsResult {
+  const { isLoading: authLoading } = useConvexAuth();
   const refs = useMemo(() => {
     const seen = new Set<string>();
     const out: Array<{ effectId: string; version: number }> = [];
@@ -44,7 +47,12 @@ export function useEffectDefinitions(
 
   const rows = useQuery(
     api.effects.getVersions,
-    refs.length === 0 ? "skip" : { refs, sceneId: sceneId ? (sceneId as Id<"scenes">) : undefined },
+    refs.length === 0 || authLoading ? "skip" : {
+      refs,
+      sceneId: sceneId ? (sceneId as Id<"scenes">) : undefined,
+      playerId: playerId ?? undefined,
+      guestToken: sceneId && playerId ? readGuestPlayerToken(sceneId, playerId) : undefined,
+    },
   );
 
   const definitions = useMemo(() => {

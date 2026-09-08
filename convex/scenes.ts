@@ -1,3 +1,4 @@
+import { canReadScene } from "./lib/sceneAuth";
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import {
@@ -11,7 +12,6 @@ import {
 } from "./schema";
 import { assertCreatorMatchesIdentity } from "./lib/auth";
 import { assertEffectInstances } from "./lib/effectInstances";
-import { canReadScene } from "./lib/sceneAuth";
 
 // ---------------------------------------------------------------------------
 // Queries

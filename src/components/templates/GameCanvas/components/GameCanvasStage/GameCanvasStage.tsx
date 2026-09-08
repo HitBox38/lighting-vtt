@@ -88,9 +88,10 @@ export function GameCanvasStage({
           width={lightingWidth}
           height={lightingHeight}
           isGM={isGM}
+          remotePlayerId={remotePlayerId}
         />
         {mapTexture ? (
-          <EffectLayer isGM={isGM} mapTexture={mapTexture} />
+          <EffectLayer isGM={isGM} mapTexture={mapTexture} remotePlayerId={remotePlayerId} />
         ) : null}
         <MirrorLayer isGM={isGM} />
         <TokenLayer isGM={isGM} />
