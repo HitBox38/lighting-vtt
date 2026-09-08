@@ -52,8 +52,8 @@ test("authenticated joins derive identity when the legacy claim is omitted and r
 
 test("anonymous guests remain distinct and create no account bookmarks", async () => {
   const { t, args, snapshot } = await setup();
-  const first = await t.mutation(api.players.joinScene, args);
-  const second = await t.mutation(api.players.joinScene, args);
+  const first = await t.mutation(api.players.joinScene, { ...args, guestToken: "a".repeat(64) });
+  const second = await t.mutation(api.players.joinScene, { ...args, guestToken: "b".repeat(64) });
   expect(second).not.toBe(first);
   const state = await snapshot();
   expect(state.scene?.players).toHaveLength(2);
