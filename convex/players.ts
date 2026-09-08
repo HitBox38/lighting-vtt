@@ -1,6 +1,6 @@
-import { getCurrentUserId } from "./lib/auth";
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { getCurrentUserId } from "./lib/auth";
 import { scenePlayerValidator } from "./schema";
 import { assertCreatorMatchesIdentity } from "./lib/auth";
 
