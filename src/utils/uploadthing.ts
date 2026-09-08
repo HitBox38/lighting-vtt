@@ -8,6 +8,7 @@ import type { UploadRouter } from "../../convex/http";
 import { useAuth } from "@clerk/react";
 import { createElement, type ComponentProps } from "react";
 import { authenticatedUploadHeaders } from "./uploadHeaders";
+import { deleteUploadedFile } from "./deleteUploadedFile";
 
 const CONVEX_URL = import.meta.env.VITE_CONVEX_SITE_URL as string;
 
@@ -50,11 +51,7 @@ export function UploadDropzone(props: ComponentProps<typeof BaseUploadDropzone>)
   });
 }
 
-export async function deleteUploadedFile(key: string): Promise<void> {
-  const convexUrl = import.meta.env.VITE_CONVEX_URL as string;
-  await fetch(`${convexUrl}/api/uploadthing/delete`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key }),
-  });
+export function useDeleteUploadedFile() {
+  const { getToken } = useAuth();
+  return (key: string) => deleteUploadedFile(key, CONVEX_URL, getToken);
 }

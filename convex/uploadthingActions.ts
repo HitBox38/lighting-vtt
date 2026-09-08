@@ -74,19 +74,29 @@ export const handleRequest = internalAction({
 export const deleteFile = internalAction({
   args: {
     key: v.string(),
+    ownerId: v.union(v.string(), v.null()),
   },
   returns: v.object({
     success: v.boolean(),
     error: v.union(v.string(), v.null()),
+    status: v.number(),
   }),
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args): Promise<{ success: boolean; error: string | null; status: number }> => {
+    // ownerId is supplied by the authenticated HTTP context, not its JSON body.
+    if (!args.ownerId) return { success: false, error: "Sign in to delete files", status: 401 };
+    if (!args.key.trim()) return { success: false, error: "Invalid key", status: 400 };
+    if (!await ctx.runQuery(internal.uploads.isOwner, { key: args.key, ownerId: args.ownerId })) {
+      // Legacy/untracked and other users' keys have the same response.
+      return { success: false, error: "File not found", status: 404 };
+    }
     try {
       const utapi = new UTApi();
-      await utapi.deleteFiles(args.key);
-      return { success: true, error: null };
+      const result = await utapi.deleteFiles(args.key);
+      if (!result.success) return { success: false, error: "Delete failed", status: 500 };
+      return { success: true, error: null, status: 200 };
     } catch (error) {
       console.error("Failed to delete file:", error);
-      return { success: false, error: String(error) };
+      return { success: false, error: "Delete failed", status: 500 };
     }
   },
 });
