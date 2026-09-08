@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { Loader2, Upload, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { deleteUploadedFile } from "@/utils/uploadthing";
+import { useDeleteUploadedFile } from "@/utils/uploadthing";
 
 interface TokenImageFieldProps {
   imageUrl: string;
@@ -19,6 +19,7 @@ export function TokenImageField({
   onFileSelected,
   onClearImage,
 }: TokenImageFieldProps) {
+  const deleteUploadedFile = useDeleteUploadedFile();
   const fileInputRef = useRef<HTMLInputElement>(null);
   return (
     <div className="grid gap-2">

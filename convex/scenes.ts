@@ -11,7 +11,7 @@ import {
   tokenInstanceValidator,
 } from "./schema";
 import { assertCreatorMatchesIdentity } from "./lib/auth";
-import { assertEffectInstances } from "./lib/effectInstances";
+import { assertSceneEffectInstances } from "./lib/effectInstances";
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -94,7 +94,7 @@ export const update = mutation({
       throw new Error("Unauthorized: only the scene creator can update this scene");
     }
 
-    const effects = assertEffectInstances(args.effects ?? [], "a scene");
+    const effects = await assertSceneEffectInstances(ctx, scene, args.effects ?? [], "a scene");
 
     await ctx.db.patch(args.id, {
       lights: args.lights,
@@ -133,7 +133,7 @@ export const savePreset = mutation({
 
     const preset = {
       ...args.preset,
-      effects: assertEffectInstances(args.preset.effects ?? [], "a preset"),
+      effects: await assertSceneEffectInstances(ctx, scene, args.preset.effects ?? [], "a preset"),
     };
     const existingIndex = scene.presets.findIndex((p) => p.id === preset.id);
     const updatedPresets = [...scene.presets];

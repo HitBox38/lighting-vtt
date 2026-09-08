@@ -7,9 +7,10 @@ import { TokenTemplateSearch } from "@/components/organisms/TokenToolbar/compone
 import { useCreateTokenForm } from "@/components/organisms/TokenToolbar/hooks/useCreateTokenForm";
 import { useTokenManager } from "@/stores/tokenStore/hooks/useTokenManager";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
-import { deleteUploadedFile } from "@/utils/uploadthing";
+import { useDeleteUploadedFile } from "@/utils/uploadthing";
 
 export function TokenToolbar() {
+  const deleteUploadedFile = useDeleteUploadedFile();
   const posthog = usePostHog();
   const form = useCreateTokenForm();
   const { tokenTemplates, tokens, placementTemplateId, removeTokenTemplate, setPlacementTemplateId } =
