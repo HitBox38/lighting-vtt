@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { scenePlayerValidator } from "./schema";
-import { assertCreatorMatchesIdentity } from "./lib/auth";
+import { assertCreatorMatchesIdentity, getCurrentUserIdOrNull } from "./lib/auth";
 
 const DM_ONLINE_THRESHOLD_MS = 45_000;
 
@@ -122,10 +122,15 @@ export const joinScene = mutation({
     sceneId: v.id("scenes"),
     playerName: v.string(),
     characterName: v.string(),
+    // Retained for older clients; authenticated identity is authoritative.
     clerkUserId: v.optional(v.string()),
   },
   returns: v.string(),
   handler: async (ctx, args) => {
+    const clerkUserId = await getCurrentUserIdOrNull(ctx);
+    if (args.clerkUserId !== undefined && args.clerkUserId !== clerkUserId) {
+      throw new Error("Unauthorized: clerkUserId does not match the signed-in user");
+    }
     const scene = await ctx.db.get(args.sceneId);
     if (!scene) throw new Error("Scene not found");
 
@@ -138,9 +143,9 @@ export const joinScene = mutation({
 
     const existingPlayers = scene.players ?? [];
 
-    if (args.clerkUserId) {
+    if (clerkUserId !== null) {
       const existing = existingPlayers.find(
-        (p) => p.clerkUserId === args.clerkUserId,
+        (p) => p.clerkUserId === clerkUserId,
       );
       if (existing) {
         return existing.id;
@@ -153,7 +158,7 @@ export const joinScene = mutation({
       id: playerId,
       playerName: args.playerName,
       characterName: args.characterName,
-      clerkUserId: args.clerkUserId,
+      ...(clerkUserId !== null ? { clerkUserId } : {}),
       tokenInstanceIds: [] as Array<string>,
     };
 
@@ -161,17 +166,17 @@ export const joinScene = mutation({
       players: [...existingPlayers, newPlayer],
     });
 
-    if (args.clerkUserId) {
+    if (clerkUserId !== null) {
       const existingBookmark = await ctx.db
         .query("playerSceneBookmarks")
         .withIndex("by_clerkUserId_and_sceneId", (q) =>
-          q.eq("clerkUserId", args.clerkUserId!).eq("sceneId", args.sceneId),
+          q.eq("clerkUserId", clerkUserId).eq("sceneId", args.sceneId),
         )
         .unique();
 
       if (!existingBookmark) {
         await ctx.db.insert("playerSceneBookmarks", {
-          clerkUserId: args.clerkUserId!,
+          clerkUserId,
           sceneId: args.sceneId,
           playerId,
           playerName: args.playerName,
