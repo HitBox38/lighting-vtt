@@ -81,7 +81,11 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     try {
       const serialized = await serializeRequest(req);
-      const result = await ctx.runAction(internal.uploadthingActions.handleRequest, serialized);
+      const identity = await ctx.auth.getUserIdentity();
+      const result = await ctx.runAction(internal.uploadthingActions.handleRequest, {
+        ...serialized,
+        ownerId: identity?.subject ?? null,
+      });
       return withCors(deserializeResponse(result));
     } catch (error) {
       console.error("UploadThing GET failed:", error);
@@ -101,7 +105,11 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     try {
       const serialized = await serializeRequest(req);
-      const result = await ctx.runAction(internal.uploadthingActions.handleRequest, serialized);
+      const identity = await ctx.auth.getUserIdentity();
+      const result = await ctx.runAction(internal.uploadthingActions.handleRequest, {
+        ...serialized,
+        ownerId: identity?.subject ?? null,
+      });
       return withCors(deserializeResponse(result));
     } catch (error) {
       console.error("UploadThing POST failed:", error);
