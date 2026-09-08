@@ -22,6 +22,8 @@ import type * as thumbnailActions from "../thumbnailActions.js";
 import type * as thumbnailDiagnostics from "../thumbnailDiagnostics.js";
 import type * as thumbnails from "../thumbnails.js";
 import type * as uploadthingActions from "../uploadthingActions.js";
+import type * as uploads from "../uploads.js";
+import type * as lib_uploadthingRouter from "../lib/uploadthingRouter.js";
 
 import type {
   ApiFromModules,
@@ -44,6 +46,8 @@ declare const fullApi: ApiFromModules<{
   thumbnailDiagnostics: typeof thumbnailDiagnostics;
   thumbnails: typeof thumbnails;
   uploadthingActions: typeof uploadthingActions;
+  uploads: typeof uploads;
+  "lib/uploadthingRouter": typeof lib_uploadthingRouter;
 }>;
 
 /**

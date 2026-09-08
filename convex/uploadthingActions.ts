@@ -2,31 +2,13 @@
 
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
+import { internal } from "./_generated/api";
 import {
-  createUploadthing,
   createRouteHandler,
   UTApi,
 } from "uploadthing/server";
-import type { FileRouter } from "uploadthing/server";
-
-// ---------------------------------------------------------------------------
-// UploadThing file router (runs in Node.js runtime)
-// ---------------------------------------------------------------------------
-
-const f = createUploadthing();
-
-const uploadRouter = {
-  imageUploader: f({
-    image: { maxFileSize: "16MB", maxFileCount: 1 },
-  }).onUploadComplete(({ file }) => {
-    console.log("Upload complete:", file.ufsUrl);
-    return { url: file.ufsUrl };
-  }),
-} satisfies FileRouter;
-
-export type UploadRouter = typeof uploadRouter;
-
-const utHandler = createRouteHandler({ router: uploadRouter });
+import { createUploadRouter } from "./lib/uploadthingRouter";
+export type { UploadRouter } from "./lib/uploadthingRouter";
 
 // ---------------------------------------------------------------------------
 // Internal actions callable from HTTP actions in http.ts
@@ -45,13 +27,23 @@ export const handleRequest = internalAction({
     url: v.string(),
     headersEntries: v.array(v.array(v.string())),
     body: v.union(v.string(), v.null()),
+    ownerId: v.union(v.string(), v.null()),
   },
   returns: v.object({
     status: v.number(),
     headersEntries: v.array(v.array(v.string())),
     body: v.string(),
   }),
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args): Promise<{
+    status: number;
+    headersEntries: string[][];
+    body: string;
+  }> => {
+    const utHandler = createRouteHandler({
+      router: createUploadRouter(args.ownerId, (upload) =>
+        ctx.runMutation(internal.uploads.recordCompleted, upload),
+      ),
+    });
     const reqHeaders = new Headers(
       args.headersEntries.map(([k, val]) => [k, val] as [string, string]),
     );

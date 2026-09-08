@@ -349,9 +349,8 @@ export const getVersions = query({
   args: {
     refs: v.array(v.object({ effectId: v.string(), version: v.number() })),
     /**
-     * When set, versions pinned by that scene are readable by anyone who can
-     * read the scene (players at the table), even if the effect is private.
-     * The GM placing an effect on a shared table is the act of sharing it.
+     * An author's scene shares its actively pinned private versions with the
+     * table. Other scene owners cannot grant access to that author's source.
      */
     sceneId: v.optional(v.id("scenes")),
   },
@@ -383,10 +382,15 @@ export const getVersions = query({
         effectCache.set(id, effect);
       }
       if (!effect) continue;
-      // Hidden (moderated) effects stay hidden even when a scene pins them.
+      // Stored pins alone are not grants: old scenes may contain forged refs,
+      // or refs to effects that were public before being made private. Only the
+      // author can share private source through their own table. Hidden effects
+      // remain author-only, including on the author's table.
       const readable =
         canReadEffect(effect, userId) ||
-        (effect.visibility !== "hidden" && pinnedByScene.has(key));
+        (effect.visibility !== "hidden" &&
+          scene?.creatorId === effect.authorId &&
+          pinnedByScene.has(key));
       if (!readable) continue;
 
       const row = await ctx.db
@@ -603,7 +607,11 @@ export const publishEffect = mutation({
   },
 });
 
-/** Remove an effect from the library. Scenes that pinned it keep rendering for the author only. */
+/**
+ * Remove an effect from the library. The author's own tables keep sharing their
+ * pinned versions. Other tables lose source access: legacy pins cannot prove a
+ * persistent grant from before privatization.
+ */
 export const unpublishEffect = mutation({
   args: { effectId: v.id("effects") },
   returns: v.null(),

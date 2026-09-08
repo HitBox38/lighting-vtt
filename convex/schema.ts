@@ -193,6 +193,12 @@ export const sceneDocValidator = v.object({
 // ---------------------------------------------------------------------------
 
 export default defineSchema({
+  // Populated only by verified UploadThing completion callbacks.
+  uploadedFiles: defineTable({
+    key: v.string(),
+    ownerId: v.string(),
+    url: v.string(),
+  }).index("by_key", ["key"]),
   effectThumbnails: defineTable({
     effectId: v.id("effects"),
     requestedVersion: v.number(),
