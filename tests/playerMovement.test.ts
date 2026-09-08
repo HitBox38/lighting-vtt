@@ -14,6 +14,7 @@ async function setup() {
   const sceneId = await t.run((ctx) => ctx.db.insert("scenes", {
     creatorId: "dm", name: "Table", mapUrl: "https://example.com/map.png",
     lights: [], mirrors: [], presets: [], updatedAt: Date.now(), dmLastSeen: Date.now(),
+    inviteCode: "guest-invite",
     players: [{ id: "signed-player", clerkUserId: "player", playerName: "Player", characterName: "Hero", tokenInstanceIds: ["token"] }],
     tokens: [{ id: "token", templateId: "template", x: 0, y: 0 }], activePlayerIds: ["signed-player"],
   }));
@@ -52,7 +53,7 @@ async function setupGuest() {
   const { t, sceneId } = fixture;
   const guestToken = "a".repeat(64);
   const playerId = await t.mutation(api.players.joinScene, {
-    sceneId, playerName: "Guest", characterName: "Hero", guestToken,
+    sceneId, inviteCode: "guest-invite", playerName: "Guest", characterName: "Hero", guestToken,
   });
   const dm = t.withIdentity({ subject: "dm" });
   await dm.mutation(api.players.updatePlayer, { sceneId, creatorId: "dm", playerId, tokenInstanceIds: ["token"] });
@@ -70,7 +71,7 @@ test("guest capability works anonymously and after optional sign-in without bein
   expect(sessions[0].tokenHash).toMatch(/^[0-9a-f]{64}$/);
   expect(sessions[0].tokenHash).not.toBe(guestToken);
   await t.run((ctx) => ctx.db.patch(sceneId, { inviteCode: "guest-invite" }));
-  const publicResults = [await t.query(api.scenes.getById, { id: sceneId }), await t.query(api.players.getSceneByInviteCode, { inviteCode: "guest-invite" })];
+  const publicResults = [await t.query(api.scenes.getById, { id: sceneId, playerId: guestMove.playerId, guestToken }), await t.query(api.players.getSceneByInviteCode, { inviteCode: "guest-invite" })];
   for (const result of publicResults) {
     expect(JSON.stringify(result)).not.toContain(guestToken);
     expect(JSON.stringify(result)).not.toContain(sessions[0].tokenHash);
@@ -127,7 +128,7 @@ test("new anonymous joins require a well-formed credential before any write", as
   const { t, sceneId, scene } = await setup();
   const before = await scene();
   for (const guestToken of [undefined, "", "a".repeat(63), "A".repeat(64), "z".repeat(64)]) {
-    await expect(t.mutation(api.players.joinScene, { sceneId, playerName: "Guest", characterName: "Hero", guestToken })).rejects.toThrow("GUEST_SESSION_REQUIRED");
+    await expect(t.mutation(api.players.joinScene, { sceneId, inviteCode: "guest-invite", playerName: "Guest", characterName: "Hero", guestToken })).rejects.toThrow("GUEST_SESSION_REQUIRED");
     expect(await scene()).toEqual(before);
     expect(await t.run((ctx) => ctx.db.query("guestPlayerSessions").collect())).toEqual([]);
     expect(await t.run((ctx) => ctx.db.query("playerSceneBookmarks").collect())).toEqual([]);

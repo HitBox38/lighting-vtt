@@ -1,17 +1,11 @@
-import { useQuery } from "convex/react";
-
-import { api } from "../../../../../convex/_generated/api";
-import type { Id } from "../../../../../convex/_generated/dataModel";
+import { useSceneQuery } from "@/lib/hooks/useSceneQuery";
 
 export function useAllowedTokenIds(
   sceneId: string | null | undefined,
   remotePlayerId?: string | null,
 ) {
   const isRemotePlayer = !!remotePlayerId;
-  const scene = useQuery(
-    api.scenes.getById,
-    sceneId ? { id: sceneId as Id<"scenes"> } : "skip",
-  );
+  const scene = useSceneQuery(sceneId, remotePlayerId);
 
   if (!isRemotePlayer || !scene) {
     return { isRemotePlayer, allowedTokenIds: new Set<string>(), scene };

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useUser, SignInButton } from "@clerk/react";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,11 +24,12 @@ export function PlaceEffectButton({
 }) {
   const [open, setOpen] = useState(false);
   const { user } = useUser();
+  const { isAuthenticated } = useConvexAuth();
   const navigate = useNavigate();
   const posthog = usePostHog();
   const scenes = useQuery(
     api.scenes.getByCreatorId,
-    open && user ? { creatorId: user.id } : "skip",
+    open && user && isAuthenticated ? { creatorId: user.id } : "skip",
   );
   const place = (path: string) => {
     posthog.capture("effect_placement_started", {

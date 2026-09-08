@@ -1,7 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getCurrentUserId } from "./lib/auth";
-import { scenePlayerValidator } from "./schema";
 import { assertCreatorMatchesIdentity, getCurrentUserIdOrNull } from "./lib/auth";
 import { canAuthenticatePlayer, hashGuestPlayerToken } from "./lib/playerAuth";
 import { isGuestPlayerToken } from "../shared/playerSession";
@@ -70,10 +69,8 @@ export const getSceneByInviteCode = query({
     v.object({
       _id: v.id("scenes"),
       name: v.string(),
-      mapUrl: v.string(),
-      creatorId: v.string(),
       dmOnline: v.boolean(),
-      players: v.array(scenePlayerValidator),
+      alreadyJoined: v.boolean(),
     }),
     v.null(),
   ),
@@ -84,6 +81,7 @@ export const getSceneByInviteCode = query({
       .unique();
 
     if (!scene) return null;
+    const userId = await getCurrentUserIdOrNull(ctx);
 
     const dmOnline =
       typeof scene.dmLastSeen === "number" &&
@@ -92,10 +90,8 @@ export const getSceneByInviteCode = query({
     return {
       _id: scene._id,
       name: scene.name,
-      mapUrl: scene.mapUrl,
-      creatorId: scene.creatorId,
       dmOnline,
-      players: scene.players ?? [],
+      alreadyJoined: userId !== null && (scene.players ?? []).some((player) => player.clerkUserId === userId),
     };
   },
 });
@@ -123,6 +119,7 @@ export const dmHeartbeat = mutation({
 export const joinScene = mutation({
   args: {
     sceneId: v.id("scenes"),
+    inviteCode: v.optional(v.string()),
     playerName: v.string(),
     characterName: v.string(),
     // Retained for older clients; authenticated identity is authoritative.
@@ -156,6 +153,11 @@ export const joinScene = mutation({
       }
     }
 
+    // Resuming a current account member above is safe without an invite. Every
+    // new enrollment, including guests and removed members, requires the invite.
+    if (!scene.inviteCode || args.inviteCode !== scene.inviteCode) {
+      throw new Error("Invalid scene invite");
+    }
     if (clerkUserId === null && !isGuestPlayerToken(args.guestToken)) {
       throw new ConvexError("GUEST_SESSION_REQUIRED");
     }

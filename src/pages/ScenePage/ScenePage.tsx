@@ -1,7 +1,5 @@
-import { useQuery } from "convex/react";
-
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
+import { useUser } from "@clerk/react";
+import { useSceneQuery } from "@/lib/hooks/useSceneQuery";
 import { RemotePlayerHud } from "@/components/organisms/RemotePlayerHud";
 import { GameCanvas } from "@/components/templates/GameCanvas";
 import { getRemotePlayerInfo } from "@/pages/ScenePage/helpers";
@@ -14,17 +12,19 @@ import { useSyncedSceneState } from "@/pages/ScenePage/hooks/useSyncedSceneState
 
 export function ScenePage() {
   const { isGM, sceneId, remotePlayerId, isRemotePlayer, role, effectiveIsGM } = useSceneParams();
-  const scene = useQuery(api.scenes.getById, sceneId ? { id: sceneId as Id<"scenes"> } : "skip");
+  const { user } = useUser();
+  const scene = useSceneQuery(sceneId, remotePlayerId);
+  const isSceneCreator = !!user && scene?.creatorId === user.id;
   const { sceneLoaded, lastAppliedUpdatedAtRef } = useLoadScene(scene, sceneId);
 
   useSceneAnalytics({ sceneId, scene, isRemotePlayer, role });
   useSyncedSceneState({
     scene,
     sceneLoaded,
-    isNonGMView: !isGM || isRemotePlayer,
+    isNonGMView: !isGM || isRemotePlayer || !isSceneCreator,
     lastAppliedUpdatedAtRef,
   });
-  usePlayerTokenPositions({ scene, sceneLoaded, isGM, isRemotePlayer });
+  usePlayerTokenPositions({ scene, sceneLoaded, isGM: isGM && isSceneCreator, isRemotePlayer });
   const dmOnline = useDmOnline(scene);
 
   if (scene === undefined) {
@@ -38,7 +38,8 @@ export function ScenePage() {
   if (scene === null) {
     return (
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-white">
-        <p className="text-red-500">Scene not found</p>
+        <p className="text-red-500">Scene unavailable</p>
+        <p>Sign in with a joined account, or use the invite link to join again.</p>
       </div>
     );
   }
@@ -47,7 +48,7 @@ export function ScenePage() {
     <>
       <GameCanvas
         mapUrl={scene.mapUrl}
-        isGM={effectiveIsGM}
+        isGM={effectiveIsGM && isSceneCreator}
         sceneId={sceneId}
         remotePlayerId={remotePlayerId}
       />
