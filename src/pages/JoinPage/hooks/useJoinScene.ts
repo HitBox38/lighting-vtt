@@ -6,9 +6,9 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../../../../convex/_generated/api";
 import { ANALYTICS_EVENTS, setSceneEntrySource } from "@/lib/analytics";
+import { createGuestPlayerToken, saveGuestPlayerToken } from "@/lib/playerSession";
 import {
   getClerkDisplayName,
-  getErrorCategory,
   getJoinErrorMessage,
 } from "@/pages/JoinPage/helpers";
 
@@ -73,19 +73,22 @@ export function useJoinScene() {
 
     async function submitJoin(): Promise<{ ok: true } | { ok: false; message: string }> {
       try {
+        const guestToken = user ? undefined : createGuestPlayerToken();
         const playerId = await joinScene({
           sceneId: sceneInfo!._id,
           playerName: playerName.trim(),
           characterName: characterName.trim(),
           clerkUserId: user?.id,
+          guestToken,
         });
+        if (guestToken) saveGuestPlayerToken(sceneInfo!._id, playerId, guestToken);
         posthog.capture(ANALYTICS_EVENTS.JoinSceneSucceeded);
         setSceneEntrySource("join");
         navigate(`/scene?id=${sceneInfo!._id}&playerId=${playerId}`);
         return { ok: true };
       } catch (joinError) {
         posthog.capture(ANALYTICS_EVENTS.JoinSceneFailed, {
-          error_category: getErrorCategory(joinError),
+          error_category: "join_failed",
         });
         return { ok: false, message: getJoinErrorMessage(joinError) };
       }

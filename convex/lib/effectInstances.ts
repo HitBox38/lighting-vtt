@@ -1,4 +1,6 @@
 import { EFFECT_LIMITS, effectInstanceSchema, type EffectInstance } from "../../shared/effects";
+import type { Doc } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 
 /**
  * Re-validates effect instances with the Zod schema.
@@ -28,6 +30,53 @@ export function assertEffectInstances(instances: readonly EffectInstance[], wher
     }
     seen.add(result.data.id);
     parsed.push(result.data);
+  }
+  return parsed;
+}
+
+/**
+ * Called only after authenticating the scene owner. New pins must reference an
+ * existing version of a public effect or one authored by that owner.
+ *
+ * Keep exact references already stored in this scene or its presets so deleted,
+ * hidden, or newly private effects do not break autosave or preset loading. These
+ * legacy references are placeholders, never proof of permission to read source;
+ * getVersions independently checks the effect author and current visibility.
+ */
+export async function assertSceneEffectInstances(
+  ctx: MutationCtx,
+  scene: Doc<"scenes">,
+  instances: readonly EffectInstance[],
+  where: string,
+): Promise<EffectInstance[]> {
+  const parsed = assertEffectInstances(instances, where);
+  const referenceKey = (instance: EffectInstance) => `${instance.effectId}@${instance.version}`;
+  const existingRefs = new Set([
+    ...(scene.effects ?? []),
+    ...scene.presets.flatMap((preset) => preset.effects ?? []),
+  ].map(referenceKey));
+  const checkedRefs = new Set<string>();
+  const effectCache = new Map<string, Doc<"effects"> | null>();
+
+  for (const instance of parsed) {
+    const key = referenceKey(instance);
+    if (existingRefs.has(key) || checkedRefs.has(key)) continue;
+
+    const id = ctx.db.normalizeId("effects", instance.effectId);
+    if (!id) throw new Error("Effect version is unavailable");
+    let effect = effectCache.get(id);
+    if (effect === undefined) {
+      effect = await ctx.db.get(id);
+      effectCache.set(id, effect);
+    }
+    if (!effect || (effect.visibility !== "public" && effect.authorId !== scene.creatorId)) {
+      throw new Error("Effect version is unavailable");
+    }
+    const version = await ctx.db.query("effectVersions")
+      .withIndex("by_effect_version", (q) => q.eq("effectId", id).eq("version", instance.version))
+      .unique();
+    if (!version) throw new Error("Effect version is unavailable");
+    checkedRefs.add(key);
   }
   return parsed;
 }

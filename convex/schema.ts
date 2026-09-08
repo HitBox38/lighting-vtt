@@ -234,6 +234,13 @@ export default defineSchema({
     .index("by_creatorId", ["creatorId"])
     .index("by_inviteCode", ["inviteCode"]),
 
+  // Private capabilities never appear in a scene document or public player roster.
+  guestPlayerSessions: defineTable({
+    sceneId: v.id("scenes"),
+    playerId: v.string(),
+    tokenHash: v.string(),
+  }).index("by_sceneId_and_playerId", ["sceneId", "playerId"]),
+
   playerSceneBookmarks: defineTable({
     clerkUserId: v.string(),
     sceneId: v.id("scenes"),

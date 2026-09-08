@@ -1,7 +1,10 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { getCurrentUserId } from "./lib/auth";
 import { scenePlayerValidator } from "./schema";
-import { assertCreatorMatchesIdentity } from "./lib/auth";
+import { assertCreatorMatchesIdentity, getCurrentUserIdOrNull } from "./lib/auth";
+import { canAuthenticatePlayer, hashGuestPlayerToken } from "./lib/playerAuth";
+import { isGuestPlayerToken } from "../shared/playerSession";
 
 const DM_ONLINE_THRESHOLD_MS = 45_000;
 
@@ -122,10 +125,16 @@ export const joinScene = mutation({
     sceneId: v.id("scenes"),
     playerName: v.string(),
     characterName: v.string(),
+    // Retained for older clients; authenticated identity is authoritative.
     clerkUserId: v.optional(v.string()),
+    guestToken: v.optional(v.string()),
   },
   returns: v.string(),
   handler: async (ctx, args) => {
+    const clerkUserId = await getCurrentUserIdOrNull(ctx);
+    if (args.clerkUserId !== undefined && args.clerkUserId !== clerkUserId) {
+      throw new Error("Unauthorized: clerkUserId does not match the signed-in user");
+    }
     const scene = await ctx.db.get(args.sceneId);
     if (!scene) throw new Error("Scene not found");
 
@@ -138,22 +147,25 @@ export const joinScene = mutation({
 
     const existingPlayers = scene.players ?? [];
 
-    if (args.clerkUserId) {
+    if (clerkUserId !== null) {
       const existing = existingPlayers.find(
-        (p) => p.clerkUserId === args.clerkUserId,
+        (p) => p.clerkUserId === clerkUserId,
       );
       if (existing) {
         return existing.id;
       }
     }
 
+    if (clerkUserId === null && !isGuestPlayerToken(args.guestToken)) {
+      throw new ConvexError("GUEST_SESSION_REQUIRED");
+    }
     const playerId = crypto.randomUUID();
 
     const newPlayer = {
       id: playerId,
       playerName: args.playerName,
       characterName: args.characterName,
-      clerkUserId: args.clerkUserId,
+      ...(clerkUserId !== null ? { clerkUserId } : {}),
       tokenInstanceIds: [] as Array<string>,
     };
 
@@ -161,17 +173,24 @@ export const joinScene = mutation({
       players: [...existingPlayers, newPlayer],
     });
 
-    if (args.clerkUserId) {
+    if (clerkUserId === null && args.guestToken !== undefined) {
+      await ctx.db.insert("guestPlayerSessions", {
+        sceneId: args.sceneId,
+        playerId,
+        tokenHash: await hashGuestPlayerToken(args.guestToken),
+      });
+    }
+    if (clerkUserId !== null) {
       const existingBookmark = await ctx.db
         .query("playerSceneBookmarks")
         .withIndex("by_clerkUserId_and_sceneId", (q) =>
-          q.eq("clerkUserId", args.clerkUserId!).eq("sceneId", args.sceneId),
+          q.eq("clerkUserId", clerkUserId).eq("sceneId", args.sceneId),
         )
         .unique();
 
       if (!existingBookmark) {
         await ctx.db.insert("playerSceneBookmarks", {
-          clerkUserId: args.clerkUserId!,
+          clerkUserId,
           sceneId: args.sceneId,
           playerId,
           playerName: args.playerName,
@@ -255,6 +274,10 @@ export const removePlayer = mutation({
     );
 
     await ctx.db.patch(args.sceneId, { players: nextPlayers, activePlayerIds });
+    const session = await ctx.db.query("guestPlayerSessions")
+      .withIndex("by_sceneId_and_playerId", (q) => q.eq("sceneId", args.sceneId).eq("playerId", args.playerId))
+      .unique();
+    if (session) await ctx.db.delete(session._id);
     return null;
   },
 });
@@ -297,6 +320,7 @@ export const moveToken = mutation({
   args: {
     sceneId: v.id("scenes"),
     playerId: v.string(),
+    guestToken: v.optional(v.string()),
     tokenId: v.string(),
     x: v.number(),
     y: v.number(),
@@ -306,6 +330,9 @@ export const moveToken = mutation({
     const scene = await ctx.db.get(args.sceneId);
     if (!scene) throw new Error("Scene not found");
 
+    if (!await canAuthenticatePlayer(ctx, scene, args.playerId, args.guestToken)) {
+      throw new ConvexError("PLAYER_AUTH_REQUIRED");
+    }
     const players = scene.players ?? [];
     const player = players.find((p) => p.id === args.playerId);
     if (!player) throw new Error("Player not found in this scene");
@@ -351,9 +378,13 @@ export const getPlayerBookmarks = query({
     }),
   ),
   handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    if (args.clerkUserId !== userId) {
+      throw new Error("Unauthorized: bookmarks belong to another account");
+    }
     const bookmarks = await ctx.db
       .query("playerSceneBookmarks")
-      .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", args.clerkUserId))
+      .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", userId))
       .collect();
 
     const results = [];
@@ -387,6 +418,12 @@ export const removeBookmark = mutation({
   args: { bookmarkId: v.id("playerSceneBookmarks") },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    const bookmark = await ctx.db.get(args.bookmarkId);
+    if (!bookmark) return null;
+    if (bookmark.clerkUserId !== userId) {
+      throw new Error("Unauthorized: bookmarks belong to another account");
+    }
     await ctx.db.delete(args.bookmarkId);
     return null;
   },
