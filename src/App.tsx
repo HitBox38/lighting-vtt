@@ -7,6 +7,7 @@ import { LandingPage } from "@/pages/LandingPage";
 import { ScenePage } from "@/pages/ScenePage";
 import { LibraryPage } from "@/pages/LibraryPage";
 import { JoinPage } from "@/pages/JoinPage";
+import { PageMetadata } from "@/components/PageMetadata";
 import { EFFECT_EDITOR_NEW_PATH, EFFECT_EDITOR_ROUTE_PATTERN, EFFECT_LIBRARY_PATH } from "@/lib/effects/routes";
 
 let lastTrackedPath: string | null = null;
@@ -35,6 +36,7 @@ function PostHogPageviews() {
 function App() {
   return (
     <>
+      <PageMetadata />
       <PostHogPageviews />
       <Suspense fallback={<div className="grid h-dvh place-content-center bg-background text-muted-foreground" role="status">Opening workshop…</div>}><Routes>
         <Route path="/" element={<LandingPage />} />

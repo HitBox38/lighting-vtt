@@ -4,6 +4,14 @@
   "buildCommand": "bunx --bun convex deploy --cmd 'bun run build' --cmd-url-env-var-name VITE_CONVEX_URL",
   "rewrites": [
     {
+      "source": "/effects",
+      "destination": "/effects/index.html"
+    },
+    {
+      "source": "/effects/",
+      "destination": "/effects/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

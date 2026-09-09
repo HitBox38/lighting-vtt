@@ -3,6 +3,7 @@ import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
 import path from "path";
 import tailwindcss from "@tailwindcss/vite";
+import { pageMetadata } from "./build/pageMetadata.ts";
 
 const vendorChunks: ReadonlyArray<readonly [packagePath: string, chunkName: string]> = [
   ["/node_modules/pixi.js/", "pixi"],
@@ -17,6 +18,7 @@ export default defineConfig({
     react(),
     babel({ presets: [reactCompilerPreset()] }),
     tailwindcss(),
+    pageMetadata(),
   ],
   build: {
     rolldownOptions: {
