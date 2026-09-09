@@ -1,8 +1,9 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
 import path from "path";
 import tailwindcss from "@tailwindcss/vite";
+import { validateProductionEndpoints } from "./scripts/validate-endpoints.ts";
 
 const vendorChunks: ReadonlyArray<readonly [packagePath: string, chunkName: string]> = [
   ["/node_modules/pixi.js/", "pixi"],
@@ -12,28 +13,34 @@ const vendorChunks: ReadonlyArray<readonly [packagePath: string, chunkName: stri
 ];
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [
-    react(),
-    babel({ presets: [reactCompilerPreset()] }),
-    tailwindcss(),
-  ],
-  build: {
-    rolldownOptions: {
-      output: {
-        codeSplitting: {
-          groups: vendorChunks.map(([packagePath, name]) => ({
-            name,
-            test: (id: string) => id.replaceAll("\\", "/").includes(packagePath),
-          })),
+export default defineConfig(({ command, mode }) => {
+  if (command === "build") {
+    validateProductionEndpoints(loadEnv(mode, process.cwd(), "VITE_"));
+  }
+
+  return {
+    plugins: [
+      react(),
+      babel({ presets: [reactCompilerPreset()] }),
+      tailwindcss(),
+    ],
+    build: {
+      rolldownOptions: {
+        output: {
+          codeSplitting: {
+            groups: vendorChunks.map(([packagePath, name]) => ({
+              name,
+              test: (id: string) => id.replaceAll("\\", "/").includes(packagePath),
+            })),
+          },
         },
       },
     },
-  },
-  resolve: {
-    alias: {
-      "@": path.resolve(import.meta.dirname, "./src"),
-      "@shared": path.resolve(import.meta.dirname, "./shared"),
+    resolve: {
+      alias: {
+        "@": path.resolve(import.meta.dirname, "./src"),
+        "@shared": path.resolve(import.meta.dirname, "./shared"),
+      },
     },
-  },
+  };
 });
