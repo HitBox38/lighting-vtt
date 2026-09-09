@@ -23,6 +23,25 @@ A high-performance 2D Virtual Tabletop (VTT) application designed for TV/Table g
 - Instant switching between saved lighting setups
 - Random scene transitions for dynamic gameplay
 
+## Legal pages and Clerk
+
+Public legal pages are served at `/privacy` and `/terms`, with links in the
+landing footer and Clerk authentication forms. Edit the operator name and
+contact email in `src/lib/legal.ts`; both documents use those shared values.
+The policy text and its update date live in `src/pages/LegalPage/`.
+
+Clerk links to these documents; it does not host or generate them. For the
+Clerk-hosted Account Portal, configure the full production URLs on the Clerk
+Dashboard's **Legal** page. Enable **Require express consent to legal documents**
+there if sign-up must include an acceptance checkbox. The frontend link
+configuration does not enable that requirement or record acceptance by itself.
+See [Clerk legal compliance](https://clerk.com/docs/guides/secure/legal-compliance).
+
+Before publishing, review the document wording against your actual operating
+practices, especially provider retention, international transfers, and analytics
+consent requirements. Adding these pages does not implement a cookie consent
+flow or automatic deletion of application data when a Clerk account is deleted.
+
 ## Tech Stack
 
 - **Frontend**: React 19 with TypeScript 7

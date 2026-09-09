@@ -12,6 +12,7 @@ import { EFFECT_EDITOR_NEW_PATH, EFFECT_EDITOR_ROUTE_PATTERN, EFFECT_LIBRARY_PAT
 let lastTrackedPath: string | null = null;
 const EffectEditorPage = lazy(() => import("@/pages/EffectEditorPage").then((module) => ({ default: module.EffectEditorPage })));
 const EffectLibraryPage = lazy(() => import("@/pages/EffectLibraryPage").then((module) => ({ default: module.EffectLibraryPage })));
+const LegalPage = lazy(() => import("@/pages/LegalPage/LegalPage").then((module) => ({ default: module.LegalPage })));
 
 function PostHogPageviews() {
   const posthog = usePostHog();
@@ -37,6 +38,8 @@ function App() {
       <PostHogPageviews />
       <Suspense fallback={<div className="grid h-dvh place-content-center bg-background text-muted-foreground" role="status">Opening workshop…</div>}><Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/privacy" element={<LegalPage document="privacy" />} />
+        <Route path="/terms" element={<LegalPage document="terms" />} />
         <Route path="/library" element={<LibraryPage />} />
         <Route path="/scene" element={<ScenePage />} />
         <Route path="/join/:inviteCode" element={<JoinPage />} />

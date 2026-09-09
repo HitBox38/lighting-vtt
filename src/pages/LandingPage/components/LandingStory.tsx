@@ -231,10 +231,14 @@ export function LandingFooter() {
         <span>Lighting VTT</span>
       </Link>
       <p>Made for the stories around your table.</p>
-      <Link to="/effects">
-        Explore effects
-        <ArrowUpRight size={14} aria-hidden="true" />
-      </Link>
+      <nav className="landing-footer-links" aria-label="Footer navigation">
+        <Link to="/privacy">Privacy policy</Link>
+        <Link to="/terms">Terms &amp; conditions</Link>
+        <Link to="/effects">
+          Explore effects
+          <ArrowUpRight size={14} aria-hidden="true" />
+        </Link>
+      </nav>
     </footer>
   );
 }
