@@ -12,6 +12,7 @@ import { Link } from "react-router-dom";
 import { usePostHog } from "@posthog/react";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { LandingAction } from "./LandingAction";
+import { PublicFooter } from "@/components/organisms/PublicFooter/PublicFooter";
 
 const steps = [
   {
@@ -224,21 +225,5 @@ export function LandingStory() {
   );
 }
 export function LandingFooter() {
-  return (
-    <footer className="landing-footer landing-container">
-      <Link className="landing-brand" to="/">
-        <img src="/lightling.svg" alt="" width={24} height={24} />
-        <span>Lighting VTT</span>
-      </Link>
-      <p>Made for the stories around your table.</p>
-      <nav className="landing-footer-links" aria-label="Footer navigation">
-        <Link to="/privacy">Privacy policy</Link>
-        <Link to="/terms">Terms &amp; conditions</Link>
-        <Link to="/effects">
-          Explore effects
-          <ArrowUpRight size={14} aria-hidden="true" />
-        </Link>
-      </nav>
-    </footer>
-  );
+  return <PublicFooter />;
 }
