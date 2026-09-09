@@ -1,3 +1,6 @@
+import { cn } from "@/lib/utils";
+import { publicContainerStyles } from "@/lib/publicPageStyles";
+import { landingEyebrowStyles, landingHeadingStyles, landingSubheadingStyles, landingTextLinkStyles } from "../styles";
 import {
   ArrowUpRight,
   ImagePlus,
@@ -98,47 +101,47 @@ export function LandingStory() {
   return (
     <>
       <section
-        className="landing-workflow landing-container"
+        className={cn(publicContainerStyles, "scroll-mt-[30px] pt-[110px] pb-[90px] max-[760px]:pt-[65px] max-[760px]:pb-[55px]")}
         id="how-it-works"
         aria-labelledby="workflow-title"
       >
-        <div className="landing-section-heading">
-          <p className="landing-eyebrow">FROM MAP TO GAME NIGHT</p>
-          <h2 id="workflow-title">
+        <div>
+          <p className={landingEyebrowStyles}>FROM MAP TO GAME NIGHT</p>
+          <h2 id="workflow-title" className={cn(landingHeadingStyles, "mt-[17px]")}>
             A little prep.
             <br />
-            <span>A whole lot of atmosphere.</span>
+            <span className="text-(--lp-muted)">A whole lot of atmosphere.</span>
           </h2>
         </div>
-        <div className="landing-steps">
+        <div className="mt-[45px] grid grid-cols-3 gap-[50px] max-[760px]:mt-7 max-[760px]:grid-cols-1 max-[760px]:gap-[22px]">
           {steps.map(({ icon: Icon, title, text }, index) => (
             <article key={title}>
-              <div className="landing-step-top">
+              <div className="flex items-center justify-between border-t border-(--lp-line) pt-[19px] pb-[25px] text-(--lp-accent) max-[760px]:pb-4">
                 <Icon size={23} aria-hidden="true" />
-                <span>0{index + 1}</span>
+                <span className="text-xs/[1.5] text-(--lp-muted)">0{index + 1}</span>
               </div>
-              <h3>{title}</h3>
-              <p>{text}</p>
+              <h3 className={landingSubheadingStyles}>{title}</h3>
+              <p className="text-sm/[1.5] leading-[1.8] text-(--lp-muted)">{text}</p>
             </article>
           ))}
         </div>
       </section>
       <section
-        className="landing-benefits landing-container"
+        className={publicContainerStyles}
         aria-label="Tools for your next encounter"
       >
         {benefits.map((benefit) => (
-          <article className="landing-benefit" key={benefit.image}>
-            <div className="landing-benefit-copy">
-              <p className="landing-eyebrow">
+          <article className="group/benefit grid grid-cols-[1fr_1.5fr] items-center gap-[75px] border-t border-(--lp-line) py-[50px] even:grid-cols-[1.5fr_1fr] max-[1000px]:gap-[35px] max-[760px]:grid-cols-1 max-[760px]:gap-[26px] max-[760px]:py-[35px] max-[760px]:even:grid-cols-1" key={benefit.image}>
+            <div className="group-even/benefit:order-2 max-[760px]:group-even/benefit:order-0">
+              <p className={cn(landingEyebrowStyles, "gap-[17px]")}>
                 <span>{benefit.number}</span>
                 {benefit.eyebrow}
               </p>
-              <h2>{benefit.title}</h2>
-              <p>{benefit.text}</p>
+              <h2 className={cn(landingHeadingStyles, "mt-[22px] max-[760px]:mt-3.5")}>{benefit.title}</h2>
+              <p className="mt-[22px] text-[15px] leading-[1.8] text-(--lp-muted) max-[760px]:mt-3.5">{benefit.text}</p>
               {benefit.image === "workshop" ? (
                 <Link
-                  className="landing-text-link"
+                  className={cn(landingTextLinkStyles, "mt-[26px] text-(--lp-accent)")}
                   to="/effects"
                   onClick={() =>
                     posthog.capture(ANALYTICS_EVENTS.LandingCtaClicked, {
@@ -152,7 +155,7 @@ export function LandingStory() {
                 </Link>
               ) : null}
             </div>
-            <figure>
+            <figure className="min-w-0 overflow-hidden rounded-lg border border-(--lp-line) bg-[#10120f]">
               <img
                 src={`/landing/temple-${benefit.image}-1000.webp`}
                 srcSet={`/landing/temple-${benefit.image}-600.webp 600w, /landing/temple-${benefit.image}-1000.webp 1000w`}
@@ -161,35 +164,36 @@ export function LandingStory() {
                 height={700}
                 loading="lazy"
                 alt={benefit.alt}
+                className="block aspect-10/7 w-full object-cover"
               />
-              <figcaption>Lighting VTT · Example screenshot</figcaption>
+              <figcaption className="border-t border-[#35392e] px-4 py-3 text-[10px] tracking-[0.5px] text-[#a6ab9d]">Lighting VTT · Example screenshot</figcaption>
             </figure>
           </article>
         ))}
       </section>
       <section
-        className="landing-extras landing-container"
+        className={cn(publicContainerStyles, "mt-[50px] border-y border-(--lp-line) py-[65px] max-[760px]:mt-5 max-[760px]:py-10")}
         aria-labelledby="extras-title"
       >
-        <p className="landing-eyebrow">AT THE TABLE & BEYOND</p>
-        <h2 id="extras-title">The details that keep play flowing.</h2>
-        <div>
+        <p className={landingEyebrowStyles}>AT THE TABLE & BEYOND</p>
+        <h2 id="extras-title" className={cn(landingHeadingStyles, "mt-[18px] text-[32px] leading-[1.13]")}>The details that keep play flowing.</h2>
+        <div className="mt-[35px] grid grid-cols-3 gap-[50px] max-[760px]:grid-cols-1 max-[760px]:gap-7">
           {extras.map(({ icon: Icon, title, text }) => (
             <article key={title}>
-              <Icon size={21} aria-hidden="true" />
-              <h3>{title}</h3>
-              <p>{text}</p>
+              <Icon size={21} aria-hidden="true" className="mb-[17px] text-(--lp-accent) max-[760px]:mb-3" />
+              <h3 className={landingSubheadingStyles}>{title}</h3>
+              <p className="text-sm/[1.5] leading-[1.8] text-(--lp-muted)">{text}</p>
             </article>
           ))}
         </div>
       </section>
       <section
-        className="landing-faq landing-container"
+        className={cn(publicContainerStyles, "grid grid-cols-[1fr_1.5fr] gap-[75px] py-[100px] max-[1000px]:gap-[35px] max-[760px]:grid-cols-1 max-[760px]:gap-[30px] max-[760px]:py-[60px]")}
         aria-labelledby="faq-title"
       >
         <div>
-          <p className="landing-eyebrow">BEFORE YOU GATHER THE PARTY</p>
-          <h2 id="faq-title">
+          <p className={landingEyebrowStyles}>BEFORE YOU GATHER THE PARTY</p>
+          <h2 id="faq-title" className={cn(landingHeadingStyles, "mt-5 max-[760px]:[&_br]:hidden")}>
             A few good
             <br />
             questions.
@@ -197,29 +201,29 @@ export function LandingStory() {
         </div>
         <div>
           {faqs.map(([question, answer]) => (
-            <details key={question}>
-              <summary>
+            <details key={question} className="group/faq border-b border-(--lp-line) first:border-t">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-5 py-[22px] text-base/[1.5] [&::-webkit-details-marker]:hidden">
                 {question}
-                <Plus size={18} aria-hidden="true" />
+                <Plus size={18} aria-hidden="true" className="shrink-0 text-(--lp-muted) transition-transform duration-[160ms] group-open/faq:rotate-45" />
               </summary>
-              <p>{answer}</p>
+              <p className="pr-[25px] pb-6 text-sm/[1.5] leading-[1.85] text-(--lp-muted)">{answer}</p>
             </details>
           ))}
         </div>
       </section>
       <section
-        className="landing-closing landing-container"
+        className={cn(publicContainerStyles, "rounded-[10px] border border-(--lp-line) bg-(--lp-panel) px-6 py-[62px] text-center max-[760px]:py-10")}
         aria-labelledby="closing-title"
       >
-        <img src="/lightling.svg" alt="" width={54} height={54} />
-        <p className="landing-eyebrow">MAKE IT A NIGHT TO REMEMBER</p>
-        <h2 id="closing-title">
+        <img src="/lightling.svg" alt="" width={54} height={54} className="mx-auto mb-[22px]" />
+        <p className={cn(landingEyebrowStyles, "justify-center")}>MAKE IT A NIGHT TO REMEMBER</p>
+        <h2 id="closing-title" className={cn(landingHeadingStyles, "mt-[18px] mb-[27px] text-[clamp(36px,4.6vw,60px)] leading-[1.13]")}>
           Your next encounter
           <br />
           starts with a map.
         </h2>
         <LandingAction placement="closing" />
-        <p>Bring the party. We’ll bring a little light.</p>
+        <p className="mt-[17px] text-xs/[1.5] text-(--lp-muted)">Bring the party. We’ll bring a little light.</p>
       </section>
     </>
   );
