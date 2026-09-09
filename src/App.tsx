@@ -8,6 +8,8 @@ import { ScenePage } from "@/pages/ScenePage";
 import { LibraryPage } from "@/pages/LibraryPage";
 import { JoinPage } from "@/pages/JoinPage";
 import { EFFECT_EDITOR_NEW_PATH, EFFECT_EDITOR_ROUTE_PATTERN, EFFECT_LIBRARY_PATH } from "@/lib/effects/routes";
+import { CookieConsent } from "@/components/organisms/CookieConsent/CookieConsent";
+import { useCookieConsentStore } from "@/stores/cookieConsentStore";
 
 let lastTrackedPath: string | null = null;
 const EffectEditorPage = lazy(() => import("@/pages/EffectEditorPage").then((module) => ({ default: module.EffectEditorPage })));
@@ -16,8 +18,13 @@ const EffectLibraryPage = lazy(() => import("@/pages/EffectLibraryPage").then((m
 function PostHogPageviews() {
   const posthog = usePostHog();
   const location = useLocation();
+  const consent = useCookieConsentStore((state) => state.consent);
 
   useEffect(() => {
+    if (consent !== "accepted") {
+      lastTrackedPath = null;
+      return;
+    }
     const query = location.search ?? "";
     const hash = location.hash ?? "";
     const path = `${location.pathname}${query}${hash}`;
@@ -26,7 +33,7 @@ function PostHogPageviews() {
     }
     lastTrackedPath = path;
     posthog.capture("$pageview", { $current_url: path });
-  }, [location.pathname, location.search, location.hash, posthog]);
+  }, [location.pathname, location.search, location.hash, posthog, consent]);
 
   return null;
 }
@@ -46,6 +53,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes></Suspense>
       <Toaster position="bottom-center" richColors closeButton />
+      <CookieConsent />
     </>
   );
 }
