@@ -11,6 +11,7 @@ import { ThemeProvider } from "@/components/atoms/ThemeProvider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PostHogProvider } from "@posthog/react";
 import { convexClient } from "./lib/convex";
+import { createAnalyticsPrivacyOptions } from "./lib/analyticsPrivacy";
 
 const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 if (!publishableKey) {
@@ -18,6 +19,7 @@ if (!publishableKey) {
 }
 
 const options = {
+  ...createAnalyticsPrivacyOptions(),
   api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
   defaults: "2026-01-30",
 } as const;
