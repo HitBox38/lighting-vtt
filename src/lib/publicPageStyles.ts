@@ -1,0 +1,4 @@
+// Shared public-page palette and interaction styles, available without landing CSS.
+export const publicPageStyles = "min-h-screen bg-(--lp-bg) text-(--lp-text) [--lp-bg:#f7f5ef] [--lp-panel:#eeebe3] [--lp-text:#252621] [--lp-muted:#676a60] [--lp-line:#d9d8ce] [--lp-accent:#99600c] dark:[--lp-bg:#171915] dark:[--lp-panel:#20231d] dark:[--lp-text:#f2f1e9] dark:[--lp-muted:#a6ab9d] dark:[--lp-line:#35392e] dark:[--lp-accent:#ffb547] [&_a]:transition-colors [&_a]:duration-150 [&_a]:[-webkit-tap-highlight-color:transparent] [&_button]:[-webkit-tap-highlight-color:transparent] [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-offset-[5px] [&_a:focus-visible]:outline-(--lp-accent) [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-[5px] [&_button:focus-visible]:outline-(--lp-accent) motion-reduce:[&_*]:transition-none";
+
+export const publicContainerStyles = "mx-auto w-[min(1200px,calc(100%-80px))] max-[760px]:w-[calc(100%-32px)]";

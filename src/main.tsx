@@ -33,6 +33,10 @@ createRoot(document.getElementById("root")!).render(
           publishableKey={publishableKey}
           appearance={{
             theme: shadcn,
+            options: {
+              privacyPageUrl: "/privacy",
+              termsPageUrl: "/terms",
+            },
           }}>
           <ConvexProviderWithClerk client={convexClient} useAuth={useAuth}>
             <QueryClientProvider client={queryClient}>
