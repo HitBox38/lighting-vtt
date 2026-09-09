@@ -38,7 +38,7 @@ export function ActiveInviteLink({
         <Input
           readOnly
           value={inviteUrl}
-          className="h-9 bg-background/50 font-mono text-xs focus-visible:ring-emerald-500/50"
+          className="ph-no-capture h-9 bg-background/50 font-mono text-xs focus-visible:ring-emerald-500/50"
           onFocus={(event) => event.target.select()}
           aria-label="Invite link URL"
           autoComplete="off"
