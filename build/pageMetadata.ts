@@ -28,12 +28,14 @@ export function pageMetadata(): Plugin {
         if (!index || index.type !== "asset" || typeof index.source !== "string") {
           throw new Error("Missing index.html while generating public page metadata");
         }
-        // Serve the public effects page's metadata even to crawlers without JS.
-        this.emitFile({
-          type: "asset",
-          fileName: "effects/index.html",
-          source: withMetadata(index.source, PAGE_METADATA.effects),
-        });
+        // Serve public page metadata even to crawlers without JavaScript.
+        for (const page of ["effects", "privacy", "terms"] as const) {
+          this.emitFile({
+            type: "asset",
+            fileName: `${page}/index.html`,
+            source: withMetadata(index.source, PAGE_METADATA[page]),
+          });
+        }
       },
     },
   };

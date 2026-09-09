@@ -17,6 +17,16 @@ export const PAGE_METADATA = {
     description:
       "Explore custom battlemap effects for your next encounter. Browse the Lighting VTT effects library, adjust their controls, and add atmosphere to your scenes.",
   },
+  privacy: {
+    title: "Privacy Policy | Lighting VTT",
+    description:
+      "Learn how Lighting VTT handles account information, uploaded maps, and game data. Read about cookies, service providers, data retention, and your privacy choices.",
+  },
+  terms: {
+    title: "Terms & Conditions | Lighting VTT",
+    description:
+      "Read the terms for using Lighting VTT, including accounts, uploaded maps, multiplayer games, community effects, acceptable use, and content permissions.",
+  },
   library: {
     title: "Your Scene Library | Lighting VTT",
     description:
@@ -52,6 +62,8 @@ export const PAGE_METADATA = {
 export function getPageMetadata(pathname: string, search = ""): PageMetadata {
   const path = pathname.replace(/\/+$/, "").toLowerCase() || "/";
   if (path === EFFECT_LIBRARY_PATH) return PAGE_METADATA.effects;
+  if (path === "/privacy") return PAGE_METADATA.privacy;
+  if (path === "/terms") return PAGE_METADATA.terms;
   if (path === EFFECT_EDITOR_NEW_PATH) return PAGE_METADATA.newEffect;
   if (/^\/effects\/[^/]+$/.test(path)) return PAGE_METADATA.editEffect;
   if (path === "/library") return PAGE_METADATA.library;
