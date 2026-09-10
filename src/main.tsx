@@ -14,6 +14,9 @@ import { convexClient } from "./lib/convex";
 import { createPostHogConsentController } from "./lib/posthogConsent";
 import { COOKIE_CONSENT_KEY, readCookieConsent, useCookieConsentStore } from "./stores/cookieConsentStore";
 import { createAnalyticsPrivacyOptions } from "./lib/analyticsPrivacy";
+import { DeferredAnalyticsExtensions } from "./components/atoms/DeferredAnalyticsExtensions";
+import { deferredAnalyticsScripts } from "./lib/deferredAnalyticsScripts";
+import { lazyClerkUi } from "./lib/lazyClerkUi";
 
 const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 if (!publishableKey) {
@@ -24,6 +27,7 @@ const options = {
   ...createAnalyticsPrivacyOptions(),
   api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
   defaults: "2026-01-30",
+  prepare_external_dependency_script: deferredAnalyticsScripts.prepare,
 } as const;
 
 // Apply consent before any React effects can capture analytics.
@@ -49,9 +53,11 @@ const router = createBrowserRouter([{ path: "*", element: <App /> }]);
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <PostHogProvider client={posthog}>
+      <DeferredAnalyticsExtensions />
       <ThemeProvider>
         <ClerkProvider
           publishableKey={publishableKey}
+          ui={lazyClerkUi}
           appearance={{
             theme: shadcn,
             options: {
