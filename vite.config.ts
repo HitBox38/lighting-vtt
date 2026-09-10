@@ -4,6 +4,13 @@ import babel from "@rolldown/plugin-babel";
 import path from "path";
 import tailwindcss from "@tailwindcss/vite";
 
+const vendorChunks: ReadonlyArray<readonly [packagePath: string, chunkName: string]> = [
+  ["/node_modules/pixi.js/", "pixi"],
+  ["/node_modules/@pixi/react/", "@pixi/react"],
+  ["/node_modules/lucide-react/", "lucide-react"],
+  ["/node_modules/radix-ui/", "radix-ui"],
+];
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -11,8 +18,24 @@ export default defineConfig({
     babel({ presets: [reactCompilerPreset()] }),
     tailwindcss(),
   ],
-  // Let the bundler split shared dependencies across the lazy route boundaries.
-  // Manual Pixi groups can pull React into the renderer or introduce init cycles.
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [{
+            // React is needed by every route. Keep it out of Pixi's recursive
+            // vendor group while preserving Pixi's renderer initialization order.
+            name: "react-core",
+            priority: 100,
+            test: (id: string) => /\/node_modules\/(?:react|react-dom|scheduler)\//.test(id.replaceAll("\\", "/")),
+          }, ...vendorChunks.map(([packagePath, name]) => ({
+            name,
+            test: (id: string) => id.replaceAll("\\", "/").includes(packagePath),
+          }))],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "./src"),
@@ -20,3 +43,4 @@ export default defineConfig({
     },
   },
 });
+
