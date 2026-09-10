@@ -22,6 +22,8 @@ export default defineConfig({
     rolldownOptions: {
       output: {
         codeSplitting: {
+          // Keep shared React dependencies out of the on-demand Pixi chunks.
+          includeDependenciesRecursively: false,
           groups: vendorChunks.map(([packagePath, name]) => ({
             name,
             test: (id: string) => id.replaceAll("\\", "/").includes(packagePath),
