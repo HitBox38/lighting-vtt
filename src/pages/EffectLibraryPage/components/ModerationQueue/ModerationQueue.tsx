@@ -74,10 +74,10 @@ export function ModerationQueue({ onSelectEffect }: Props) {
                 {formatWhen(report.createdAt)}
               </span>
             </div>
-            <p className="text-muted-foreground whitespace-pre-wrap text-xs">
+            <p className="text-muted-foreground whitespace-pre-wrap text-xs [overflow-wrap:anywhere]">
               {report.reason}
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 size="sm"

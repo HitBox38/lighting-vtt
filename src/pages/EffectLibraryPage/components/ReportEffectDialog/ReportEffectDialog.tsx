@@ -61,7 +61,7 @@ export function ReportEffectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="mobile-page max-h-[90dvh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Report “{effectName}”</DialogTitle>
           <DialogDescription>

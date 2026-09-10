@@ -33,13 +33,13 @@ export function LibraryToolbar({
   onViewModeChange,
 }: LibraryToolbarProps) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <SceneSearchInput searchQuery={searchQuery} onSearchChange={onSearchChange} />
       <div className="flex flex-wrap items-center gap-2">
         <SceneFilterButtons filters={filters} onFiltersChange={onFiltersChange} />
         <div className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden />
         <Select value={sortBy} onValueChange={(value) => onSortChange(value as SortOption)}>
-          <SelectTrigger size="sm" className="h-8 w-[150px] text-xs">
+          <SelectTrigger size="sm" className="h-11 w-[150px] text-xs sm:h-8">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

@@ -21,7 +21,7 @@ import {
 import { useThemeStore } from "@/stores/themeStore";
 import { useUIPreferencesStore, type SidebarSide } from "@/stores/uiPreferencesStore";
 
-export function AppSettingsDialog() {
+export function AppSettingsDialog({ mobileFriendly = false }: { mobileFriendly?: boolean }) {
   const [open, setOpen] = useState(false);
   const theme = useThemeStore((state) => state.theme);
   const setTheme = useThemeStore((state) => state.setTheme);
@@ -35,7 +35,7 @@ export function AppSettingsDialog() {
           <Settings className="size-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className={mobileFriendly ? "mobile-page max-h-[90dvh] overflow-y-auto sm:max-w-md [&_[data-setting-row]]:max-sm:flex-col [&_[data-setting-row]]:max-sm:items-start" : "sm:max-w-md"}>
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>Customize your application preferences.</DialogDescription>

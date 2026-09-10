@@ -12,6 +12,7 @@ import {
 
 import { FrameCounter } from "@/components/atoms/FrameCounter";
 import { InitiativeSidebar } from "@/components/organisms/InitiativeSidebar";
+import { PlayerCanvasControls } from "./components/PlayerCanvasControls";
 import { GameCanvasHud } from "@/components/templates/GameCanvas/components/GameCanvasHud";
 import { GameCanvasMenus } from "@/components/templates/GameCanvas/components/GameCanvasMenus";
 import { GameCanvasStage } from "@/components/templates/GameCanvas/components/GameCanvasStage";
@@ -53,6 +54,8 @@ export function GameCanvas({
   const sidebarOpen = useUIPreferencesStore((state) => state.sidebarOpen);
   const setSidebarOpen = useUIPreferencesStore((state) => state.setSidebarOpen);
   const windowSize = useViewportSize();
+  const mobilePlayer = !isGM && windowSize.width < 1024;
+  const [playerInitiativeOpen, setPlayerInitiativeOpen] = useState(false);
   const insetRef = useRef<HTMLDivElement>(null);
   const [viewportSize, setViewportSize] = useState(windowSize);
   useEffect(() => {
@@ -83,14 +86,15 @@ export function GameCanvas({
   return (
     <SidebarProvider
       side={sidebarSide}
-      open={sidebarOpen && !(isGM && (workshopOpen || placingEffect) && windowSize.width < 1024)}
-      onOpenChange={setSidebarOpen}
+      open={mobilePlayer ? playerInitiativeOpen : sidebarOpen && !(isGM && (workshopOpen || placingEffect) && windowSize.width < 1024)}
+      onOpenChange={mobilePlayer ? setPlayerInitiativeOpen : setSidebarOpen}
     >
-      <InitiativeSidebar isGM={isGM} />
+      <InitiativeSidebar isGM={isGM} mobilePlayer={mobilePlayer} />
       <WorkshopTelemetry isGM={isGM} />
       <SidebarInset ref={insetRef} className="relative h-dvh overflow-hidden">
         {isGM ? <GameCanvasHud sceneId={sceneId} /> : null}
-        <div className="pointer-events-none absolute right-4 bottom-4 z-20">
+        {!isGM ? <PlayerCanvasControls fitMap={interaction.fitMap} zoomMap={interaction.zoomMap} /> : null}
+        <div className={isGM ? "pointer-events-none absolute right-4 bottom-4 z-20" : "pointer-events-none absolute right-4 bottom-4 z-20 hidden lg:block"}>
           <FrameCounter appRef={interaction.appRef} />
         </div>
         <GameCanvasStage

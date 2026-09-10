@@ -35,10 +35,10 @@ export function PlayerBookmarkCard({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-sm font-semibold">{sceneName}</h3>
-            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1 text-xs text-muted-foreground">
               <Crown className="size-3" />
               <span className="truncate">{characterName}</span>
-              <span className="text-muted-foreground/60">({playerName})</span>
+              <span className="min-w-0 max-w-full truncate text-muted-foreground/60">({playerName})</span>
             </p>
           </div>
           {dmOnline ? (
@@ -62,7 +62,7 @@ export function PlayerBookmarkCard({
             size="sm"
             variant={dmOnline ? "default" : "outline"}
             disabled={!dmOnline}
-            className="h-7 flex-1 text-xs"
+            className="h-11 flex-1 sm:h-7 text-xs"
             onClick={() =>
               navigate(
                 `/scene?id=${encodeURIComponent(sceneId)}&playerId=${encodeURIComponent(playerId)}`,
@@ -74,7 +74,7 @@ export function PlayerBookmarkCard({
           <Button
             size="icon-sm"
             variant="ghost"
-            className="shrink-0 text-muted-foreground hover:text-destructive"
+            className="size-11 shrink-0 text-muted-foreground hover:text-destructive sm:size-7"
             onClick={onRemove}
             aria-label="Remove from library">
             <Trash2 className="size-3.5" />

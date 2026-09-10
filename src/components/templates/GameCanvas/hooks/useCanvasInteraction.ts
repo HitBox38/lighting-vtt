@@ -8,7 +8,8 @@ import type {
 } from "pixi.js";
 import { usePostHog } from "@posthog/react";
 
-import { ZOOM_STEP } from "@/components/templates/GameCanvas/constants";
+import { attachPlayerTouchNavigation } from "../playerTouchNavigation";
+import { MAX_ZOOM, MIN_ZOOM, ZOOM_STEP } from "@/components/templates/GameCanvas/constants";
 import {
   clampScale,
   getCanvasFromApp,
@@ -35,6 +36,8 @@ export function useCanvasInteraction({
   const posthogRef = useRef(posthog);
   const placementTemplateIdRef = useRef<string | null>(placementTemplateId);
   const addTokenInstanceRef = useRef(addTokenInstance);
+  const mapTextureRef = useRef(mapTexture);
+  const viewportSizeRef = useRef(viewportSize);
   const panStateRef = useRef({
     dragging: false,
     pointerId: null as number | null,
@@ -44,6 +47,8 @@ export function useCanvasInteraction({
 
   useEffect(() => {
     isGMRef.current = isGM;
+    mapTextureRef.current = mapTexture;
+    viewportSizeRef.current = viewportSize;
     posthogRef.current = posthog;
     placementTemplateIdRef.current = placementTemplateId;
     addTokenInstanceRef.current = addTokenInstance;
@@ -60,11 +65,45 @@ export function useCanvasInteraction({
     if (!mapWidth || !mapHeight) {
       return;
     }
+    if (!isGM && viewportSize.width < 1024) {
+      container.scale.set(Math.min(1, viewportSize.width / mapWidth, viewportSize.height / mapHeight));
+    }
     container.position.set(
       (viewportSize.width - mapWidth * container.scale.x) / 2,
       (viewportSize.height - mapHeight * container.scale.y) / 2,
     );
-  }, [mapTexture, viewportSize.height, viewportSize.width]);
+  }, [isGM, mapTexture, viewportSize.height, viewportSize.width]);
+
+  const clampPlayerScale = (scale: number) => {
+    const texture = mapTextureRef.current;
+    const size = viewportSizeRef.current;
+    const minimum = texture
+      ? Math.min(MIN_ZOOM, size.width / texture.width, size.height / texture.height)
+      : MIN_ZOOM;
+    return Math.min(MAX_ZOOM, Math.max(minimum, scale));
+  };
+
+  const fitMap = () => {
+    const container = containerRef.current;
+    const texture = mapTextureRef.current;
+    const size = viewportSizeRef.current;
+    if (!container || !texture) return;
+    const scale = Math.min(1, size.width / texture.width, size.height / texture.height);
+    container.scale.set(scale);
+    container.position.set((size.width - texture.width * scale) / 2, (size.height - texture.height * scale) / 2);
+  };
+
+  const zoomMap = (direction: 1 | -1) => {
+    const container = containerRef.current;
+    const size = viewportSizeRef.current;
+    if (!container) return;
+    const scale = container.scale.x;
+    const nextScale = clampPlayerScale(scale * ZOOM_STEP ** (direction * 2));
+    const worldX = (size.width / 2 - container.x) / scale;
+    const worldY = (size.height / 2 - container.y) / scale;
+    container.scale.set(nextScale);
+    container.position.set(size.width / 2 - worldX * nextScale, size.height / 2 - worldY * nextScale);
+  };
 
   const getViewportCenterWorld = () => {
     const container = containerRef.current;
@@ -86,7 +125,7 @@ export function useCanvasInteraction({
     stage.hitArea = app.screen;
 
     const handlePointerDown = (event: FederatedPointerEvent) => {
-      if (event.button !== 0) {
+      if ((!isGMRef.current && event.pointerType === "touch") || event.button !== 0) {
         return;
       }
       const activeTemplateId = placementTemplateIdRef.current;
@@ -144,7 +183,7 @@ export function useCanvasInteraction({
         return;
       }
       const currentScale = container.scale.x;
-      const nextScale = clampScale(
+      const nextScale = (isGMRef.current ? clampScale : clampPlayerScale)(
         currentScale * (event.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP),
       );
       if (nextScale === currentScale) {
@@ -159,6 +198,9 @@ export function useCanvasInteraction({
       );
     };
 
+    const cleanupTouch = attachPlayerTouchNavigation(
+      stage, () => containerRef.current, clampPlayerScale, () => !isGMRef.current,
+    );
     const preventContextMenu = (event: Event) => event.preventDefault();
     stage.on("pointerdown", handlePointerDown);
     stage.on("pointermove", handlePointerMove);
@@ -169,6 +211,7 @@ export function useCanvasInteraction({
     canvas.addEventListener("contextmenu", preventContextMenu);
 
     cleanupRef.current = () => {
+      cleanupTouch();
       stage.off("pointerdown", handlePointerDown);
       stage.off("pointermove", handlePointerMove);
       stage.off("pointerup", handlePointerUp);
@@ -208,6 +251,8 @@ export function useCanvasInteraction({
     containerRef,
     spriteRef,
     getViewportCenterWorld,
+    fitMap,
+    zoomMap,
     handleAppInit,
   };
 }

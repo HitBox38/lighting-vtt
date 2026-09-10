@@ -16,7 +16,7 @@ export function SceneViewToggle({ viewMode, onViewModeChange }: SceneViewToggleP
         title="Grid view"
         aria-label="Grid view"
         aria-pressed={viewMode === "grid"}
-        className={`p-1.5 transition-colors ${
+        className={`grid size-11 place-items-center transition-colors sm:size-7 ${
           viewMode === "grid"
             ? "bg-accent text-accent-foreground"
             : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
@@ -29,7 +29,7 @@ export function SceneViewToggle({ viewMode, onViewModeChange }: SceneViewToggleP
         title="List view"
         aria-label="List view"
         aria-pressed={viewMode === "list"}
-        className={`p-1.5 transition-colors ${
+        className={`grid size-11 place-items-center transition-colors sm:size-7 ${
           viewMode === "list"
             ? "bg-accent text-accent-foreground"
             : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"

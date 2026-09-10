@@ -12,8 +12,8 @@ export function DmOfflineCard({ sceneName }: DmOfflineCardProps) {
   const navigate = useNavigate();
 
   return (
-    <div className="flex h-screen items-center justify-center bg-background">
-      <Card className="w-full max-w-md">
+    <div className="mobile-page flex min-h-dvh items-center justify-center bg-background p-4">
+      <Card className="w-full min-w-0 max-w-md [overflow-wrap:anywhere]">
         <CardHeader className="text-center">
           <WifiOff className="mx-auto mb-2 size-12 text-muted-foreground" />
           <CardTitle>DM is Offline</CardTitle>

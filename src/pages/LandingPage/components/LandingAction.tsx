@@ -17,7 +17,7 @@ export function LandingAction({
   const className = cn(
     "rounded-md border border-[#ffb547] bg-[#ffb547] font-semibold text-[#222017] shadow-none hover:border-[#ffc572] hover:bg-[#ffc572]",
     placement === "header"
-      ? "max-[760px]:px-2.5 max-[760px]:has-[>svg]:px-2.5 max-[760px]:text-xs/5 max-[760px]:[&_svg]:hidden"
+      ? "max-[480px]:hidden max-[760px]:min-h-11 max-[760px]:px-2.5 max-[760px]:has-[>svg]:px-2.5 max-[760px]:text-xs/5 max-[760px]:[&_svg]:hidden"
       : "min-h-12 px-[22px] has-[>svg]:px-[22px]",
   );
   return (

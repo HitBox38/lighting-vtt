@@ -66,7 +66,7 @@ export function EffectLibraryPage() {
     catalogName(item).toLowerCase().includes(search.toLowerCase()),
   );
   return (
-    <div className="flex h-dvh flex-col bg-background text-foreground">
+    <div className="mobile-page flex h-dvh flex-col bg-background text-foreground">
       <header className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-2 border-b px-4 py-2 sm:px-6">
         <nav
           aria-label="Library navigation"
@@ -181,7 +181,7 @@ export function EffectLibraryPage() {
           basics.length ? (
             <section className="mb-8">
               <p className="workshop-eyebrow mb-3">Built-in essentials</p>
-              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 xl:grid-cols-4">
                 {basics.map((item) => (
                   <div key={catalogKey(item)} className="workshop-card">
                     <EffectGlyph

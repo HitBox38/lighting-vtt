@@ -14,7 +14,7 @@ interface RemotePlayerHudProps {
 export function RemotePlayerHud({ playerInfo, dmOnline }: RemotePlayerHudProps) {
   if (!playerInfo) {
     return (
-      <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex justify-center">
+      <div className="pointer-events-none absolute inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-20 flex justify-center px-3">
         <HudSurface className="pointer-events-auto items-center text-sm text-muted-foreground">
           Connecting...
         </HudSurface>
@@ -23,12 +23,12 @@ export function RemotePlayerHud({ playerInfo, dmOnline }: RemotePlayerHudProps) 
   }
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex justify-center">
-      <HudSurface className="pointer-events-auto items-center gap-3">
-        <div className="flex items-center gap-1.5 text-sm">
-          <Crown className="size-3.5 text-primary" />
-          <span className="font-medium">{playerInfo.characterName}</span>
-          <span className="text-muted-foreground">({playerInfo.playerName})</span>
+    <div className="pointer-events-none absolute inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-20 flex justify-center px-3">
+      <HudSurface className="pointer-events-auto max-w-full flex-wrap justify-center gap-x-3 gap-y-2 sm:items-center">
+        <div className="flex min-w-0 max-w-full flex-wrap items-center justify-center gap-x-1.5 text-sm">
+          <Crown className="size-3.5 shrink-0 text-primary" />
+          <span className="min-w-0 break-words font-medium [overflow-wrap:anywhere]">{playerInfo.characterName}</span>
+          <span className="min-w-0 break-words text-muted-foreground [overflow-wrap:anywhere]">({playerInfo.playerName})</span>
         </div>
         {dmOnline ? (
           <Badge variant="outline" className="gap-1 text-xs">

@@ -803,7 +803,7 @@ export function EffectEditor({
       </div>
     ) : null;
   return (
-    <div className="workshop-studio bg-background text-foreground flex h-dvh flex-col">
+    <div className="mobile-page effect-editor workshop-studio bg-background text-foreground flex h-dvh flex-col">
       <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
         <Button
           type="button"
@@ -905,7 +905,7 @@ export function EffectEditor({
                   <MoreHorizontal className="size-4" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-auto">
+              <PopoverContent align="end" className="mobile-page w-auto max-w-[calc(100vw-2rem)]">
                 <p className="mb-2 text-xs text-muted-foreground">
                   Saved version actions
                 </p>
@@ -1002,9 +1002,10 @@ export function EffectEditor({
               size="sm"
               variant={mobilePanel === panel ? "secondary" : "ghost"}
               aria-pressed={mobilePanel === panel}
+              aria-label={panel === "code" ? "Code" : "Preview & controls"}
               onClick={() => setMobilePanel(panel)}
             >
-              {panel === "code" ? "Code" : "Preview & controls"}
+              {panel === "code" ? "Code" : <><span className="sm:hidden">Preview</span><span className="hidden sm:inline">Preview & controls</span></>}
             </Button>
           ))}
         </div>
@@ -1150,7 +1151,7 @@ export function EffectEditor({
             orientation="vertical"
             id="source-diagnostics"
             groupRef={diagnosticsRef}
-            onLayoutChanged={remember("diagnostics")}
+            onLayoutChanged={isDesktop ? remember("diagnostics") : undefined}
             className="flex-1"
           >
             <ResizablePanel
@@ -1162,7 +1163,7 @@ export function EffectEditor({
                 orientation={isReferenceBeside ? "horizontal" : "vertical"}
                 id="source-reference"
                 groupRef={referenceRef}
-                onLayoutChanged={remember("reference")}
+                onLayoutChanged={isDesktop ? remember("reference") : undefined}
               >
                 <ResizablePanel
                   id="code"
@@ -1322,7 +1323,9 @@ export function EffectEditor({
             orientation="vertical"
             id="preview-inspector"
             groupRef={inspectorRef}
-            onLayoutChanged={remember("inspector")}
+            onLayoutChanged={isDesktop ? remember("inspector") : undefined}
+            disabled={!isDesktop}
+            className={!isDesktop ? "mobile-inspector" : undefined}
           >
             <ResizablePanel
               id="stage"
@@ -1331,7 +1334,7 @@ export function EffectEditor({
               className="flex h-full flex-col overflow-y-auto p-3"
             >
               <PreviewStage
-                fill
+                fill={isDesktop}
                 status={
                   <PreviewStatus
                     status={compileStatus}
@@ -1353,10 +1356,10 @@ export function EffectEditor({
                 className="aspect-square w-full overflow-hidden rounded-md border"
               />
             </ResizablePanel>
-            <ResizableHandle
+            {isDesktop ? <ResizableHandle
               withHandle
               aria-label="Resize preview and controls"
-            />
+            /> : null}
             <ResizablePanel
               id="inspector"
               defaultSize={`${initialLayout.inspector.inspector}%`}
@@ -1365,7 +1368,7 @@ export function EffectEditor({
               aria-label="Effect controls and details"
             >
               <div
-                className="sticky top-0 z-10 flex items-center gap-1 border-b bg-background/95 p-2 backdrop-blur-sm"
+                className="sticky top-0 z-10 flex flex-wrap items-center gap-1 border-b bg-background/95 p-2 backdrop-blur-sm"
                 aria-label="Inspector mode"
               >
                 {[
@@ -1394,7 +1397,7 @@ export function EffectEditor({
                 <div className="space-y-4 p-4">
                   <div>
                     <p className="workshop-eyebrow">In the scene</p>
-                    <h3 className="mt-1 text-lg font-medium">
+                    <h3 className="mt-1 break-words text-lg font-medium [overflow-wrap:anywhere]">
                       {draft.name || "Untitled effect"}
                     </h3>
                     <p className="mt-1 text-xs leading-relaxed text-muted-foreground">

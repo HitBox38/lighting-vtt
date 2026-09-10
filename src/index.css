@@ -131,6 +131,61 @@
   }
 }
 
+/* Public, library and join screens only: the DM workspace keeps its density. */
+@media (max-width: 639px), (pointer: coarse) {
+  .mobile-page :is(button:not([role="switch"]), a[data-slot="button"], [role="combobox"], summary) {
+    min-height: 44px;
+  }
+  .mobile-page button[data-size^="icon"] {
+    min-width: 44px;
+  }
+  .mobile-page [data-slot="dialog-close"] {
+    top: 8px;
+    right: 8px;
+    display: grid;
+    width: 44px;
+    place-items: center;
+  }
+  .mobile-page[data-slot="dialog-content"] > [data-slot="dialog-header"] {
+    padding-right: 2rem;
+  }
+  .mobile-page button[role="switch"] {
+    position: relative;
+  }
+  .mobile-page button[role="switch"]::after {
+    content: "";
+    position: absolute;
+    inset: -12px -4px;
+  }
+  .mobile-page div:has(> button[role="switch"]) {
+    min-height: 44px;
+  }
+  .mobile-page :is(input, textarea, select) {
+    font-size: 16px;
+  }
+  .mobile-page input {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .effect-editor :is([data-group], [data-panel] > div) {
+    touch-action: auto !important;
+  }
+  .effect-editor .mobile-inspector {
+    display: block !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .effect-editor .mobile-inspector > [data-slot="resizable-panel"],
+  .effect-editor .mobile-inspector > [data-slot="resizable-panel"] > div {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
+
 .workshop-studio input[type="range"] { accent-color: #dba44e; }
 .workshop-studio .workshop-primary { background-color: #dba44e; color: #1c1917; }
 .workshop-studio .workshop-primary:hover { background-color: #e9b966; }

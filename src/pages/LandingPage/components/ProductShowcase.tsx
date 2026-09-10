@@ -44,7 +44,7 @@ export function ProductShowcase() {
               <button
                 key={value}
                 type="button"
-                className="flex min-h-[34px] cursor-pointer items-center justify-center gap-[7px] rounded-[3px] px-3 py-[5px] text-xs/[1.5] text-(--lp-muted) aria-pressed:bg-(--lp-text) aria-pressed:text-(--lp-bg) max-[760px]:min-h-10 max-[760px]:flex-1"
+                className="flex min-h-[34px] cursor-pointer items-center justify-center gap-[7px] rounded-[3px] px-3 py-[5px] text-xs/[1.5] text-(--lp-muted) aria-pressed:bg-(--lp-text) aria-pressed:text-(--lp-bg) max-[760px]:min-h-11 max-[760px]:flex-1 max-[480px]:min-w-0 max-[480px]:px-2"
                 aria-pressed={view === value}
                 aria-controls="showcase-image"
                 onClick={() => {
