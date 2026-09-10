@@ -1,3 +1,4 @@
+import { registerRateLimiter } from "./helpers/rateLimiter";
 import { afterEach, beforeEach, expect, mock, spyOn, test } from "bun:test";
 import { convexTest } from "convex-test";
 import schema from "../convex/schema";
@@ -38,12 +39,24 @@ afterEach(() => {
 
 async function setup() {
   const t = convexTest(schema, modules);
+  await registerRateLimiter(t);
   await t.mutation(internal.uploads.recordCompleted, { key, ownerId: "alice", url: "https://files.invalid/image.png" });
   return { t, alice: t.withIdentity({ subject: "alice" }), bob: t.withIdentity({ subject: "bob" }) };
 }
 function request(body: unknown = { key }) {
   return { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
 }
+
+test("repeated file deletions are limited before calling the provider", async () => {
+  const { alice } = await setup();
+  for (let i = 0; i < 30; i++) {
+    expect((await alice.fetch("/api/uploadthing/delete", request())).status).toBe(200);
+  }
+  const response = await alice.fetch("/api/uploadthing/delete", request());
+  expect(response.status).toBe(429);
+  expect((await response.json()).error).toContain("Too many file deletions");
+  expect(provider).toHaveBeenCalledTimes(30);
+});
 
 test("anonymous callers and another signed-in user cannot delete a visible file key", async () => {
   const { t, bob } = await setup();
