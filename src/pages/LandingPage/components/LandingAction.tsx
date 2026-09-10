@@ -17,11 +17,11 @@ export function LandingAction({
   const className = cn(
     "rounded-md border border-[#ffb547] bg-[#ffb547] font-semibold text-[#222017] shadow-none hover:border-[#ffc572] hover:bg-[#ffc572]",
     placement === "header"
-      ? "max-[760px]:px-2.5 max-[760px]:has-[>svg]:px-2.5 max-[760px]:text-xs/5 max-[760px]:[&_svg]:hidden"
+      ? "max-[480px]:hidden max-[760px]:min-h-11 max-[760px]:px-2.5 max-[760px]:has-[>svg]:px-2.5 max-[760px]:text-xs/5 max-[760px]:[&_svg]:hidden"
       : "min-h-12 px-[22px] has-[>svg]:px-[22px]",
   );
   return (
-    <span className={cn("inline-grid shrink-0 [&>*]:col-start-1 [&>*]:row-start-1", placement === "header" && "w-[126px] max-[760px]:w-[100px]")}>
+    <span className={cn("inline-grid shrink-0 [&>*]:col-start-1 [&>*]:row-start-1", placement === "header" && "w-[126px] max-[760px]:w-[100px] max-[480px]:hidden")}>
       <span
         aria-hidden="true"
         className={cn(buttonVariants({ size: placement === "header" ? "default" : "lg" }), className, "invisible")}

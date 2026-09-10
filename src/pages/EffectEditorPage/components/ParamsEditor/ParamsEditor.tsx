@@ -115,7 +115,7 @@ export function ParamsEditor({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-muted-foreground text-xs">
           {params.length} / {EFFECT_LIMITS.maxParams} controls.{" "}
           <span className="block">Tune here. Define defaults in settings.</span>
@@ -216,7 +216,7 @@ function ParamRow({
             values={values}
             onChange={(next) => onValuesChange({ ...values, ...next })}
           />
-          <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] text-muted-foreground [overflow-wrap:anywhere]">
             <span>
               Preview value · saved default{" "}
               <span className="font-mono">{String(param.default)}</span>
@@ -231,7 +231,7 @@ function ParamRow({
         <Button
           variant={settingsOpen ? "secondary" : "ghost"}
           size="icon"
-          className="size-7 shrink-0"
+          className="size-11 shrink-0 sm:size-7"
           aria-label={`${param.label} settings`}
           aria-expanded={settingsOpen}
           onClick={() => setExpanded(!settingsOpen)}
@@ -242,8 +242,8 @@ function ParamRow({
       <div
         className={cn("border-t bg-muted/20 p-3", !settingsOpen && "hidden")}
       >
-        <div className="flex items-start gap-2">
-          <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
+        <div className="flex flex-col items-start gap-2 sm:flex-row">
+          <div className="grid w-full min-w-0 flex-1 grid-cols-1 gap-3 min-[400px]:grid-cols-2">
             <Field label="Key" issue={keyIssue}>
               <Input
                 aria-label={`Control ${index + 1} key`}
@@ -295,12 +295,12 @@ function ParamRow({
             <TypeFields param={param} issueFor={issueFor} onChange={onChange} />
           </div>
 
-          <div className="mt-5 flex shrink-0 flex-col gap-1">
+          <div className="flex shrink-0 gap-1 sm:mt-5 sm:flex-col">
             <Button
               type="button"
               size="icon"
               variant="ghost"
-              className="h-6 w-6"
+              className="size-11 sm:size-6"
               onClick={() => onMove(-1)}
               disabled={isFirst}
               aria-label="Move up"
@@ -311,7 +311,7 @@ function ParamRow({
               type="button"
               size="icon"
               variant="ghost"
-              className="h-6 w-6"
+              className="size-11 sm:size-6"
               onClick={() => onMove(1)}
               disabled={isLast}
               aria-label="Move down"
@@ -322,7 +322,7 @@ function ParamRow({
               type="button"
               size="icon"
               variant="ghost"
-              className="text-destructive h-6 w-6"
+              className="text-destructive size-11 sm:size-6"
               onClick={onRemove}
               aria-label="Remove param"
             >
@@ -397,7 +397,7 @@ function TypeFields({ param, issueFor, onChange }: TypeFieldsProps) {
         <Field
           label="Saved default"
           issue={issueFor("default")}
-          className="sm:col-span-3"
+          className="col-span-full"
         >
           <div className="flex items-center gap-2">
             <input
@@ -458,7 +458,7 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <div className={cn("space-y-1", className)}>
+    <div className={cn("min-w-0 space-y-1 [overflow-wrap:anywhere]", className)}>
       <Label
         className={cn(
           "text-[11px]",

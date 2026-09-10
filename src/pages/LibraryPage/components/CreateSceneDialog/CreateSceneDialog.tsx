@@ -31,7 +31,7 @@ export function CreateSceneDialog({ form }: CreateSceneDialogProps) {
           New Scene
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="mobile-page max-h-[90dvh] overflow-y-auto sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Create New Scene</DialogTitle>
         </DialogHeader>

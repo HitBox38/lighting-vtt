@@ -6,7 +6,7 @@ interface SettingRowProps {
 
 export function SettingRow({ label, description, children }: SettingRowProps) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3">
+    <div data-setting-row className="flex items-center justify-between gap-4 py-3">
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">{label}</p>
         {description ? <p className="text-muted-foreground text-xs">{description}</p> : null}

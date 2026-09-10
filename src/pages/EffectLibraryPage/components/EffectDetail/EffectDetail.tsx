@@ -427,7 +427,7 @@ export function EffectDetail({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="space-y-4 p-4">
+      <div className="min-w-0 space-y-4 p-4 [overflow-wrap:anywhere]">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-semibold">{effect.name}</h2>

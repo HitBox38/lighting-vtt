@@ -168,7 +168,7 @@ export function DiagnosticsPanel({ status, diagnostics, onSelect }: Props) {
                     {diagnostic.language}
                     {diagnostic.line !== null ? `:${diagnostic.line}` : ""}
                   </span>
-                  <span className="break-words">{diagnostic.message}</span>
+                  <span className="min-w-0 break-words [overflow-wrap:anywhere]">{diagnostic.message}</span>
                 </button>
               </li>
             );

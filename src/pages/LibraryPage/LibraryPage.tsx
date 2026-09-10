@@ -35,7 +35,7 @@ export function LibraryPage() {
   useLibraryViewTracking(isLoaded, Boolean(user?.id));
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="mobile-page min-h-dvh bg-background">
       <LibraryHeader />
       <main className="flex-1">
         <Show when="signed-in">
@@ -45,9 +45,9 @@ export function LibraryPage() {
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             }>
-            <div className="space-y-5 px-6 py-5">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-baseline gap-3">
+            <div className="space-y-5 px-4 py-5 sm:px-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex min-w-0 items-baseline gap-3">
                   <h2 className="text-2xl font-semibold tracking-tight">Your Scenes</h2>
                   {totalSceneCount > 0 ? (
                     <span className="text-sm text-muted-foreground tabular-nums">

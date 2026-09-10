@@ -31,8 +31,8 @@ export function JoinSceneCard({
   onJoin,
 }: JoinSceneCardProps) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+    <div className="mobile-page flex min-h-dvh items-center justify-center bg-background p-4">
+      <Card className="w-full min-w-0 max-w-md [overflow-wrap:anywhere]">
         <CardHeader>
           <div className="mb-2 flex items-center gap-2">
             <MapPin className="size-5 text-primary" />

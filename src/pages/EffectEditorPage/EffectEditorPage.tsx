@@ -30,7 +30,7 @@ function parseVersion(raw: string | null): number | null {
 
 function Centered({ children }: { children: ReactNode }) {
   return (
-    <div className="bg-background text-foreground flex h-screen items-center justify-center p-6">
+    <div className="bg-background text-foreground flex min-h-dvh items-center justify-center p-6">
       {children}
     </div>
   );
@@ -50,7 +50,7 @@ function Message({
       <h1 className="text-lg font-semibold">{title}</h1>
       <p className="text-muted-foreground text-sm">{body}</p>
       {action ? (
-        <div className="flex justify-center gap-2">{action}</div>
+        <div className="flex flex-wrap justify-center gap-2">{action}</div>
       ) : null}
     </div>
   );
