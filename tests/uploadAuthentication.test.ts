@@ -1,3 +1,4 @@
+import { registerRateLimiter } from "./helpers/rateLimiter";
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { createHmac } from "node:crypto";
 import { convexTest } from "convex-test";
@@ -54,6 +55,7 @@ function callback(metadata: unknown = { ownerId: "alice" }, signed = true) {
 
 test("anonymous initiation and forged identity headers cannot obtain signed upload URLs", async () => {
   const t = convexTest(schema, modules);
+  await registerRateLimiter(t);
   for (const headers of [{}, { "x-owner-id": "victim", Authorization: "Bearer forged" }]) {
     const response = await t.fetch("/api/uploadthing?slug=imageUploader&actionType=upload", {
       method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: uploadBody,
@@ -66,6 +68,7 @@ test("anonymous initiation and forged identity headers cannot obtain signed uplo
 
 test("authenticated initiation uses verified HTTP identity and preserves upload limits", async () => {
   const t = convexTest(schema, modules);
+  await registerRateLimiter(t);
   const alice = t.withIdentity({ subject: "alice" });
   const response = await alice.fetch("/api/uploadthing?slug=imageUploader&actionType=upload", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: uploadBody,
@@ -88,6 +91,7 @@ test("authenticated initiation uses verified HTTP identity and preserves upload 
 
 test("fake hook and unsigned or altered callbacks cannot create ownership or mint URLs", async () => {
   const t = convexTest(schema, modules);
+  await registerRateLimiter(t);
   const unsigned = await t.fetch("/api/uploadthing?slug=imageUploader", callback({ ownerId: "victim" }, false));
   expect(unsigned.status).toBe(400);
   const tampered = callback();
@@ -103,6 +107,7 @@ test("fake hook and unsigned or altered callbacks cannot create ownership or min
 
 test("signed provider callback needs no user session and records immutable ownership before completion", async () => {
   const t = convexTest(schema, modules);
+  await registerRateLimiter(t);
   for (let i = 0; i < 2; i++) {
     expect((await t.fetch("/api/uploadthing?slug=imageUploader", callback())).status).toBe(200);
   }
@@ -117,6 +122,7 @@ test("signed provider callback needs no user session and records immutable owner
 
 test("signed legacy or malformed metadata cannot record ownership or acknowledge completion", async () => {
   const t = convexTest(schema, modules);
+  await registerRateLimiter(t);
   // UploadThing reports callback errors asynchronously; storage and result delivery
   // are the security assertions, not its callback HTTP acknowledgement status.
   for (const metadata of [{}, { ownerId: 42 }, { ownerId: " " }]) {
@@ -137,4 +143,23 @@ test("client upload headers use fresh Convex Clerk tokens and cannot be overridd
   expect(next.get("Authorization")).toBe("Bearer session-2");
   expect(next.get("x-custom")).toBe("value");
   await expect(authenticatedUploadHeaders(async () => null)()).rejects.toThrow("Sign in");
+});
+
+test("upload floods stop before provider calls while other accounts and signed callbacks still work", async () => {
+  const t = convexTest(schema, modules);
+  await registerRateLimiter(t);
+  const alice = t.withIdentity({ subject: "alice" });
+  const request = {
+    method: "POST", headers: { "Content-Type": "application/json", "x-owner-id": "victim" }, body: uploadBody,
+  };
+  const url = "/api/uploadthing?slug=imageUploader&actionType=upload";
+  for (let i = 0; i < 30; i++) expect((await alice.fetch(url, request)).status).toBe(200);
+  const blocked = await alice.fetch(url, request);
+  expect(blocked.status).toBe(403);
+  expect((await blocked.json()).message).toContain("Too many uploads");
+  expect(providerCalls).toHaveLength(30);
+  expect((await t.withIdentity({ subject: "bob" }).fetch(url, request)).status).toBe(200);
+  expect((await t.fetch("/api/uploadthing?slug=imageUploader", callback())).status).toBe(200);
+  expect(providerCalls).toHaveLength(32);
+  expect((await t.run((ctx) => ctx.db.query("uploadedFiles").unique()))?.ownerId).toBe("alice");
 });

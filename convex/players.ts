@@ -4,6 +4,7 @@ import { getCurrentUserId } from "./lib/auth";
 import { assertCreatorMatchesIdentity, getCurrentUserIdOrNull } from "./lib/auth";
 import { canAuthenticatePlayer, hashGuestPlayerToken } from "./lib/playerAuth";
 import { isGuestPlayerToken } from "../shared/playerSession";
+import { limitSceneWrite, MAX_PLAYER_NAME_LENGTH, MAX_SCENE_PLAYERS } from "./lib/spamProtection";
 
 const DM_ONLINE_THRESHOLD_MS = 45_000;
 
@@ -161,6 +162,15 @@ export const joinScene = mutation({
     if (clerkUserId === null && !isGuestPlayerToken(args.guestToken)) {
       throw new ConvexError("GUEST_SESSION_REQUIRED");
     }
+    if (args.playerName.length > MAX_PLAYER_NAME_LENGTH || args.characterName.length > MAX_PLAYER_NAME_LENGTH) {
+      throw new ConvexError(`Player and character names must be at most ${MAX_PLAYER_NAME_LENGTH} characters.`);
+    }
+    if (existingPlayers.length >= MAX_SCENE_PLAYERS) {
+      throw new ConvexError("This scene is full. Ask the DM to remove unused players.");
+    }
+    // A shared scene budget prevents bypasses by rotating guest tokens/accounts.
+    // Existing account members returned above, so reconnects consume no quota.
+    await limitSceneWrite(ctx, "joinScene", scene._id);
     const playerId = crypto.randomUUID();
 
     const newPlayer = {

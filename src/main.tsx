@@ -14,6 +14,7 @@ import posthog from "posthog-js";
 import { convexClient } from "./lib/convex";
 import { createPostHogConsentController } from "./lib/posthogConsent";
 import { COOKIE_CONSENT_KEY, readCookieConsent, useCookieConsentStore } from "./stores/cookieConsentStore";
+import { createAnalyticsPrivacyOptions } from "./lib/analyticsPrivacy";
 
 const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 if (!publishableKey) {
@@ -21,6 +22,7 @@ if (!publishableKey) {
 }
 
 const options = {
+  ...createAnalyticsPrivacyOptions(),
   api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
   defaults: "2026-01-30",
 } as const;
@@ -53,6 +55,10 @@ createRoot(document.getElementById("root")!).render(
           publishableKey={publishableKey}
           appearance={{
             theme: shadcn,
+            options: {
+              privacyPageUrl: "/privacy",
+              termsPageUrl: "/terms",
+            },
           }}>
           <ConvexProviderWithClerk client={convexClient} useAuth={useAuth}>
             <QueryClientProvider client={queryClient}>

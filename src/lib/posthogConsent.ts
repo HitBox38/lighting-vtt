@@ -9,7 +9,18 @@ export function createPostHogConsentController(
 ) {
   let initialized = client.__loaded;
   let currentConsent: CookieConsent | undefined;
-  const beforeSend: NonNullable<PostHogConfig["before_send"]> = (event) => currentConsent === "accepted" ? event : null;
+  const filters = options.before_send
+    ? Array.isArray(options.before_send) ? options.before_send : [options.before_send]
+    : [];
+  const beforeSend: NonNullable<PostHogConfig["before_send"]> = (event) => {
+    if (currentConsent !== "accepted") return null;
+    // Preserve privacy filtering (including events it drops) after the consent gate.
+    for (const filter of filters) {
+      if (event === null) return null;
+      event = filter(event);
+    }
+    return event;
+  };
 
   return (consent: CookieConsent) => {
     if (consent === currentConsent) return;

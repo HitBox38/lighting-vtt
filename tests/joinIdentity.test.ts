@@ -1,3 +1,4 @@
+import { registerRateLimiter } from "./helpers/rateLimiter";
 import { expect, test } from "bun:test";
 import { convexTest } from "convex-test";
 import schema from "../convex/schema";
@@ -10,6 +11,7 @@ const modules = {
 
 async function setup() {
   const t = convexTest(schema, modules);
+  await registerRateLimiter(t);
   const sceneId = await t.run((ctx) => ctx.db.insert("scenes", {
     creatorId: "dm", name: "Table", mapUrl: "https://example.com/map.png",
     lights: [], mirrors: [], presets: [], updatedAt: Date.now(), dmLastSeen: Date.now(),
