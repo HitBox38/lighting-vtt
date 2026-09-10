@@ -21,7 +21,6 @@ export function LegalPage({ document: documentType }: { document: keyof typeof l
 
   return (
     <div className={publicPageStyles}>
-      <title>{`${policy.title} | Lighting VTT`}</title>
       <a href="#legal-main" className="fixed top-2 left-2 z-100 -translate-y-[150%] bg-(--lp-text) p-3 text-(--lp-bg) focus:translate-y-0">Skip to content</a>
       <header className="border-b border-(--lp-line)">
         <div className={cn(publicContainerStyles, "flex min-h-[86px] items-center justify-between gap-4 max-[760px]:min-h-[74px] max-[760px]:flex-wrap max-[760px]:gap-2 max-[760px]:py-3")}>

@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 export function NotFoundPage() {
   return (
     <div className={cn(publicPageStyles, "flex min-h-dvh flex-col")}>
-      <title>Page not found | Lighting VTT</title>
       <meta name="robots" content="noindex" />
       <a href="#not-found-main" className="fixed top-2 left-2 z-100 -translate-y-[150%] bg-(--lp-text) p-3 text-(--lp-bg) focus:translate-y-0">Skip to content</a>
       <header className="border-b border-(--lp-line)">

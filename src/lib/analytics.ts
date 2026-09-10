@@ -1,4 +1,5 @@
 import posthog from "posthog-js";
+import { useCookieConsentStore } from "@/stores/cookieConsentStore";
 
 type EventProperties = Record<string, string | number | boolean | null | undefined>;
 
@@ -76,14 +77,14 @@ const isPostHogLoaded = () => {
 };
 
 export const capture = (event: AnalyticsEventName, properties?: EventProperties) => {
-  if (!isPostHogLoaded()) {
+  if (useCookieConsentStore.getState().consent !== "accepted" || !isPostHogLoaded()) {
     return;
   }
   posthog.capture(event, properties);
 };
 
 export const setSceneEntrySource = (source: SceneEntrySource) => {
-  if (typeof window === "undefined") {
+  if (typeof window === "undefined" || useCookieConsentStore.getState().consent !== "accepted") {
     return;
   }
   window.sessionStorage.setItem(SCENE_ENTRY_SOURCE_KEY, source);

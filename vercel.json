@@ -2,7 +2,42 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "bunx bun@1.4.2 install --frozen-lockfile",
   "buildCommand": "bunx --bun convex deploy --cmd 'bun run build' --cmd-url-env-var-name VITE_CONVEX_URL",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "upgrade-insecure-requests"
+        }
+      ]
+    }
+  ],
   "rewrites": [
+    {
+      "source": "/effects",
+      "destination": "/effects/index.html"
+    },
+    {
+      "source": "/effects/",
+      "destination": "/effects/index.html"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/privacy/index.html"
+    },
+    {
+      "source": "/privacy/",
+      "destination": "/privacy/index.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/terms/index.html"
+    },
+    {
+      "source": "/terms/",
+      "destination": "/terms/index.html"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
