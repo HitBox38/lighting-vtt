@@ -527,6 +527,7 @@ export function EffectDetail({
                 effect.source.effectId,
                 effect.source.version,
                 returnTo ?? undefined,
+                `/effects?${searchParams.toString()}`,
               )}
             >
               source version {effect.source.version}
