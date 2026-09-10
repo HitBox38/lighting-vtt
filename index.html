@@ -9,6 +9,20 @@
       content="Bring your battlemap to life with dynamic lighting, custom effects, and a dedicated player view for your TV table. Lighting VTT runs in your browser."
     />
     <meta name="theme-color" content="#1c1917" />
+    <script>
+      // Discover the landing LCP image before React, without downloading it on
+      // scene/editor routes. Keep these candidates in sync with ProductShowcase.
+      if (window.location.pathname === "/") {
+        const showcase = document.createElement("link");
+        showcase.rel = "preload";
+        showcase.as = "image";
+        showcase.href = "/landing/temple-player-1600.webp";
+        showcase.imageSrcset = "/landing/temple-player-800.webp 800w, /landing/temple-player-1600.webp 1600w";
+        showcase.imageSizes = "(max-width: 760px) calc(100vw - 32px), (max-width: 1280px) calc(100vw - 80px), 1200px";
+        showcase.fetchPriority = "high";
+        document.head.appendChild(showcase);
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
