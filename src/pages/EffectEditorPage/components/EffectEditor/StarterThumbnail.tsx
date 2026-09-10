@@ -47,7 +47,7 @@ export function StarterThumbnail({
     };
   }, [ready, src, definition.name]);
   if (src)
-    return <img src={src} alt="" className="h-full w-full object-cover" />;
+    return <img src={src} alt={`Preview of ${definition.name} effect`} className="h-full w-full object-cover" />;
   if (failed)
     return (
       <div className="workshop-stage flex h-full items-center justify-center gap-2 text-xs text-muted-foreground">

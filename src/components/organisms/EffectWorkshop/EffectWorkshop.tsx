@@ -115,7 +115,7 @@ function CatalogResults({
               {effect.thumbnailUrl ? (
                 <img
                   src={effect.thumbnailUrl}
-                  alt=""
+                  alt={`Preview of ${effect.name} effect`}
                   width={320}
                   height={180}
                   loading="lazy"

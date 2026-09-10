@@ -31,7 +31,7 @@ export function SceneList({ scenes }: SceneListProps) {
           <div className="h-12 w-20 shrink-0 overflow-hidden rounded-md bg-muted">
             <img
               src={scene.mapUrl}
-              alt={scene.name}
+              alt={`Map for ${scene.name}`}
               className="h-full w-full object-cover"
               loading="lazy"
             />
