@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { versionDocToDefinition } from "@/lib/effects/hooks/useEffectDefinitions";
 import {
   EFFECT_LIBRARY_PATH,
+  effectEditorPath,
   RETURN_TO_PARAM,
   sanitizeReturnTo,
 } from "@/lib/effects/routes";
@@ -69,6 +70,7 @@ export function EffectEditorPage() {
   const { user } = useUser();
 
   const returnTo = sanitizeReturnTo(searchParams.get(RETURN_TO_PARAM));
+  const browseFrom = sanitizeReturnTo(searchParams.get("browseFrom"));
   const requestedVersion = parseVersion(searchParams.get("version"));
   const isNew = effectId === undefined;
 
@@ -104,8 +106,8 @@ export function EffectEditorPage() {
 
   const backToLibrary = (
     <Button asChild variant="outline" size="sm">
-      <Link to={returnTo ?? EFFECT_LIBRARY_PATH}>
-        {returnTo ? "Back to scene" : "Back to library"}
+      <Link to={browseFrom ?? returnTo ?? EFFECT_LIBRARY_PATH}>
+        {!browseFrom && returnTo ? "Back to scene" : "Back to library"}
       </Link>
     </Button>
   );
@@ -147,7 +149,16 @@ export function EffectEditorPage() {
             action={
               <>
                 <Button asChild size="sm">
-                  <Link to={`/effects/${effect._id}`}>Open latest</Link>
+                  <Link
+                    to={effectEditorPath(
+                      effect._id,
+                      undefined,
+                      returnTo ?? undefined,
+                      browseFrom ?? undefined,
+                    )}
+                  >
+                    Open latest
+                  </Link>
                 </Button>
                 {backToLibrary}
               </>

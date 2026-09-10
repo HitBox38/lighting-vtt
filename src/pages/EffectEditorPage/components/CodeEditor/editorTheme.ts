@@ -10,7 +10,7 @@ function workshopTheme(dark: boolean) {
         muted: "#a79a87",
         border: "#443c31",
         active: "#2b261f",
-        selection: "#695033",
+        selection: "#363027",
         amber: "#f0bb70",
         popup: "#2c2720",
         keyword: "#e2b0bd",
@@ -23,10 +23,10 @@ function workshopTheme(dark: boolean) {
     : {
         background: "#faf7f0",
         text: "#342d24",
-        muted: "#786b59",
+        muted: "#685b49",
         border: "#d9cebc",
         active: "#f0e9dc",
-        selection: "#e8d1aa",
+        selection: "#efe0c9",
         amber: "#86520c",
         popup: "#fffcf6",
         keyword: "#8c4161",
@@ -62,7 +62,10 @@ function workshopTheme(dark: boolean) {
         ".cm-gutterElement": { paddingLeft: "10px" },
         ".cm-activeLine, .cm-activeLineGutter": { backgroundColor: c.active },
         ".cm-cursor, .cm-dropCursor": { borderLeftColor: c.amber },
-        "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection":
+        // Match the focused selection layer specificity in CodeMirror's base theme.
+        "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground":
+          { backgroundColor: c.selection },
+        ".cm-selectionBackground, .cm-content ::selection":
           { backgroundColor: c.selection },
         ".cm-selectionMatch": {
           backgroundColor: c.active,

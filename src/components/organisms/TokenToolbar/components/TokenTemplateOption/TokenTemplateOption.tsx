@@ -39,7 +39,7 @@ export function TokenTemplateOption({
         onClick={selectOption}>
         <img
           src={option.imageUrl}
-          alt={option.name}
+          alt={`${option.name} token`}
           className="size-8 rounded-full object-cover"
           style={{ border: `2px solid ${option.borderColor ?? "#ffffff"}` }}
         />

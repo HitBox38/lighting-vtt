@@ -3,7 +3,7 @@ import { Show, SignUpButton } from "@clerk/react";
 import { usePostHog } from "@posthog/react";
 import { ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
 
 export function LandingAction({
@@ -21,7 +21,14 @@ export function LandingAction({
       : "min-h-12 px-[22px] has-[>svg]:px-[22px]",
   );
   return (
-    <>
+    <span className={cn("inline-grid shrink-0 [&>*]:col-start-1 [&>*]:row-start-1", placement === "header" && "w-[126px] max-[760px]:w-[100px] max-[480px]:hidden")}>
+      <span
+        aria-hidden="true"
+        className={cn(buttonVariants({ size: placement === "header" ? "default" : "lg" }), className, "invisible")}
+      >
+        {placement === "header" ? "Get started" : "Create your first scene"}
+        <ArrowUpRight />
+      </span>
       <Show when="signed-out">
         <SignUpButton mode="modal" forceRedirectUrl="/library">
           <Button
@@ -41,11 +48,11 @@ export function LandingAction({
           asChild
         >
           <Link to="/library" onClick={() => track("open_library")}>
-            Open your library
+            {placement === "header" ? "Your library" : "Open your library"}
             <ArrowUpRight aria-hidden="true" />
           </Link>
         </Button>
       </Show>
-    </>
+    </span>
   );
 }

@@ -53,7 +53,7 @@ export function TokenAssignment({
           ))}
         </div>
       ) : (
-        <p className="text-[11px] text-muted-foreground/70 italic">No tokens assigned</p>
+        <p className="text-[11px] text-muted-foreground italic">No tokens assigned</p>
       )}
       {unassignedTokens.length > 0 ? (
         <div className="mt-3 animate-in fade-in-0 duration-200">

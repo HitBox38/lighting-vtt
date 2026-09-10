@@ -878,7 +878,7 @@ export function EffectEditor({
               className={cn(
                 "mt-0.5 block",
                 recoveryStatus === "unavailable" &&
-                  "text-amber-600 dark:text-amber-400",
+                  "text-warning",
               )}
             >
               {recoveryStatus === "saved"
@@ -967,7 +967,7 @@ export function EffectEditor({
             {dirty ? " · Unsaved" : ""}
           </span>
           <span
-            className={recoveryStatus === "unavailable" ? "text-amber-500" : ""}
+            className={recoveryStatus === "unavailable" ? "text-warning" : ""}
           >
             {recoveryStatus === "saved"
               ? "Draft backed up locally"

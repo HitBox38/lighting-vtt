@@ -32,7 +32,7 @@ export function SceneGrid({ scenes }: SceneGridProps) {
           <div className="relative aspect-video overflow-hidden bg-muted">
             <img
               src={scene.mapUrl}
-              alt={scene.name}
+              alt={`Map for ${scene.name}`}
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
               loading="lazy"
             />

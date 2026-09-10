@@ -67,7 +67,7 @@ export function EffectCard({ effect, selected, mine, onSelect }: Props) {
         <img
           src={thumbnailUrl}
           onError={() => setFailedUrl(thumbnailUrl)}
-          alt=""
+          alt={`Preview of ${effect.name} effect`}
           width={320}
           height={180}
           loading="lazy"

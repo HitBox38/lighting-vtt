@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /library
+Disallow: /scene
+Disallow: /join/
+Disallow: /effects/
+
+Sitemap: https://lighting-vtt.xyz/sitemap.xml

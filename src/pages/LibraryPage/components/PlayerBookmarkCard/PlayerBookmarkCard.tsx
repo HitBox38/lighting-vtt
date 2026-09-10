@@ -38,7 +38,7 @@ export function PlayerBookmarkCard({
             <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1 text-xs text-muted-foreground">
               <Crown className="size-3" />
               <span className="truncate">{characterName}</span>
-              <span className="min-w-0 max-w-full truncate text-muted-foreground/60">({playerName})</span>
+              <span className="min-w-0 max-w-full truncate text-muted-foreground">({playerName})</span>
             </p>
           </div>
           {dmOnline ? (
