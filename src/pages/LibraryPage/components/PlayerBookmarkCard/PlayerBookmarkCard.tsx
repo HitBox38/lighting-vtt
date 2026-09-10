@@ -30,7 +30,7 @@ export function PlayerBookmarkCard({
   const navigate = useNavigate();
 
   return (
-    <Card className="group relative gap-0 overflow-hidden border border-border/50 p-0">
+    <Card data-analytics-private className="group relative gap-0 overflow-hidden border border-border/50 p-0">
       <div className="space-y-2 p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">

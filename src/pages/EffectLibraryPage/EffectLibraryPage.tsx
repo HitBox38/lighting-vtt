@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   useUser,
@@ -7,7 +6,8 @@ import {
   SignInButton,
 } from "@clerk/react";
 import { useConvexAuth, usePaginatedQuery, useQuery } from "convex/react";
-import { usePostHog } from "@posthog/react";
+import { useAnalyticsView } from "@/lib/hooks/useAnalyticsView";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { ArrowLeft, Plus, Sparkles } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,6 @@ export function EffectLibraryPage() {
   const [params, setParams] = useSearchParams();
   const { user } = useUser();
   const { isAuthenticated } = useConvexAuth();
-  const posthog = usePostHog();
   const returnTo = sanitizeReturnTo(params.get(RETURN_TO_PARAM));
   const selected = params.get("effect");
   const tab = params.get("tab") ?? "public";
@@ -59,9 +58,7 @@ export function EffectLibraryPage() {
       },
       { replace },
     );
-  useEffect(() => {
-    posthog.capture("effect_library_viewed", { from_scene: Boolean(returnTo) });
-  }, [posthog, returnTo]);
+  useAnalyticsView(ANALYTICS_EVENTS.EffectLibraryViewed, "effect-library", { from_scene: Boolean(returnTo) });
   const basics = BASICS.filter((item) =>
     catalogName(item).toLowerCase().includes(search.toLowerCase()),
   );

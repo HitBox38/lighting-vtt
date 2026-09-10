@@ -32,7 +32,7 @@ function kindBadge(kind: Doc<"effects">["kind"]) {
   switch (kind) {
     case "shader":
       return (
-        <Badge variant="outline" className="text-[10px]">
+        <Badge variant="outline" data-analytics-private className="text-[10px]">
           Shader
         </Badge>
       );

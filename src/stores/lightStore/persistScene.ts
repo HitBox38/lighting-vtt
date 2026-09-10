@@ -1,20 +1,25 @@
+import { analyticsOperationGuard } from "@/lib/analyticsOperation";
+import { getAnalyticsContext } from "@/lib/analyticsContext";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { LightPreset } from "@shared/index";
 
-import { ANALYTICS_EVENTS, capture } from "@/lib/analytics";
+import { ANALYTICS_EVENTS, capture, errorCategory, toCountBucket } from "@/lib/analytics";
 import { convexClient } from "@/lib/convex";
 import { computeStateHash } from "@/stores/lightStore/helpers";
 import type { LightStoreApi, TokenStoreApi } from "@/stores/lightStore/types";
 
-export const persistPreset = (sceneId: string, creatorId: string, preset: LightPreset): void => {
+export const persistPreset = (sceneId: string, creatorId: string, preset: LightPreset, operation: "new" | "update", count: number): void => {
+  const measurable = analyticsOperationGuard();
   convexClient
     .mutation(api.scenes.savePreset, {
       id: sceneId as Id<"scenes">,
       creatorId,
       preset,
     })
+    .then(() => measurable() && capture(operation === "new" ? ANALYTICS_EVENTS.PresetSavedNew : ANALYTICS_EVENTS.PresetUpdatedCurrent, { scene_id: sceneId, role: "gm", preset_count_bucket: toCountBucket(count) }))
     .catch((error) => {
+      if (measurable()) capture(ANALYTICS_EVENTS.PresetMutationFailed, { scene_id: sceneId, role: "gm", operation, error_category: errorCategory(error) });
       console.error("Failed to persist preset:", error);
     });
 };
@@ -24,13 +29,16 @@ export const removePersistedPreset = (
   creatorId: string,
   presetId: string,
 ): void => {
+  const measurable = analyticsOperationGuard();
   convexClient
     .mutation(api.scenes.deletePreset, {
       id: sceneId as Id<"scenes">,
       creatorId,
       presetId,
     })
+    .then(() => measurable() && capture(ANALYTICS_EVENTS.PresetDeleted, { scene_id: sceneId, role: "gm" }))
     .catch((error) => {
+      if (measurable()) capture(ANALYTICS_EVENTS.PresetMutationFailed, { scene_id: sceneId, role: "gm", operation: "delete", error_category: errorCategory(error) });
       console.error("Failed to delete preset:", error);
     });
 };
@@ -42,6 +50,10 @@ export const createScenePersister = (lightStore: LightStoreApi, tokenStore: Toke
   let persistTimer: ReturnType<typeof setTimeout> | null = null;
   let savedDisplayTimer: ReturnType<typeof setTimeout> | null = null;
   let lastPersistedHash: string | null = null;
+  let lastScene: string | null = null;
+  let lastVisit: string | number | boolean | null | undefined;
+  let trackedEdit = false;
+  let failed = false;
 
   return () => {
     const state = lightStore.getState();
@@ -54,9 +66,12 @@ export const createScenePersister = (lightStore: LightStoreApi, tokenStore: Toke
     }
 
     const { sceneId, creatorId } = state;
+    const context = getAnalyticsContext();
+    if (lastScene !== sceneId || lastVisit !== context.scene_visit_id) { lastScene = sceneId; lastVisit = context.scene_visit_id; lastPersistedHash = null; trackedEdit = false; failed = false; }
 
     persistTimer = setTimeout(() => {
       const current = lightStore.getState();
+      if (current.sceneId !== sceneId || getAnalyticsContext().scene_visit_id !== context.scene_visit_id) return;
       const currentTokens = tokenStore.getState();
       const currentHash = computeStateHash(
         current.lights,
@@ -76,6 +91,7 @@ export const createScenePersister = (lightStore: LightStoreApi, tokenStore: Toke
 
       lightStore.setState({ saveStatus: "saving" });
 
+      const measurableSave = analyticsOperationGuard();
       convexClient
         .mutation(api.scenes.update, {
           id: sceneId as Id<"scenes">,
@@ -87,6 +103,10 @@ export const createScenePersister = (lightStore: LightStoreApi, tokenStore: Toke
           tokens: currentTokens.tokens,
         })
         .then(() => {
+          if (lightStore.getState().sceneId !== sceneId || getAnalyticsContext().scene_visit_id !== context.scene_visit_id) return;
+          if (measurableSave() && !trackedEdit) trackedEdit = capture(ANALYTICS_EVENTS.SceneEditPersisted, { ...context, scene_id: sceneId, role: "gm" });
+          if (measurableSave() && failed) capture(ANALYTICS_EVENTS.SceneAutosaveRecovered, { ...context, scene_id: sceneId, role: "gm" });
+          failed = false;
           lastPersistedHash = currentHash;
           lightStore.setState({ saveStatus: "saved" });
 
@@ -99,7 +119,9 @@ export const createScenePersister = (lightStore: LightStoreApi, tokenStore: Toke
         })
         .catch((error) => {
           console.error("Auto-save failed:", error);
-          capture(ANALYTICS_EVENTS.SceneAutosaveFailed);
+          if (lightStore.getState().sceneId !== sceneId || getAnalyticsContext().scene_visit_id !== context.scene_visit_id) return;
+          if (measurableSave() && !failed) capture(ANALYTICS_EVENTS.SceneAutosaveFailed, { ...context, scene_id: sceneId, role: "gm", error_category: errorCategory(error) });
+          failed = true;
           lightStore.setState({ saveStatus: "error" });
         });
     }, DEBOUNCE_DELAY);

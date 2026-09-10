@@ -1,3 +1,4 @@
+import { FeedbackButton } from "@/components/atoms/FeedbackButton";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Sparkles, Users, MoreHorizontal, ArrowLeft } from "lucide-react";
@@ -98,6 +99,7 @@ export function GameCanvasHud({ sceneId }: { sceneId?: string | null }) {
           <div className="hidden 2xl:flex items-center gap-2">
             <PlayerViewToolbar />
             {sceneId ? <PlayersSheet sceneId={sceneId} /> : null}
+            <FeedbackButton surface="dm_controls" />
             <UserToolbar />
           </div>
           <Popover>
@@ -115,6 +117,7 @@ export function GameCanvasHud({ sceneId }: { sceneId?: string | null }) {
               <p className="workshop-eyebrow">Session controls</p>
               <PlayerViewToolbar />
               {sceneId ? <PlayersSheet sceneId={sceneId} /> : null}
+              <FeedbackButton surface="dm_controls" />
               <UserToolbar />
             </PopoverContent>
           </Popover>

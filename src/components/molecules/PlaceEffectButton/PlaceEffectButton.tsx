@@ -1,3 +1,5 @@
+import { createPlacementAttempt, placementProperties } from "@/lib/placementAnalytics";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useUser, SignInButton } from "@clerk/react";
@@ -32,11 +34,9 @@ export function PlaceEffectButton({
     open && user && isAuthenticated ? { creatorId: user.id } : "skip",
   );
   const place = (path: string) => {
-    posthog.capture("effect_placement_started", {
-      kind: item.kind,
-      source: "gallery",
-    });
-    navigate(placementPath(path, item));
+    const attempt = createPlacementAttempt("gallery", new URL(path, window.location.origin).searchParams.get("id") ?? undefined);
+    if (attempt) posthog.capture(ANALYTICS_EVENTS.EffectPlacementStarted, placementProperties(item, attempt));
+    navigate(placementPath(path, item, attempt));
   };
   return (
     <>

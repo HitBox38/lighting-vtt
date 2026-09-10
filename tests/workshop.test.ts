@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import {
   BASICS,
   addRecent,
@@ -185,4 +185,60 @@ test("curated starters satisfy authoring contracts and tuned values coerce to th
     coerceParamValues(params, { speed: 7, color: "#123456", undeclared: 99 }),
   ).toEqual({ speed: 7, color: "#123456" });
   expect(coerceParamValues(params, { speed: 99 }).speed).toBe(10);
+});
+
+
+test("placement outcomes match attempts through replacement, failure, retry and consent withdrawal", async () => {
+  const { default: posthog } = await import("posthog-js");
+  const { useCookieConsentStore } = await import("../src/stores/cookieConsentStore");
+  const oldWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const oldKey = process.env.VITE_PUBLIC_POSTHOG_KEY;
+  const oldConsent = useCookieConsentStore.getState().consent;
+  const oldLoaded = posthog.__loaded;
+  Object.defineProperty(globalThis, "window", { configurable: true, value: { location: new URL("https://lighting-vtt.xyz/scene?id=scene-a") } });
+  process.env.VITE_PUBLIC_POSTHOG_KEY = "phc_test_only";
+  posthog.__loaded = true;
+  const captured = spyOn(posthog, "capture").mockImplementation((event, properties) => ({ event, properties: properties ?? {}, uuid: "test" }));
+  try {
+    useCookieConsentStore.setState({ consent: "accepted" });
+    const store = useWorkshopStore.getState;
+    store().begin(BASICS[0], "gallery", null);
+    expect(captured).not.toHaveBeenCalled();
+    expect(store().attempt).toBeNull();
+    store().retry();
+    expect(store().attempt).not.toBeNull();
+    store().cancel();
+    captured.mockClear();
+    store().begin(BASICS[0]);
+    const first = store().attempt!.attempt_id;
+    store().begin(BASICS[1]);
+    const second = store().attempt!.attempt_id;
+    store().fail("unavailable");
+    store().fail("unavailable");
+    store().retry();
+    const retry = store().attempt!.attempt_id;
+    store().complete(BASICS[1], { kind: "light", id: "placed" });
+    const outcomes = captured.mock.calls.filter(([name]) => /effect_placement_(completed|failed|cancelled)/.test(name));
+    expect(outcomes.map(([name, props]) => [name, props?.attempt_id])).toEqual([
+      ["effect_placement_cancelled", first], ["effect_placement_failed", second], ["effect_placement_completed", retry],
+    ]);
+    expect(new Set([first, second, retry]).size).toBe(3);
+    expect(outcomes[2][1]).toMatchObject({ kind: "light", source: "palette", role: "gm", first_in_scene: true });
+    expect(outcomes[2][1]).not.toHaveProperty("x");
+    expect(outcomes[2][1]).not.toHaveProperty("name");
+    store().begin(BASICS[0]);
+    useCookieConsentStore.setState({ consent: "rejected" });
+    useCookieConsentStore.setState({ consent: "accepted" });
+    store().cancel();
+    expect(captured.mock.calls.filter(([name]) => name === "effect_placement_cancelled")).toHaveLength(1);
+  } finally {
+    captured.mockRestore();
+    posthog.__loaded = oldLoaded;
+    useCookieConsentStore.setState({ consent: oldConsent });
+    if (oldWindow) Object.defineProperty(globalThis, "window", oldWindow);
+    else Reflect.deleteProperty(globalThis, "window");
+    if (oldKey === undefined) delete process.env.VITE_PUBLIC_POSTHOG_KEY;
+    else process.env.VITE_PUBLIC_POSTHOG_KEY = oldKey;
+    useWorkshopStore.setState({ pending: null, attempt: null });
+  }
 });

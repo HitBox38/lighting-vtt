@@ -10,6 +10,7 @@ import { EFFECT_EDITOR_NEW_PATH, EFFECT_EDITOR_ROUTE_PATTERN, EFFECT_LIBRARY_PAT
 import { CookieConsent } from "@/components/organisms/CookieConsent/CookieConsent";
 import { useCookieConsentStore } from "@/stores/cookieConsentStore";
 
+import { analyticsEnabled, analyticsNavigationKey } from "@/lib/analyticsContext";
 let lastTrackedPath: string | null = null;
 const ScenePage = lazy(() => import("@/pages/ScenePage").then((module) => ({ default: module.ScenePage })));
 const LibraryPage = lazy(() => import("@/pages/LibraryPage").then((module) => ({ default: module.LibraryPage })));
@@ -24,17 +25,18 @@ function PostHogPageviews() {
   const consent = useCookieConsentStore((state) => state.consent);
 
   useEffect(() => {
-    if (consent !== "accepted") {
+    if (consent !== "accepted" || !analyticsEnabled()) {
       lastTrackedPath = null;
       return;
     }
     const query = location.search ?? "";
     const hash = location.hash ?? "";
     const path = `${location.pathname}${query}${hash}`;
-    if (path === lastTrackedPath) {
+    const key = analyticsNavigationKey(new URL(path, window.location.origin));
+    if (key === lastTrackedPath) {
       return;
     }
-    lastTrackedPath = path;
+    lastTrackedPath = key;
     posthog.capture("$pageview", { $current_url: path });
   }, [location.pathname, location.search, location.hash, posthog, consent]);
 

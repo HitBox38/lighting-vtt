@@ -1,3 +1,4 @@
+import { FeedbackButton } from "@/components/atoms/FeedbackButton";
 import { Link } from "react-router-dom";
 import { AppSettingsDialog } from "@/components/organisms/AppSettingsDialog";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ export const LibraryHeader = () => (
       </div>
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
         <nav aria-label="Library navigation" className="flex gap-1"><Button asChild size="sm" variant="secondary"><Link to="/library" aria-current="page">Scenes</Link></Button><Button asChild size="sm" variant="ghost"><Link to="/effects">Effects</Link></Button></nav>
+        <FeedbackButton surface="scene_library" />
         <AppSettingsDialog mobileFriendly />
         <Show when="signed-in">
           <UserButton />

@@ -14,7 +14,7 @@ interface RemotePlayerHudProps {
 export function RemotePlayerHud({ playerInfo, dmOnline }: RemotePlayerHudProps) {
   if (!playerInfo) {
     return (
-      <div className="pointer-events-none absolute inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-20 flex justify-center px-3">
+      <div data-analytics-private className="pointer-events-none absolute inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-20 flex justify-center px-3">
         <HudSurface className="pointer-events-auto items-center text-sm text-muted-foreground">
           Connecting...
         </HudSurface>
@@ -23,7 +23,7 @@ export function RemotePlayerHud({ playerInfo, dmOnline }: RemotePlayerHudProps) 
   }
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-20 flex justify-center px-3">
+    <div data-analytics-private className="pointer-events-none absolute inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-20 flex justify-center px-3">
       <HudSurface className="pointer-events-auto max-w-full flex-wrap justify-center gap-x-3 gap-y-2 sm:items-center">
         <div className="flex min-w-0 max-w-full flex-wrap items-center justify-center gap-x-1.5 text-sm">
           <Crown className="size-3.5 shrink-0 text-primary" />

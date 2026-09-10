@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Assets, Texture as PixiTexture } from "pixi.js";
 
 export function useMapTexture(mapUrl: string) {
-  const [mapTexture, setMapTexture] = useState<PixiTexture | null>(null);
+  const [result, setResult] = useState<{ url: string; texture: PixiTexture | null; failed: boolean } | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -16,9 +16,10 @@ export function useMapTexture(mapUrl: string) {
           parser: isBlob || isUploadThing ? "loadTextures" : undefined,
         });
         if (isMounted) {
-          setMapTexture(texture);
+          setResult({ url: mapUrl, texture, failed: false });
         }
       } catch (error) {
+        if (isMounted) setResult({ url: mapUrl, texture: null, failed: true });
         console.error("Failed to load texture:", error);
       }
     };
@@ -30,5 +31,5 @@ export function useMapTexture(mapUrl: string) {
     };
   }, [mapUrl]);
 
-  return mapTexture;
+  return { mapTexture: result?.url === mapUrl ? result.texture : null, mapFailed: result?.url === mapUrl && result.failed };
 }

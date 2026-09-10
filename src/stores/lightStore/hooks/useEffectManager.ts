@@ -16,7 +16,7 @@ import {
 export type { EffectInstance, EffectInstanceUpdate };
 
 export type PlaceEffectResult =
-  | { ok: true; instanceId: string }
+  | { ok: true; instanceId: string; effectKind: string }
   | { ok: false; reason: "not-found" | "limit-reached" | "cancelled" };
 
 export type ChangeVersionResult =
@@ -61,7 +61,7 @@ export function useEffectManager() {
       if (instanceId === null) {
         return { ok: false, reason: "limit-reached" };
       }
-      return { ok: true, instanceId };
+      return { ok: true, instanceId, effectKind: definition.kind };
     },
     [addEffect],
   );
