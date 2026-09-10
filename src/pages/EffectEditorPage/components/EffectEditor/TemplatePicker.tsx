@@ -43,7 +43,7 @@ export function TemplatePicker({
         onOpenChange(value);
       }}
     >
-      <DialogContent className="workshop-studio max-h-[90dvh] overflow-y-auto p-5 sm:max-w-3xl sm:p-7">
+      <DialogContent className="mobile-page workshop-studio max-h-[90dvh] overflow-y-auto p-5 sm:max-w-3xl sm:p-7">
         <DialogHeader className="text-left">
           <p className="workshop-eyebrow">The effect workshop</p>
           <DialogTitle className="text-2xl">
@@ -58,12 +58,12 @@ export function TemplatePicker({
           </DialogDescription>
         </DialogHeader>
         <div className={pending ? "hidden" : "contents"}>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2">
             {EFFECT_STARTERS.map((template) => (
               <button
                 key={template.name}
                 type="button"
-                className="group flex flex-col overflow-hidden rounded-xl border bg-card text-left transition-colors hover:border-amber-500/70 focus-visible:outline-2 focus-visible:outline-amber-500"
+                className="group flex min-w-0 flex-col overflow-hidden rounded-xl border bg-card text-left transition-colors hover:border-amber-500/70 focus-visible:outline-2 focus-visible:outline-amber-500"
                 title={template.description}
                 onClick={() =>
                   choose(draftFromDefinition(template), template.name)
@@ -78,7 +78,7 @@ export function TemplatePicker({
                     {template.kind}
                   </span>
                 </div>
-                <div className="w-full space-y-1 p-3">
+                <div className="w-full min-w-0 space-y-1 p-3">
                   <div className="flex items-center justify-between gap-1 font-medium">
                     {template.name}
                     <ArrowUpRight className="size-4 shrink-0 text-muted-foreground group-hover:text-amber-500" />
@@ -117,7 +117,7 @@ export function TemplatePicker({
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   variant="outline"

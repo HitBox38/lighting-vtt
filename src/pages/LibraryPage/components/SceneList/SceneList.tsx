@@ -18,7 +18,7 @@ export function SceneList({ scenes }: SceneListProps) {
   const openScene = (sceneId: string) => openLibraryScene(navigate, sceneId);
 
   return (
-    <div className="divide-y divide-border/50 overflow-hidden rounded-lg border border-border/50">
+    <div data-analytics-private className="divide-y divide-border/50 overflow-hidden rounded-lg border border-border/50">
       {scenes.map((scene, index) => (
         <div
           key={scene._id}
@@ -26,12 +26,12 @@ export function SceneList({ scenes }: SceneListProps) {
           tabIndex={0}
           onClick={() => openScene(scene._id)}
           onKeyDown={(event) => handleActivateKey(event, () => openScene(scene._id))}
-          className="flex cursor-pointer items-center gap-4 px-4 py-3 animate-fade-slide-up transition-colors hover:bg-muted/50"
+          className="grid grid-cols-[4rem_minmax(0,1fr)] cursor-pointer items-center gap-x-3 gap-y-2 px-3 py-3 sm:flex sm:gap-4 sm:px-4 animate-fade-slide-up transition-colors hover:bg-muted/50"
           style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}>
-          <div className="h-12 w-20 shrink-0 overflow-hidden rounded-md bg-muted">
+          <div className="row-span-2 h-12 w-16 shrink-0 sm:w-20 overflow-hidden rounded-md bg-muted">
             <img
               src={scene.mapUrl}
-              alt={scene.name}
+              alt={`Map for ${scene.name}`}
               className="h-full w-full object-cover"
               loading="lazy"
             />
@@ -39,7 +39,7 @@ export function SceneList({ scenes }: SceneListProps) {
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-sm font-medium">{scene.name}</h3>
           </div>
-          <div className="flex shrink-0 items-center gap-5 text-xs text-muted-foreground">
+          <div className="col-start-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:shrink-0 sm:gap-5 text-muted-foreground">
             <span
               className="inline-flex items-center gap-1.5"
               title={countLabel(scene.lights.length, "light")}>
@@ -53,7 +53,7 @@ export function SceneList({ scenes }: SceneListProps) {
               {scene.presets.length}
             </span>
             <span
-              className="inline-flex w-20 items-center justify-end gap-1.5 tabular-nums"
+              className="inline-flex items-center sm:w-20 sm:justify-end gap-1.5 tabular-nums"
               title={new Date(scene.updatedAt).toLocaleString()}>
               <Clock className="h-3.5 w-3.5" />
               {formatRelativeTime(scene.updatedAt)}

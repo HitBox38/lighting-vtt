@@ -21,8 +21,8 @@ const statusContent = (status: Exclude<SaveStatus, "idle">) => {
     case "saved":
       return (
         <>
-          <CheckCircle2 className="h-4 w-4 text-green-500" />
-          <span className="text-green-500">Saved</span>
+          <CheckCircle2 className="h-4 w-4 text-success" />
+          <span className="text-success">Saved</span>
         </>
       );
     case "error":
@@ -48,7 +48,7 @@ export function SaveStatusIndicator({ status, className }: SaveStatusIndicatorPr
     <div
       role="status"
       aria-live="polite"
-      className={cn(HUD_SURFACE_CLASSNAME, "items-center gap-1.5 px-3 py-1.5 text-sm", className)}>
+      className={cn(HUD_SURFACE_CLASSNAME, "items-center gap-1.5 bg-background supports-[backdrop-filter]:bg-background px-3 py-1.5 text-sm", className)}>
       {statusContent(status)}
     </div>
   );

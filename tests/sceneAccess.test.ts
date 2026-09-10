@@ -1,3 +1,4 @@
+import { registerRateLimiter } from "./helpers/rateLimiter";
 import { expect, test } from "bun:test";
 import { convexTest } from "convex-test";
 import schema from "../convex/schema";
@@ -13,6 +14,7 @@ const modules = {
 
 async function setup() {
   const t = convexTest(schema, modules);
+  await registerRateLimiter(t);
   const owner = t.withIdentity({ subject: "dm" });
   const member = t.withIdentity({ subject: "member" });
   const outsider = t.withIdentity({ subject: "outsider" });

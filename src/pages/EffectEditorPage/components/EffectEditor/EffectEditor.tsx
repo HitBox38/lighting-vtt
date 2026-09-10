@@ -1,3 +1,7 @@
+import { analyticsOperationGuard } from "@/lib/analyticsOperation";
+import { FeedbackButton } from "@/components/atoms/FeedbackButton";
+import { useAnalyticsView } from "@/lib/hooks/useAnalyticsView";
+import { errorCategory } from "@/lib/analytics";
 import {
   useCallback,
   useEffect,
@@ -348,20 +352,10 @@ export function EffectEditor({
   // ---------------------------------------------------------------------------
   // Analytics + unsaved-changes guard
   // ---------------------------------------------------------------------------
-  useEffect(() => {
-    posthog.capture(ANALYTICS_EVENTS.EffectEditorOpened, {
-      mode: target.kind === "new" ? "new" : target.isOwner ? "edit" : "fork",
-      effect_id: target.kind === "existing" ? target.effectId : undefined,
-      version: target.kind === "existing" ? target.version : undefined,
-    });
-    if (target.kind === "existing" && !target.isOwner)
-      posthog.capture("effect_remix_started", {
-        effect_id: target.effectId,
-        version: target.version,
-      });
-    // Fire once per mount; the target is fixed for the component's lifetime (the page keys on it).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const analyticsMode = target.kind === "new" ? "new" : target.isOwner ? "edit" : "remix";
+  const analyticsTarget = target.kind === "existing" ? target.effectId : "new";
+  useAnalyticsView(ANALYTICS_EVENTS.EffectEditorOpened, analyticsTarget, { mode: analyticsMode, effect_id: analyticsTarget, effect_kind: draft.kind });
+  useAnalyticsView(ANALYTICS_EVENTS.EffectRemixStarted, analyticsTarget, { effect_id: analyticsTarget, effect_kind: draft.kind }, analyticsMode === "remix");
 
   useEffect(() => {
     if (!dirty) return;
@@ -626,6 +620,11 @@ export function EffectEditor({
     saveBlocker = "No changes since the last version.";
 
   const canSave = saveBlocker === null && !saving;
+  const blockerCategory = !signedIn ? "authentication" : issues.size > 0 ? "validation" : hasLintErrors ? "lint" : previewBlocker ? "preview" : saveBlocker ? "unchanged" : "none";
+  useAnalyticsView(ANALYTICS_EVENTS.EffectEditorStatusChanged, `${analyticsTarget}:${compileStatus.kind}:${blockerCategory}:${backend}`,
+    { effect_id: analyticsTarget, effect_kind: draft.kind, mode: analyticsMode, status: compileStatus.kind, blocker: blockerCategory, backend },
+    !["idle", "compiling", "running"].includes(compileStatus.kind));
+
 
   const saveLabel = (() => {
     if (target.kind === "new") return "Save effect";
@@ -641,7 +640,9 @@ export function EffectEditor({
     }
     savingRef.current = true;
     setSaving(true);
-    posthog.capture("effect_save_started", { kind: draft.kind });
+    const measurableSave = analyticsOperationGuard();
+    const saveContext = { attempt_id: crypto.randomUUID(), effect_kind: draft.kind, mode: analyticsMode };
+    posthog.capture(ANALYTICS_EVENTS.EffectSaveStarted, saveContext);
     try {
       let savedDefinition = { ...definition };
       try {
@@ -677,7 +678,8 @@ export function EffectEditor({
         });
         reset(draft);
         toast.success(`Saved ${definition.name} as v${version}`);
-        posthog.capture(ANALYTICS_EVENTS.EffectVersionSaved, {
+        if (measurableSave()) posthog.capture(ANALYTICS_EVENTS.EffectVersionSaved, {
+          ...saveContext,
           effect_id: target.effectId,
           version,
           mode: "edit",
@@ -711,10 +713,11 @@ export function EffectEditor({
             ? `Created ${definition.name}`
             : `Saved a private copy of ${definition.name}`,
         );
-        posthog.capture(ANALYTICS_EVENTS.EffectVersionSaved, {
+        if (measurableSave()) posthog.capture(ANALYTICS_EVENTS.EffectVersionSaved, {
+          ...saveContext,
           effect_id: effectId,
           version,
-          mode: target.kind === "new" ? "new" : "fork",
+          mode: target.kind === "new" ? "new" : "remix",
         });
         navigate(
           effectEditorPath(
@@ -729,7 +732,7 @@ export function EffectEditor({
         );
       }
     } catch (error) {
-      posthog.capture("effect_save_failed", { kind: draft.kind });
+      if (measurableSave()) posthog.capture(ANALYTICS_EVENTS.EffectSaveFailed, { ...saveContext, error_category: errorCategory(error) });
       toast.error(describeMutationError(error, "Could not save the effect"));
     } finally {
       savingRef.current = false;
@@ -786,15 +789,17 @@ export function EffectEditor({
                 window.confirm(
                   "Publish this saved version to the public library? Its source and controls will be available for others to use and remix. Preview compatibility is only verified for this browser.",
                 )
-              )
+              ) {
+                const measurablePublish = analyticsOperationGuard();
+                const context = { attempt_id: crypto.randomUUID(), effect_id: target.effectId, effect_kind: draft.kind };
+                posthog.capture(ANALYTICS_EVENTS.EffectPublishStarted, context);
                 void publishEffect({ effectId: target.effectId })
                   .then(() => {
                     toast.success("Published to the effect library.");
-                    posthog.capture("effect_published", {
-                      effect_id: target.effectId,
-                    });
+                    if (measurablePublish()) posthog.capture(ANALYTICS_EVENTS.EffectPublished, context);
                   })
-                  .catch(() => toast.error("Could not publish. Try again."));
+                  .catch((error) => { if (measurablePublish()) posthog.capture(ANALYTICS_EVENTS.EffectPublishFailed, { ...context, error_category: errorCategory(error) }); toast.error("Could not publish. Try again."); });
+              }
             }}
           >
             Publish
@@ -803,8 +808,9 @@ export function EffectEditor({
       </div>
     ) : null;
   return (
-    <div className="workshop-studio bg-background text-foreground flex h-dvh flex-col">
+    <div className="mobile-page effect-editor workshop-studio bg-background text-foreground flex h-dvh flex-col">
       <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
+        <FeedbackButton surface="effect_editor" />
         <Button
           type="button"
           variant="ghost"
@@ -878,7 +884,7 @@ export function EffectEditor({
               className={cn(
                 "mt-0.5 block",
                 recoveryStatus === "unavailable" &&
-                  "text-amber-600 dark:text-amber-400",
+                  "text-warning",
               )}
             >
               {recoveryStatus === "saved"
@@ -905,7 +911,7 @@ export function EffectEditor({
                   <MoreHorizontal className="size-4" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-auto">
+              <PopoverContent align="end" className="mobile-page w-auto max-w-[calc(100vw-2rem)]">
                 <p className="mb-2 text-xs text-muted-foreground">
                   Saved version actions
                 </p>
@@ -967,7 +973,7 @@ export function EffectEditor({
             {dirty ? " · Unsaved" : ""}
           </span>
           <span
-            className={recoveryStatus === "unavailable" ? "text-amber-500" : ""}
+            className={recoveryStatus === "unavailable" ? "text-warning" : ""}
           >
             {recoveryStatus === "saved"
               ? "Draft backed up locally"
@@ -988,7 +994,7 @@ export function EffectEditor({
           setReferenceContext(null);
           setActiveTab(next.kind === "script" ? next.scriptLanguage : "wgsl");
           setShowTemplates(false);
-          posthog.capture("effect_template_selected", {
+          posthog.capture(ANALYTICS_EVENTS.EffectTemplateSelected, {
             template: name,
             language: next.kind === "script" ? next.scriptLanguage : "wgsl",
           });
@@ -1002,9 +1008,10 @@ export function EffectEditor({
               size="sm"
               variant={mobilePanel === panel ? "secondary" : "ghost"}
               aria-pressed={mobilePanel === panel}
+              aria-label={panel === "code" ? "Code" : "Preview & controls"}
               onClick={() => setMobilePanel(panel)}
             >
-              {panel === "code" ? "Code" : "Preview & controls"}
+              {panel === "code" ? "Code" : <><span className="sm:hidden">Preview</span><span className="hidden sm:inline">Preview & controls</span></>}
             </Button>
           ))}
         </div>
@@ -1150,7 +1157,7 @@ export function EffectEditor({
             orientation="vertical"
             id="source-diagnostics"
             groupRef={diagnosticsRef}
-            onLayoutChanged={remember("diagnostics")}
+            onLayoutChanged={isDesktop ? remember("diagnostics") : undefined}
             className="flex-1"
           >
             <ResizablePanel
@@ -1162,7 +1169,7 @@ export function EffectEditor({
                 orientation={isReferenceBeside ? "horizontal" : "vertical"}
                 id="source-reference"
                 groupRef={referenceRef}
-                onLayoutChanged={remember("reference")}
+                onLayoutChanged={isDesktop ? remember("reference") : undefined}
               >
                 <ResizablePanel
                   id="code"
@@ -1322,7 +1329,9 @@ export function EffectEditor({
             orientation="vertical"
             id="preview-inspector"
             groupRef={inspectorRef}
-            onLayoutChanged={remember("inspector")}
+            onLayoutChanged={isDesktop ? remember("inspector") : undefined}
+            disabled={!isDesktop}
+            className={!isDesktop ? "mobile-inspector" : undefined}
           >
             <ResizablePanel
               id="stage"
@@ -1331,7 +1340,7 @@ export function EffectEditor({
               className="flex h-full flex-col overflow-y-auto p-3"
             >
               <PreviewStage
-                fill
+                fill={isDesktop}
                 status={
                   <PreviewStatus
                     status={compileStatus}
@@ -1353,10 +1362,10 @@ export function EffectEditor({
                 className="aspect-square w-full overflow-hidden rounded-md border"
               />
             </ResizablePanel>
-            <ResizableHandle
+            {isDesktop ? <ResizableHandle
               withHandle
               aria-label="Resize preview and controls"
-            />
+            /> : null}
             <ResizablePanel
               id="inspector"
               defaultSize={`${initialLayout.inspector.inspector}%`}
@@ -1365,7 +1374,7 @@ export function EffectEditor({
               aria-label="Effect controls and details"
             >
               <div
-                className="sticky top-0 z-10 flex items-center gap-1 border-b bg-background/95 p-2 backdrop-blur-sm"
+                className="sticky top-0 z-10 flex flex-wrap items-center gap-1 border-b bg-background/95 p-2 backdrop-blur-sm"
                 aria-label="Inspector mode"
               >
                 {[
@@ -1394,7 +1403,7 @@ export function EffectEditor({
                 <div className="space-y-4 p-4">
                   <div>
                     <p className="workshop-eyebrow">In the scene</p>
-                    <h3 className="mt-1 text-lg font-medium">
+                    <h3 className="mt-1 break-words text-lg font-medium [overflow-wrap:anywhere]">
                       {draft.name || "Untitled effect"}
                     </h3>
                     <p className="mt-1 text-xs leading-relaxed text-muted-foreground">

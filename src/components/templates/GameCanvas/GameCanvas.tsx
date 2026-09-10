@@ -1,3 +1,4 @@
+import "pixi.js/advanced-blend-modes";
 import { useEffect, useRef, useState } from "react";
 import { useWorkshopStore } from "@/stores/workshopStore";
 import { EffectWorkshop } from "@/components/organisms/EffectWorkshop/EffectWorkshop";
@@ -12,12 +13,14 @@ import {
 
 import { FrameCounter } from "@/components/atoms/FrameCounter";
 import { InitiativeSidebar } from "@/components/organisms/InitiativeSidebar";
+import { PlayerCanvasControls } from "./components/PlayerCanvasControls";
 import { GameCanvasHud } from "@/components/templates/GameCanvas/components/GameCanvasHud";
 import { GameCanvasMenus } from "@/components/templates/GameCanvas/components/GameCanvasMenus";
 import { GameCanvasStage } from "@/components/templates/GameCanvas/components/GameCanvasStage";
 import { useAllowedTokenIds } from "@/components/templates/GameCanvas/hooks/useAllowedTokenIds";
 import { useCanvasInteraction } from "@/components/templates/GameCanvas/hooks/useCanvasInteraction";
 import { useMapTexture } from "@/components/templates/GameCanvas/hooks/useMapTexture";
+import { useCanvasAnalytics } from "./hooks/useCanvasAnalytics";
 import { useOverlayMenus } from "@/components/templates/GameCanvas/hooks/useOverlayMenus";
 import { usePendingEffectPlacement } from "@/components/templates/GameCanvas/hooks/usePendingEffectPlacement";
 import { useRemoteTokenMove } from "@/components/templates/GameCanvas/hooks/useRemoteTokenMove";
@@ -42,17 +45,29 @@ export function GameCanvas({
 }: GameCanvasProps) {
   const workshopOpen = useWorkshopStore((s) => s.open);
   const placingEffect = useWorkshopStore((s) => s.pending !== null);
+  const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
+    if (exitTimer.current) clearTimeout(exitTimer.current);
     useWorkshopStore.setState({
       sceneStartedAt: Date.now(),
       completedCount: 0,
     });
-    return () => useWorkshopStore.getState().reset();
+    return () => {
+      const { pending, attempt } = useWorkshopStore.getState();
+      // Strict Mode replays cleanup immediately. Only a real exit cancels work,
+      // and an old scene's cleanup must never cancel a new scene's selection.
+      exitTimer.current = setTimeout(() => {
+        const current = useWorkshopStore.getState();
+        if (current.pending === pending && current.attempt === attempt) current.reset();
+      }, 0);
+    };
   }, [sceneId]);
   const sidebarSide = useUIPreferencesStore((state) => state.sidebarSide);
   const sidebarOpen = useUIPreferencesStore((state) => state.sidebarOpen);
   const setSidebarOpen = useUIPreferencesStore((state) => state.setSidebarOpen);
   const windowSize = useViewportSize();
+  const mobilePlayer = !isGM && windowSize.width < 1024;
+  const [playerInitiativeOpen, setPlayerInitiativeOpen] = useState(false);
   const insetRef = useRef<HTMLDivElement>(null);
   const [viewportSize, setViewportSize] = useState(windowSize);
   useEffect(() => {
@@ -64,7 +79,9 @@ export function GameCanvas({
     observer.observe(inset);
     return () => observer.disconnect();
   }, []);
-  const mapTexture = useMapTexture(mapUrl);
+  const { mapTexture, mapFailed } = useMapTexture(mapUrl);
+  const [rendererReady, setRendererReady] = useState(false);
+  useCanvasAnalytics(sceneId, rendererReady, mapTexture !== null, mapFailed);
   const menus = useOverlayMenus();
   const { allowedTokenIds } = useAllowedTokenIds(sceneId, remotePlayerId);
   const handleRemoteTokenMove = useRemoteTokenMove(sceneId, remotePlayerId);
@@ -74,23 +91,24 @@ export function GameCanvas({
   const handlePlaceEffect = (effectId: string, version: number) =>
     useWorkshopStore
       .getState()
-      .begin({ kind: "effect", effectId, version, name: "Effect" });
+      .begin({ kind: "effect", effectId, version, name: "Effect" }, "gallery");
 
   const sceneReadyForPlacement =
     isGM && mapTexture !== null && (sceneId ? storeSceneId === sceneId : true);
-  usePendingEffectPlacement(sceneReadyForPlacement, handlePlaceEffect);
+  usePendingEffectPlacement(sceneReadyForPlacement, handlePlaceEffect, mapFailed);
 
   return (
     <SidebarProvider
       side={sidebarSide}
-      open={sidebarOpen && !(isGM && (workshopOpen || placingEffect) && windowSize.width < 1024)}
-      onOpenChange={setSidebarOpen}
+      open={mobilePlayer ? playerInitiativeOpen : sidebarOpen && !(isGM && (workshopOpen || placingEffect) && windowSize.width < 1024)}
+      onOpenChange={mobilePlayer ? setPlayerInitiativeOpen : setSidebarOpen}
     >
-      <InitiativeSidebar isGM={isGM} />
+      <InitiativeSidebar isGM={isGM} mobilePlayer={mobilePlayer} />
       <WorkshopTelemetry isGM={isGM} />
       <SidebarInset ref={insetRef} className="relative h-dvh overflow-hidden">
         {isGM ? <GameCanvasHud sceneId={sceneId} /> : null}
-        <div className="pointer-events-none absolute right-4 bottom-4 z-20">
+        {!isGM ? <PlayerCanvasControls fitMap={interaction.fitMap} zoomMap={interaction.zoomMap} /> : null}
+        <div className={isGM ? "pointer-events-none absolute right-4 bottom-4 z-20" : "pointer-events-none absolute right-4 bottom-4 z-20 hidden lg:block"}>
           <FrameCounter appRef={interaction.appRef} />
         </div>
         <GameCanvasStage
@@ -99,7 +117,7 @@ export function GameCanvas({
           isGM={isGM}
           containerRef={interaction.containerRef}
           spriteRef={interaction.spriteRef}
-          onAppInit={interaction.handleAppInit}
+          onAppInit={(app) => { interaction.handleAppInit(app); setRendererReady(true); }}
           sizeEditTokenId={menus.sizeEditTokenId}
           onCloseSizeEdit={menus.handleCloseTokenSizeEdit}
           onOpenLightContextMenu={menus.handleOpenLightContextMenu}

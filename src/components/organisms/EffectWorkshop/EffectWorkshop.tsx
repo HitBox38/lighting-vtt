@@ -8,7 +8,6 @@ import {
 } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useConvexAuth, usePaginatedQuery } from "convex/react";
-import { usePostHog } from "@posthog/react";
 import { X, Plus, EyeOff, Lock, Search } from "lucide-react";
 import { api } from "../../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
@@ -115,7 +114,7 @@ function CatalogResults({
               {effect.thumbnailUrl ? (
                 <img
                   src={effect.thumbnailUrl}
-                  alt=""
+                  alt={`Preview of ${effect.name} effect`}
                   width={320}
                   height={180}
                   loading="lazy"
@@ -237,7 +236,6 @@ export function EffectWorkshop() {
     useWorkshopStore();
   const side = useUIPreferencesStore((s) => s.sidebarSide);
   const location = useLocation();
-  const posthog = usePostHog();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const panelRef = useRef<HTMLElement>(null);
@@ -246,10 +244,6 @@ export function EffectWorkshop() {
   }, [open]);
   const choose = (item: CatalogItem) => {
     useTokenStore.getState().setPlacementTemplateId(null);
-    posthog.capture("effect_placement_started", {
-      kind: item.kind,
-      source: "palette",
-    });
     begin(item);
   };
   if (!open) return null;

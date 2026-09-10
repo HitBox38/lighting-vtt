@@ -8,6 +8,7 @@ import {
   UTApi,
 } from "uploadthing/server";
 import { createUploadRouter } from "./lib/uploadthingRouter";
+import { spamLimiter } from "./lib/spamProtection";
 export type { UploadRouter } from "./lib/uploadthingRouter";
 
 // ---------------------------------------------------------------------------
@@ -40,8 +41,9 @@ export const handleRequest = internalAction({
     body: string;
   }> => {
     const utHandler = createRouteHandler({
-      router: createUploadRouter(args.ownerId, (upload) =>
-        ctx.runMutation(internal.uploads.recordCompleted, upload),
+      router: createUploadRouter(args.ownerId,
+        (upload) => ctx.runMutation(internal.uploads.recordCompleted, upload),
+        (ownerId) => spamLimiter.limit(ctx, "uploadFile", { key: ownerId }),
       ),
     });
     const reqHeaders = new Headers(
@@ -88,6 +90,10 @@ export const deleteFile = internalAction({
     if (!await ctx.runQuery(internal.uploads.isOwner, { key: args.key, ownerId: args.ownerId })) {
       // Legacy/untracked and other users' keys have the same response.
       return { success: false, error: "File not found", status: 404 };
+    }
+    const limit = await spamLimiter.limit(ctx, "deleteFile", { key: args.ownerId });
+    if (!limit.ok) {
+      return { success: false, error: `Too many file deletions. Try again in ${Math.max(1, Math.ceil(limit.retryAfter / 1000))} seconds.`, status: 429 };
     }
     try {
       const utapi = new UTApi();

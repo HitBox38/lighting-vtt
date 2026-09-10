@@ -17,6 +17,8 @@ export function usePresetActions() {
   } = useLightManager();
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [newPresetName, setNewPresetName] = useState("");
+  const [saveAttempted, setSaveAttempted] = useState(false);
+  const presetNameError = saveAttempted && !newPresetName.trim() ? "Preset name is required" : null;
 
   const loadVia = (id: string, via: "select" | "prev" | "next") => {
     loadPreset(id);
@@ -37,32 +39,36 @@ export function usePresetActions() {
     presets,
     activePresetId,
     isSaveDialogOpen,
-    setIsSaveDialogOpen,
+    setIsSaveDialogOpen: (open: boolean) => {
+      setIsSaveDialogOpen(open);
+      setSaveAttempted(false);
+    },
     newPresetName,
+    presetNameError,
     setNewPresetName,
     canCyclePresets: Boolean(activePresetId) && presets.length > 1,
     saveDialogLabel: activePresetId ? "Save As New Preset" : "Save New Preset",
-    handleSaveAsNew: (event: React.FormEvent) => {
+    handleSaveAsNew: (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+      setSaveAttempted(true);
       const presetName = newPresetName.trim();
-      if (!presetName) return;
+      if (!presetName) {
+        event.currentTarget.querySelector<HTMLInputElement>('[name="presetName"]')?.focus();
+        return;
+      }
       savePreset(presetName);
-      posthog.capture(ANALYTICS_EVENTS.PresetSavedNew, {
-        preset_count_bucket: toCountBucket(presets.length + 1),
-      });
       setNewPresetName("");
+      setSaveAttempted(false);
       setIsSaveDialogOpen(false);
     },
     handleUpdateCurrent: () => {
       if (!activePresetId) return;
       updateSavedPreset(activePresetId);
-      posthog.capture(ANALYTICS_EVENTS.PresetUpdatedCurrent);
     },
     handleValueChange: (value: string) => loadVia(value, "select"),
     handleDelete: () => {
       if (!activePresetId) return;
       deletePreset(activePresetId);
-      posthog.capture(ANALYTICS_EVENTS.PresetDeleted);
     },
     handlePreviousPreset: () => cyclePreset(-1),
     handleNextPreset: () => cyclePreset(1),

@@ -1,3 +1,5 @@
+import { analyticsOperationEpoch } from "@/lib/analyticsOperation";
+import type { PlacementAttempt } from "@/lib/placementAnalytics";
 import { z } from "zod";
 import { effectParamValuesSchema } from "@shared/effects";
 
@@ -54,9 +56,9 @@ export function addRecent(
 }
 
 const HANDOFF_KEY = "effect-workshop:handoff:v1";
-export function savePlacementHandoff(item: CatalogItem, scenePath: string) {
+export function savePlacementHandoff(item: CatalogItem, scenePath: string, analytics?: PlacementAttempt | null) {
   try {
-    sessionStorage.setItem(HANDOFF_KEY, JSON.stringify({ item, scenePath }));
+    sessionStorage.setItem(HANDOFF_KEY, JSON.stringify({ item, scenePath, analytics }));
   } catch {
     /* URL fallback remains available. */
   }
@@ -71,6 +73,13 @@ export function readPlacementHandoff(scenePath: string): CatalogItem | null {
     return null;
   }
 }
+export function readPlacementAnalytics(scenePath: string): PlacementAttempt | null {
+  try {
+    const stored = JSON.parse(sessionStorage.getItem(HANDOFF_KEY) ?? "null");
+    const a = stored?.analytics;
+    return stored?.scenePath === scenePath && a?.source === "gallery" && typeof a.attempt_id === "string" && typeof a.started_at === "number" && a.consent_epoch === analyticsOperationEpoch() ? a : null;
+  } catch { return null; }
+}
 export function clearPlacementHandoff() {
   try {
     sessionStorage.removeItem(HANDOFF_KEY);
@@ -79,10 +88,10 @@ export function clearPlacementHandoff() {
   }
 }
 
-export function placementPath(scenePath: string, item: CatalogItem): string {
+export function placementPath(scenePath: string, item: CatalogItem, analytics?: PlacementAttempt | null): string {
   const url = new URL(scenePath, "http://local.invalid");
   const clean = `${url.pathname}${url.search}${url.hash}`;
-  savePlacementHandoff(item, clean);
+  savePlacementHandoff(item, clean, analytics);
   url.searchParams.set(
     "addEffect",
     item.kind === "effect"

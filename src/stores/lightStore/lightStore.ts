@@ -132,7 +132,7 @@ export const useLightStore = create<LightStoreState>()(
       };
       set({ presets: [...state.presets, newPreset], activePresetId: newPreset.id });
       if (state.sceneId && state.creatorId) {
-        persistPreset(state.sceneId, state.creatorId, newPreset);
+        persistPreset(state.sceneId, state.creatorId, newPreset, "new", state.presets.length + 1);
       }
       return newPreset.id;
     },
@@ -151,7 +151,7 @@ export const useLightStore = create<LightStoreState>()(
       nextPresets[index] = updatedPreset;
       set({ presets: nextPresets });
       if (state.sceneId && state.creatorId) {
-        persistPreset(state.sceneId, state.creatorId, updatedPreset);
+        persistPreset(state.sceneId, state.creatorId, updatedPreset, "update", state.presets.length);
       }
     },
     loadPreset: (id) => {

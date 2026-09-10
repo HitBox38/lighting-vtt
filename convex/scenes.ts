@@ -12,6 +12,7 @@ import {
 } from "./schema";
 import { assertCreatorMatchesIdentity } from "./lib/auth";
 import { assertSceneEffectInstances } from "./lib/effectInstances";
+import { limitSceneWrite } from "./lib/spamProtection";
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -54,6 +55,7 @@ export const create = mutation({
   returns: v.id("scenes"),
   handler: async (ctx, args) => {
     await assertCreatorMatchesIdentity(ctx, args.creatorId);
+    await limitSceneWrite(ctx, "createScene", args.creatorId);
     return await ctx.db.insert("scenes", {
       creatorId: args.creatorId,
       name: args.name,

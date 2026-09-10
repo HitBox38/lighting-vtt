@@ -1,8 +1,36 @@
 import posthog from "posthog-js";
+import { useCookieConsentStore } from "@/stores/cookieConsentStore";
 
-type EventProperties = Record<string, string | number | boolean | null | undefined>;
+import { analyticsEnabled, getAnalyticsContext, type AnalyticsProperties } from "./analyticsContext";
+export { errorCategory } from "./analyticsContext";
+type EventProperties = AnalyticsProperties;
 
 export const ANALYTICS_EVENTS = {
+  FeedbackOpened: "feedback_opened",
+  JoinSceneStarted: "join_scene_started",
+  PlayerViewOpenRequested: "player_view_open_requested",
+  EffectPublishFailed: "effect_publish_failed",
+  EffectPublishStarted: "effect_publish_started",
+  EffectEditorStatusChanged: "effect_editor_status_changed",
+  EffectDetailViewed: "effect_detail_viewed",
+  EffectSaveFailed: "effect_save_failed",
+  EffectSaveStarted: "effect_save_started",
+  EffectRemixStarted: "effect_remix_started",
+  EffectTemplateSelected: "effect_template_selected",
+  EffectRuntimeObserved: "effect_runtime_observed",
+  EffectPlacementFailed: "effect_placement_failed",
+  EffectPlacementCancelled: "effect_placement_cancelled",
+  EffectPlacementCompleted: "effect_placement_completed",
+  EffectPlacementStarted: "effect_placement_started",
+  AssetUploadFailed: "asset_upload_failed",
+  AssetUploadCompleted: "asset_upload_completed",
+  AssetUploadStarted: "asset_upload_started",
+  PresetMutationFailed: "preset_mutation_failed",
+  SceneAutosaveRecovered: "scene_autosave_recovered",
+  SceneEditPersisted: "scene_edit_persisted",
+  SceneCanvasFailed: "scene_canvas_failed",
+  SceneCanvasReady: "scene_canvas_ready",
+  SceneCreateStarted: "scene_create_started",
   ActivationLandingViewed: "activation_landing_viewed",
   LandingCtaClicked: "landing_cta_clicked",
   LandingShowcaseChanged: "landing_showcase_changed",
@@ -76,14 +104,14 @@ const isPostHogLoaded = () => {
 };
 
 export const capture = (event: AnalyticsEventName, properties?: EventProperties) => {
-  if (!isPostHogLoaded()) {
-    return;
+  if (useCookieConsentStore.getState().consent !== "accepted" || !analyticsEnabled() || !isPostHogLoaded()) {
+    return false;
   }
-  posthog.capture(event, properties);
+  return Boolean(posthog.capture(event, { ...getAnalyticsContext(), ...properties }));
 };
 
 export const setSceneEntrySource = (source: SceneEntrySource) => {
-  if (typeof window === "undefined") {
+  if (typeof window === "undefined" || useCookieConsentStore.getState().consent !== "accepted") {
     return;
   }
   window.sessionStorage.setItem(SCENE_ENTRY_SOURCE_KEY, source);

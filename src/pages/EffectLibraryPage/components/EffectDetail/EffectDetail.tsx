@@ -1,3 +1,5 @@
+import { useAnalyticsView } from "@/lib/hooks/useAnalyticsView";
+import { analyticsOperationGuard } from "@/lib/analyticsOperation";
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
@@ -31,7 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { versionDocToDefinition } from "@/lib/effects/hooks/useEffectDefinitions";
-import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { ANALYTICS_EVENTS, errorCategory } from "@/lib/analytics";
 import { describeMutationError } from "@/lib/effects/errors";
 import type { CompiledEffect } from "@/lib/effects/effectRegistry";
 import { effectEditorPath } from "@/lib/effects/routes";
@@ -114,7 +116,7 @@ function VersionPreview({
         </p>
       ) : null}
       {compile?.result.status === "missing-program" ? (
-        <p role="status" className="text-xs text-amber-600">
+        <p role="status" className="text-xs text-warning">
           This effect has no program for this browser. Placement uses a fallback
           circle.
         </p>
@@ -124,7 +126,7 @@ function VersionPreview({
           <p className="font-medium">
             This effect does not compile on your GPU backend.
           </p>
-          <p className="mt-1 opacity-90">{errors[0]?.message}</p>
+          <p className="mt-1">{errors[0]?.message}</p>
           <p className="text-muted-foreground mt-1">
             On the table it will draw as a plain coverage circle instead.
           </p>
@@ -208,10 +210,12 @@ function OwnerActions({ effect, onDeleted }: OwnerActionsProps) {
     run(
       "publish",
       async () => {
-        await publishEffect({ effectId: effect._id });
-        posthog.capture(ANALYTICS_EVENTS.EffectPublished, {
-          effect_id: effect._id,
-        });
+        const measurablePublish = analyticsOperationGuard();
+        const context = { attempt_id: crypto.randomUUID(), effect_id: effect._id, effect_kind: effect.kind, surface: "effect_detail" };
+        posthog.capture(ANALYTICS_EVENTS.EffectPublishStarted, context);
+        try { await publishEffect({ effectId: effect._id }); }
+        catch (error) { if (measurablePublish()) posthog.capture(ANALYTICS_EVENTS.EffectPublishFailed, { ...context, error_category: errorCategory(error) }); throw error; }
+        if (measurablePublish()) posthog.capture(ANALYTICS_EVENTS.EffectPublished, context);
         toast.success(`“${effect.name}” is now in the public library.`);
       },
       "Could not publish the effect",
@@ -406,6 +410,8 @@ export function EffectDetail({
     version !== null ? { effectId, version } : "skip",
   );
 
+  useAnalyticsView(ANALYTICS_EVENTS.EffectDetailViewed, `${effectId}:${version}`, { effect_id: effectId, version, effect_kind: versionDoc?.kind, from_scene: Boolean(returnTo) }, Boolean(effect && versionDoc));
+
   if (effect === undefined) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -426,8 +432,8 @@ export function EffectDetail({
   const canReport = !mine && effect.visibility === "public" && userId !== null;
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="space-y-4 p-4">
+    <div data-analytics-private className="flex h-full flex-col">
+      <div className="min-w-0 space-y-4 p-4 [overflow-wrap:anywhere]">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-semibold">{effect.name}</h2>
@@ -527,6 +533,7 @@ export function EffectDetail({
                 effect.source.effectId,
                 effect.source.version,
                 returnTo ?? undefined,
+                `/effects?${searchParams.toString()}`,
               )}
             >
               source version {effect.source.version}

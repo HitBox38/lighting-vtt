@@ -16,7 +16,7 @@ export function PlayerIdentity({ playerName, characterName, isVerified }: Player
         {isVerified ? (
           <Badge
             variant="outline"
-            className="h-4 shrink-0 border-emerald-500/30 bg-emerald-500/5 px-1.5 py-0 text-[10px] text-emerald-600 dark:text-emerald-400">
+            className="h-4 shrink-0 border-emerald-500/30 bg-emerald-500/5 px-1.5 py-0 text-[10px] text-success">
             <Shield className="mr-0.5 size-2.5" aria-hidden="true" />
             Verified
           </Badge>

@@ -41,9 +41,9 @@ function SeverityIcon({ severity }: { severity: DiagnosticSeverity }) {
     case "error":
       return <XCircle className="text-destructive h-3.5 w-3.5 shrink-0" />;
     case "warning":
-      return <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-400" />;
+      return <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" />;
     case "info":
-      return <Info className="h-3.5 w-3.5 shrink-0 text-sky-400" />;
+      return <Info className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />;
     default: {
       const exhaustive: never = severity;
       throw new Error(`Unhandled severity: ${String(exhaustive)}`);
@@ -73,7 +73,7 @@ function StatusLine({
       );
     case "ok":
       return (
-        <span className="inline-flex items-center gap-1.5 text-emerald-400">
+        <span className="inline-flex items-center gap-1.5 text-success">
           <CheckCircle2 className="h-3.5 w-3.5" /> Compiled on{" "}
           {status.backend === "webgpu" ? "WebGPU" : "WebGL"}
           {count > 0 ? (
@@ -85,7 +85,7 @@ function StatusLine({
       );
     case "missing-program":
       return (
-        <span className="inline-flex items-center gap-1.5 text-amber-400">
+        <span className="inline-flex items-center gap-1.5 text-warning">
           <AlertTriangle className="h-3.5 w-3.5" /> No program for{" "}
           {status.backend === "webgpu" ? "WebGPU" : "WebGL"}; preview shows the
           fallback circle
@@ -106,7 +106,7 @@ function StatusLine({
       );
     case "script-ok":
       return (
-        <span className="inline-flex items-center gap-1.5 text-emerald-400">
+        <span className="inline-flex items-center gap-1.5 text-success">
           <CheckCircle2 className="h-3.5 w-3.5" /> Script ran in{" "}
           {status.elapsedMs.toFixed(1)} ms
           {count > 0 ? (
@@ -168,7 +168,7 @@ export function DiagnosticsPanel({ status, diagnostics, onSelect }: Props) {
                     {diagnostic.language}
                     {diagnostic.line !== null ? `:${diagnostic.line}` : ""}
                   </span>
-                  <span className="break-words">{diagnostic.message}</span>
+                  <span className="min-w-0 break-words [overflow-wrap:anywhere]">{diagnostic.message}</span>
                 </button>
               </li>
             );

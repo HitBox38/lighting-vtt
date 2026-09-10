@@ -28,7 +28,7 @@ export function JoinForm({
 }: JoinFormProps) {
   return (
     <form
-      className="space-y-4"
+      className="space-y-4 [overflow-wrap:anywhere]"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit();
@@ -37,6 +37,8 @@ export function JoinForm({
         <Label htmlFor="player-name">Player Name</Label>
         <Input
           id="player-name"
+          autoComplete="name"
+          enterKeyHint="next"
           placeholder="Your name"
           value={playerName}
           onChange={(event) => onPlayerNameChange(event.target.value)}
@@ -47,6 +49,8 @@ export function JoinForm({
         <Label htmlFor="character-name">Character Name</Label>
         <Input
           id="character-name"
+          autoComplete="nickname"
+          enterKeyHint="go"
           placeholder="Your character's name"
           value={characterName}
           onChange={(event) => onCharacterNameChange(event.target.value)}

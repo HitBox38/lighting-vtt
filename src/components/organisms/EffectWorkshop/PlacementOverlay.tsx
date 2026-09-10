@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { Container } from "pixi.js";
-import { usePostHog } from "@posthog/react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useWorkshopStore } from "@/stores/workshopStore";
@@ -9,7 +8,7 @@ import { useEffectManager } from "@/stores/lightStore/hooks/useEffectManager";
 import { catalogName, type SceneSelection } from "@/lib/effects/catalog";
 import { DEFAULT_LIGHT_RADIUS, DEFAULT_MIRROR_LENGTH } from "@shared/index";
 import { DEFAULT_EFFECT_RADIUS } from "@shared/effects";
-import { ANALYTICS_EVENTS } from "@/lib/analytics";
+import { errorCategory } from "@/lib/analytics";
 
 export function PlacementOverlay({
   containerRef,
@@ -22,7 +21,6 @@ export function PlacementOverlay({
   const cancel = useWorkshopStore((s) => s.cancel);
   const complete = useWorkshopStore((s) => s.complete);
   const { placeEffect } = useEffectManager();
-  const posthog = usePostHog();
   const [pointer, setPointer] = useState<{
     x: number;
     y: number;
@@ -32,7 +30,6 @@ export function PlacementOverlay({
   const busyRef = useRef(false);
   const centerButtonRef = useRef<HTMLButtonElement>(null);
   const cancelPlacement = () => {
-    posthog.capture("effect_placement_cancelled", { kind: pending?.kind });
     cancel();
   };
   useEffect(() => {
@@ -40,36 +37,33 @@ export function PlacementOverlay({
     centerButtonRef.current?.focus();
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        posthog.capture("effect_placement_cancelled", { kind: pending.kind });
         cancel();
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [pending, cancel, posthog]);
+  }, [pending, cancel]);
   if (!pending) return null;
   const place = async (point: { x: number; y: number }) => {
     if (busyRef.current || useWorkshopStore.getState().pending !== pending)
       return;
+    useWorkshopStore.getState().retry();
     busyRef.current = true;
     setBusy(true);
     const sceneId = useLightStore.getState().sceneId;
     try {
       let selection: SceneSelection;
+      let effectKind: string | undefined;
       if (pending.kind === "light") {
         selection = {
           kind: "light",
           id: useLightStore.getState().addLight(pending.type, point.x, point.y),
         };
-        posthog.capture(ANALYTICS_EVENTS.LightAdded, {
-          light_type: pending.type,
-        });
       } else if (pending.kind === "mirror") {
         selection = {
           kind: "mirror",
           id: useLightStore.getState().addMirror(point.x, point.y),
         };
-        posthog.capture(ANALYTICS_EVENTS.MirrorAdded);
       } else {
         const result = await placeEffect(
           pending.effectId,
@@ -82,6 +76,7 @@ export function PlacementOverlay({
             useLightStore.getState().sceneId === sceneId,
         );
         if (!result.ok) {
+          if (result.reason !== "cancelled" && useWorkshopStore.getState().pending === pending) useWorkshopStore.getState().fail(result.reason);
           if (result.reason !== "cancelled")
             toast.error(
               result.reason === "limit-reached"
@@ -91,20 +86,12 @@ export function PlacementOverlay({
           return;
         }
         selection = { kind: "effect", id: result.instanceId };
-        posthog.capture(ANALYTICS_EVENTS.EffectAdded, {
-          effect_id: pending.effectId,
-          version: pending.version,
-        });
+        effectKind = result.effectKind;
       }
-      const timing = useWorkshopStore.getState();
-      posthog.capture("effect_placement_completed", {
-        kind: pending.kind,
-        duration_ms: Date.now() - timing.placementStartedAt,
-        first_in_scene: timing.completedCount === 0,
-        time_since_scene_open_ms: Date.now() - timing.sceneStartedAt,
-      });
-      complete(pending, selection);
-    } catch {
+      complete(pending, selection, effectKind);
+    } catch (error) {
+      if (useWorkshopStore.getState().pending !== pending || useLightStore.getState().sceneId !== sceneId) return;
+      useWorkshopStore.getState().fail(errorCategory(error));
       toast.error(
         "Could not place this effect. Your choice is kept; try again.",
       );

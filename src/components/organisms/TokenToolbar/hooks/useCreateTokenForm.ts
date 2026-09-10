@@ -40,7 +40,7 @@ export function useCreateTokenForm() {
     onUploadError: (error) => {
       console.error("Token image upload failed:", error);
     },
-  });
+  }, "token");
 
   const onSubmit = (data: CreateTokenFormValues) => {
     const validationResult = createTokenFormSchema.safeParse(data);

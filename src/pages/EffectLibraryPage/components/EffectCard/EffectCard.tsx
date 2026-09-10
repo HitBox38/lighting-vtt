@@ -32,7 +32,7 @@ function kindBadge(kind: Doc<"effects">["kind"]) {
   switch (kind) {
     case "shader":
       return (
-        <Badge variant="outline" className="text-[10px]">
+        <Badge variant="outline" data-analytics-private className="text-[10px]">
           Shader
         </Badge>
       );
@@ -67,7 +67,7 @@ export function EffectCard({ effect, selected, mine, onSelect }: Props) {
         <img
           src={thumbnailUrl}
           onError={() => setFailedUrl(thumbnailUrl)}
-          alt=""
+          alt={`Preview of ${effect.name} effect`}
           width={320}
           height={180}
           loading="lazy"

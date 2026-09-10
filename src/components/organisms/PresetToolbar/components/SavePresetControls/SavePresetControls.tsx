@@ -9,6 +9,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { usePresetActions } from "@/components/organisms/PresetToolbar/hooks/usePresetActions";
 
@@ -61,16 +62,27 @@ export function SavePresetControls({ actions }: { actions: Actions }) {
           <DialogHeader>
             <DialogTitle>{actions.saveDialogLabel}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={actions.handleSaveAsNew} className="grid gap-4 py-4">
-            <Input
-              id="preset-name"
-              name="presetName"
-              placeholder="Preset name…"
-              autoComplete="off"
-              value={actions.newPresetName}
-              onChange={(event) => actions.setNewPresetName(event.target.value)}
-              autoFocus
-            />
+          <form noValidate onSubmit={actions.handleSaveAsNew} className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="preset-name">Preset name</Label>
+              <Input
+                id="preset-name"
+                name="presetName"
+                placeholder="Preset name…"
+                autoComplete="off"
+                value={actions.newPresetName}
+                onChange={(event) => actions.setNewPresetName(event.target.value)}
+                autoFocus
+                required
+                aria-invalid={Boolean(actions.presetNameError)}
+                aria-describedby={actions.presetNameError ? "preset-name-error" : undefined}
+              />
+              {actions.presetNameError ? (
+                <p id="preset-name-error" className="text-sm text-destructive" role="alert">
+                  {actions.presetNameError}
+                </p>
+              ) : null}
+            </div>
             <div className="flex justify-end">
               <Button type="submit">Save</Button>
             </div>
