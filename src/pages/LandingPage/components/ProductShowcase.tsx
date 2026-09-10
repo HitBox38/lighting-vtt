@@ -31,7 +31,7 @@ export function ProductShowcase() {
         <span className="flex items-center gap-2 text-[10px] tracking-[1.5px] text-(--lp-muted) max-[760px]:justify-center">
           <span className="size-[5px] rounded-full bg-[#ffb547]" />
           THE TEMPLE RUINS
-          <span className="opacity-75 max-[1000px]:hidden"> / EXAMPLE ENCOUNTER</span>
+          <span className="max-[1000px]:hidden"> / EXAMPLE ENCOUNTER</span>
         </span>
         <div
           className="flex gap-[3px] rounded-md border border-(--lp-line) p-[3px]"

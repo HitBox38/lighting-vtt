@@ -114,7 +114,7 @@ function VersionPreview({
         </p>
       ) : null}
       {compile?.result.status === "missing-program" ? (
-        <p role="status" className="text-xs text-amber-600">
+        <p role="status" className="text-xs text-warning">
           This effect has no program for this browser. Placement uses a fallback
           circle.
         </p>
@@ -124,7 +124,7 @@ function VersionPreview({
           <p className="font-medium">
             This effect does not compile on your GPU backend.
           </p>
-          <p className="mt-1 opacity-90">{errors[0]?.message}</p>
+          <p className="mt-1">{errors[0]?.message}</p>
           <p className="text-muted-foreground mt-1">
             On the table it will draw as a plain coverage circle instead.
           </p>

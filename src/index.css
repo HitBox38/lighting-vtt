@@ -6,10 +6,10 @@
 
 @layer components {
   .workshop-panel { @apply rounded-xl border border-border bg-background/95 text-foreground shadow-xl backdrop-blur-xl; }
-  .workshop-eyebrow { @apply text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-400; }
+  .workshop-eyebrow { @apply text-[10px] font-semibold uppercase tracking-[0.16em] text-warning; }
   .workshop-primary { @apply bg-amber-500 text-stone-950 hover:bg-amber-400; }
-  .workshop-card { @apply min-w-0 rounded-lg border border-border bg-card p-3 transition-colors hover:border-amber-600 hover:bg-amber-500/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500; }
-  .workshop-select { @apply w-full rounded-md border bg-background px-2 py-2 text-foreground; }
+  .workshop-card { @apply min-w-0 rounded-lg border border-border bg-card p-3 transition-colors hover:border-amber-600 hover:bg-amber-500/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring; }
+  .workshop-select { @apply w-full rounded-md border border-input bg-background px-2 py-2 text-foreground; }
   .workshop-stage { background-color: #141413; background-image: linear-gradient(#a8a29e0d 1px, transparent 1px), linear-gradient(90deg, #a8a29e0d 1px, transparent 1px); background-size: 24px 24px; }
 }
 
@@ -35,6 +35,9 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -66,13 +69,16 @@
   --secondary: oklch(0.97 0.001 106.424);
   --secondary-foreground: oklch(0.216 0.006 56.043);
   --muted: oklch(0.97 0.001 106.424);
-  --muted-foreground: oklch(0.553 0.013 58.071);
+  --muted-foreground: oklch(0.50 0.013 58.071);
   --accent: oklch(0.97 0.001 106.424);
   --accent-foreground: oklch(0.216 0.006 56.043);
-  --destructive: oklch(0.577 0.245 27.325);
+  --destructive: oklch(0.505 0.213 27.518);
+  --destructive-foreground: oklch(1 0 0);
+  --success: oklch(0.432 0.095 166.913);
+  --warning: oklch(0.473 0.137 46.201);
   --border: oklch(0.923 0.003 48.717);
-  --input: oklch(0.923 0.003 48.717);
-  --ring: oklch(0.709 0.01 56.259);
+  --input: oklch(0.553 0.013 58.071);
+  --ring: oklch(0.444 0.011 73.639);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -104,9 +110,12 @@
   --accent: oklch(0.268 0.007 34.298);
   --accent-foreground: oklch(0.985 0.001 106.423);
   --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.147 0.004 49.25);
+  --success: oklch(0.765 0.177 163.223);
+  --warning: oklch(0.828 0.189 84.429);
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.553 0.013 58.071);
+  --input: oklch(0.553 0.013 58.071);
+  --ring: oklch(0.709 0.01 56.259);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -124,7 +133,7 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring;
   }
   body {
     @apply bg-background text-foreground;

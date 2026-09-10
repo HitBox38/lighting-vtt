@@ -46,7 +46,7 @@ export function PlayerCard({
         "bg-linear-to-br from-card to-card/80",
         "hover:border-primary/20 hover:shadow-md",
         isActive &&
-          "border-amber-500/50 bg-linear-to-br from-amber-950/20 via-card to-card shadow-lg ring-1 ring-amber-500/20",
+          "border-amber-500/50 bg-linear-to-br from-amber-500/5 dark:from-amber-950/20 via-card to-card shadow-lg ring-1 ring-amber-500/20",
       )}>
       {isActive ? (
         <div className="absolute -top-px right-4 left-4 h-px bg-linear-to-r from-transparent via-amber-500/60 to-transparent" />

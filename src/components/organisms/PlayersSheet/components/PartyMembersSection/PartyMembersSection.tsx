@@ -37,7 +37,7 @@ export function PartyMembersSection({
           <p className="mt-0.5 text-[11px] text-muted-foreground">
             {players.length} player{players.length !== 1 ? "s" : ""}
             {activeCount > 0 ? (
-              <span className="text-amber-600 dark:text-amber-400">
+              <span className="text-warning">
                 {" "}
                 · {activeCount} active
               </span>
