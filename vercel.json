@@ -15,6 +15,30 @@
   ],
   "rewrites": [
     {
+      "source": "/effects",
+      "destination": "/effects/index.html"
+    },
+    {
+      "source": "/effects/",
+      "destination": "/effects/index.html"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/privacy/index.html"
+    },
+    {
+      "source": "/privacy/",
+      "destination": "/privacy/index.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/terms/index.html"
+    },
+    {
+      "source": "/terms/",
+      "destination": "/terms/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

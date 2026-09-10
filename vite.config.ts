@@ -3,6 +3,7 @@ import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
 import path from "path";
 import tailwindcss from "@tailwindcss/vite";
+import { pageMetadata } from "./build/pageMetadata.ts";
 import { validateProductionEndpoints } from "./scripts/validate-endpoints.ts";
 
 const vendorChunks: ReadonlyArray<readonly [packagePath: string, chunkName: string]> = [
@@ -23,6 +24,7 @@ export default defineConfig(({ command, mode }) => {
       react(),
       babel({ presets: [reactCompilerPreset()] }),
       tailwindcss(),
+      pageMetadata(),
     ],
     build: {
       rolldownOptions: {

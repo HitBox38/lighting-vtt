@@ -4,6 +4,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 
 import { LandingPage } from "@/pages/LandingPage";
+import { PageMetadata } from "@/components/PageMetadata";
 import { EFFECT_EDITOR_NEW_PATH, EFFECT_EDITOR_ROUTE_PATTERN, EFFECT_LIBRARY_PATH } from "@/lib/effects/routes";
 import { CookieConsent } from "@/components/organisms/CookieConsent/CookieConsent";
 import { useCookieConsentStore } from "@/stores/cookieConsentStore";
@@ -42,6 +43,7 @@ function PostHogPageviews() {
 function App() {
   return (
     <>
+      <PageMetadata />
       <PostHogPageviews />
       <Suspense fallback={<div className="grid h-dvh place-content-center bg-background text-muted-foreground" role="status">Loading page…</div>}><Routes>
         <Route path="/" element={<LandingPage />} />
