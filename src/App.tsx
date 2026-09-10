@@ -4,13 +4,15 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 
 import { LandingPage } from "@/pages/LandingPage";
-import { ScenePage } from "@/pages/ScenePage";
-import { LibraryPage } from "@/pages/LibraryPage";
-import { JoinPage } from "@/pages/JoinPage";
 import { PageMetadata } from "@/components/PageMetadata";
 import { EFFECT_EDITOR_NEW_PATH, EFFECT_EDITOR_ROUTE_PATTERN, EFFECT_LIBRARY_PATH } from "@/lib/effects/routes";
+import { CookieConsent } from "@/components/organisms/CookieConsent/CookieConsent";
+import { useCookieConsentStore } from "@/stores/cookieConsentStore";
 
 let lastTrackedPath: string | null = null;
+const ScenePage = lazy(() => import("@/pages/ScenePage").then((module) => ({ default: module.ScenePage })));
+const LibraryPage = lazy(() => import("@/pages/LibraryPage").then((module) => ({ default: module.LibraryPage })));
+const JoinPage = lazy(() => import("@/pages/JoinPage").then((module) => ({ default: module.JoinPage })));
 const EffectEditorPage = lazy(() => import("@/pages/EffectEditorPage").then((module) => ({ default: module.EffectEditorPage })));
 const EffectLibraryPage = lazy(() => import("@/pages/EffectLibraryPage").then((module) => ({ default: module.EffectLibraryPage })));
 const LegalPage = lazy(() => import("@/pages/LegalPage/LegalPage").then((module) => ({ default: module.LegalPage })));
@@ -18,8 +20,13 @@ const LegalPage = lazy(() => import("@/pages/LegalPage/LegalPage").then((module)
 function PostHogPageviews() {
   const posthog = usePostHog();
   const location = useLocation();
+  const consent = useCookieConsentStore((state) => state.consent);
 
   useEffect(() => {
+    if (consent !== "accepted") {
+      lastTrackedPath = null;
+      return;
+    }
     const query = location.search ?? "";
     const hash = location.hash ?? "";
     const path = `${location.pathname}${query}${hash}`;
@@ -28,7 +35,7 @@ function PostHogPageviews() {
     }
     lastTrackedPath = path;
     posthog.capture("$pageview", { $current_url: path });
-  }, [location.pathname, location.search, location.hash, posthog]);
+  }, [location.pathname, location.search, location.hash, posthog, consent]);
 
   return null;
 }
@@ -38,7 +45,7 @@ function App() {
     <>
       <PageMetadata />
       <PostHogPageviews />
-      <Suspense fallback={<div className="grid h-dvh place-content-center bg-background text-muted-foreground" role="status">Opening workshop…</div>}><Routes>
+      <Suspense fallback={<div className="grid h-dvh place-content-center bg-background text-muted-foreground" role="status">Loading page…</div>}><Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/privacy" element={<LegalPage document="privacy" />} />
         <Route path="/terms" element={<LegalPage document="terms" />} />
@@ -51,6 +58,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes></Suspense>
       <Toaster position="bottom-center" richColors closeButton />
+      <CookieConsent />
     </>
   );
 }

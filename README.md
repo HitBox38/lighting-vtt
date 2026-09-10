@@ -114,6 +114,16 @@ bun run preview
 
 ### Vercel previews
 
+Vercel redirects incoming HTTP traffic to HTTPS and supplies HSTS. The response
+header in `vercel.json` also upgrades browser HTTP resource requests to HTTPS;
+resources without HTTPS support fail to load. This browser policy does not
+control outbound requests from Convex actions or links to other websites.
+
+All frontend builds (including previews) require absolute HTTPS values for
+`VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL`, and for
+`VITE_PUBLIC_POSTHOG_HOST` when configured. Validation runs before bundling;
+the Vite development server still allows local HTTP endpoints.
+
 `vercel.json` pins the install to Bun 1.4.2 with a frozen lockfile and runs
 `convex deploy` before completing the deployment. Convex supplies both
 `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` to the frontend build, so uploads

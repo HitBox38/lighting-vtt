@@ -7,6 +7,10 @@ export interface PageMetadata {
 
 // Shared by the HTML build and client navigation so the copy stays in sync.
 export const PAGE_METADATA = {
+  notFound: {
+    title: "Page not found | Lighting VTT",
+    description: "This page could not be found. Return home or open your Lighting VTT scene library to continue your adventure.",
+  },
   home: {
     title: "Dynamic Lighting for TV Table Battlemaps | Lighting VTT",
     description:
@@ -61,6 +65,7 @@ export const PAGE_METADATA = {
 
 export function getPageMetadata(pathname: string, search = ""): PageMetadata {
   const path = pathname.replace(/\/+$/, "").toLowerCase() || "/";
+  if (path === "/") return PAGE_METADATA.home;
   if (path === EFFECT_LIBRARY_PATH) return PAGE_METADATA.effects;
   if (path === "/privacy") return PAGE_METADATA.privacy;
   if (path === "/terms") return PAGE_METADATA.terms;
@@ -74,5 +79,5 @@ export function getPageMetadata(pathname: string, search = ""): PageMetadata {
       ? PAGE_METADATA.player
       : PAGE_METADATA.scene;
   }
-  return PAGE_METADATA.home;
+  return PAGE_METADATA.notFound;
 }
