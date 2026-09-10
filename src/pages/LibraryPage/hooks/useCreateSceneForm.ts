@@ -1,3 +1,4 @@
+import { analyticsOperationGuard } from "@/lib/analyticsOperation";
 import { useState } from "react";
 import { usePostHog } from "@posthog/react";
 import { useForm, useWatch } from "react-hook-form";
@@ -5,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useDeleteUploadedFile, useUploadThing } from "@/utils/uploadthing";
-import { ANALYTICS_EVENTS, setSceneEntrySource } from "@/lib/analytics";
+import { ANALYTICS_EVENTS, errorCategory, setSceneEntrySource } from "@/lib/analytics";
 import type { NewSceneFormData } from "../types";
 
 /**
@@ -60,18 +61,14 @@ export function useCreateSceneForm(userId: string | undefined) {
         setValue("imageUrl", file.ufsUrl, { shouldValidate: true });
         setUploadedFile({ url: file.ufsUrl, key: file.key });
         clearErrors("imageUrl");
-        posthog.capture(ANALYTICS_EVENTS.CreateSceneUploadCompleted);
       }
     },
     onUploadError: (error) => {
-      posthog.capture(ANALYTICS_EVENTS.CreateSceneUploadFailed, {
-        error_category: error.message.slice(0, 120),
-      });
       setError("imageUrl", {
         message: `Upload failed: ${error.message}`,
       });
     },
-  });
+  }, "map");
 
   // ---- Helpers --------------------------------------------------------------
 
@@ -100,7 +97,6 @@ export function useCreateSceneForm(userId: string | undefined) {
     // Reset the input so the same file can be re-selected if removed
     e.target.value = "";
 
-    posthog.capture(ANALYTICS_EVENTS.CreateSceneUploadStarted);
     void startUpload([file]);
   };
 
@@ -123,6 +119,9 @@ export function useCreateSceneForm(userId: string | undefined) {
       return;
     }
 
+    const measurable = analyticsOperationGuard();
+    const attempt_id = crypto.randomUUID();
+    posthog.capture(ANALYTICS_EVENTS.SceneCreateStarted, { attempt_id });
     try {
       const newId = await createScene({
         creatorId: userId,
@@ -130,15 +129,15 @@ export function useCreateSceneForm(userId: string | undefined) {
         mapUrl: data.imageUrl,
       });
 
-      posthog.capture(ANALYTICS_EVENTS.SceneCreated, { has_map_upload: Boolean(data.imageUrl) });
+      if (measurable()) posthog.capture(ANALYTICS_EVENTS.SceneCreated, { has_map_upload: Boolean(data.imageUrl), scene_id: newId, role: "gm", attempt_id });
       setSceneEntrySource("create");
       setIsDialogOpen(false);
       reset();
       setUploadedFile(null);
       navigate(`/scene?id=${encodeURIComponent(newId)}`);
     } catch (error) {
-      posthog.capture(ANALYTICS_EVENTS.CreateSceneMutationFailed, {
-        error_category: error instanceof Error ? error.message.slice(0, 120) : "unknown",
+      if (measurable()) posthog.capture(ANALYTICS_EVENTS.CreateSceneMutationFailed, {
+        error_category: errorCategory(error), attempt_id,
       });
       setError("root", {
         message: error instanceof Error ? error.message : "An error occurred",
@@ -160,7 +159,7 @@ export function useCreateSceneForm(userId: string | undefined) {
   return {
     // Dialog state
     isDialogOpen,
-    setIsDialogOpen,
+    setIsDialogOpen: handleDialogOpenChange,
     handleDialogOpenChange,
 
     // Form

@@ -11,13 +11,13 @@ import { useSceneParams } from "@/pages/ScenePage/hooks/useSceneParams";
 import { useSyncedSceneState } from "@/pages/ScenePage/hooks/useSyncedSceneState";
 
 export function ScenePage() {
-  const { isGM, sceneId, remotePlayerId, isRemotePlayer, role, effectiveIsGM } = useSceneParams();
+  const { isGM, sceneId, remotePlayerId, isRemotePlayer, effectiveIsGM } = useSceneParams();
   const { user } = useUser();
   const scene = useSceneQuery(sceneId, remotePlayerId);
   const isSceneCreator = !!user && scene?.creatorId === user.id;
   const { sceneLoaded, lastAppliedUpdatedAtRef } = useLoadScene(scene, sceneId);
 
-  useSceneAnalytics({ sceneId, scene, isRemotePlayer, role });
+  useSceneAnalytics({ sceneId, scene, isRemotePlayer, role: isRemotePlayer ? "remote_player" : effectiveIsGM && isSceneCreator ? "gm" : "player" });
   useSyncedSceneState({
     scene,
     sceneLoaded,
@@ -47,6 +47,7 @@ export function ScenePage() {
   return (
     <>
       <GameCanvas
+        key={`${sceneId}:${effectiveIsGM && isSceneCreator}:${isRemotePlayer}`}
         mapUrl={scene.mapUrl}
         isGM={effectiveIsGM && isSceneCreator}
         sceneId={sceneId}

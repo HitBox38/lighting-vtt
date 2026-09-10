@@ -20,6 +20,7 @@ import { GameCanvasStage } from "@/components/templates/GameCanvas/components/Ga
 import { useAllowedTokenIds } from "@/components/templates/GameCanvas/hooks/useAllowedTokenIds";
 import { useCanvasInteraction } from "@/components/templates/GameCanvas/hooks/useCanvasInteraction";
 import { useMapTexture } from "@/components/templates/GameCanvas/hooks/useMapTexture";
+import { useCanvasAnalytics } from "./hooks/useCanvasAnalytics";
 import { useOverlayMenus } from "@/components/templates/GameCanvas/hooks/useOverlayMenus";
 import { usePendingEffectPlacement } from "@/components/templates/GameCanvas/hooks/usePendingEffectPlacement";
 import { useRemoteTokenMove } from "@/components/templates/GameCanvas/hooks/useRemoteTokenMove";
@@ -44,12 +45,22 @@ export function GameCanvas({
 }: GameCanvasProps) {
   const workshopOpen = useWorkshopStore((s) => s.open);
   const placingEffect = useWorkshopStore((s) => s.pending !== null);
+  const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
+    if (exitTimer.current) clearTimeout(exitTimer.current);
     useWorkshopStore.setState({
       sceneStartedAt: Date.now(),
       completedCount: 0,
     });
-    return () => useWorkshopStore.getState().reset();
+    return () => {
+      const { pending, attempt } = useWorkshopStore.getState();
+      // Strict Mode replays cleanup immediately. Only a real exit cancels work,
+      // and an old scene's cleanup must never cancel a new scene's selection.
+      exitTimer.current = setTimeout(() => {
+        const current = useWorkshopStore.getState();
+        if (current.pending === pending && current.attempt === attempt) current.reset();
+      }, 0);
+    };
   }, [sceneId]);
   const sidebarSide = useUIPreferencesStore((state) => state.sidebarSide);
   const sidebarOpen = useUIPreferencesStore((state) => state.sidebarOpen);
@@ -68,7 +79,9 @@ export function GameCanvas({
     observer.observe(inset);
     return () => observer.disconnect();
   }, []);
-  const mapTexture = useMapTexture(mapUrl);
+  const { mapTexture, mapFailed } = useMapTexture(mapUrl);
+  const [rendererReady, setRendererReady] = useState(false);
+  useCanvasAnalytics(sceneId, rendererReady, mapTexture !== null, mapFailed);
   const menus = useOverlayMenus();
   const { allowedTokenIds } = useAllowedTokenIds(sceneId, remotePlayerId);
   const handleRemoteTokenMove = useRemoteTokenMove(sceneId, remotePlayerId);
@@ -78,11 +91,11 @@ export function GameCanvas({
   const handlePlaceEffect = (effectId: string, version: number) =>
     useWorkshopStore
       .getState()
-      .begin({ kind: "effect", effectId, version, name: "Effect" });
+      .begin({ kind: "effect", effectId, version, name: "Effect" }, "gallery");
 
   const sceneReadyForPlacement =
     isGM && mapTexture !== null && (sceneId ? storeSceneId === sceneId : true);
-  usePendingEffectPlacement(sceneReadyForPlacement, handlePlaceEffect);
+  usePendingEffectPlacement(sceneReadyForPlacement, handlePlaceEffect, mapFailed);
 
   return (
     <SidebarProvider
@@ -104,7 +117,7 @@ export function GameCanvas({
           isGM={isGM}
           containerRef={interaction.containerRef}
           spriteRef={interaction.spriteRef}
-          onAppInit={interaction.handleAppInit}
+          onAppInit={(app) => { interaction.handleAppInit(app); setRendererReady(true); }}
           sizeEditTokenId={menus.sizeEditTokenId}
           onCloseSizeEdit={menus.handleCloseTokenSizeEdit}
           onOpenLightContextMenu={menus.handleOpenLightContextMenu}

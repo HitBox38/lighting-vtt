@@ -1,4 +1,7 @@
 import type { PostHogConfig } from "posthog-js";
+import { ANALYTICS_PROPERTY_KEYS, errorCategory, getAnalyticsContext } from "./analyticsContext";
+
+const customKeys = new Set<string>(ANALYTICS_PROPERTY_KEYS);
 
 type AnalyticsClient = Parameters<PostHogConfig["loaded"]>[0];
 
@@ -40,8 +43,23 @@ export function redactInviteUrl(value: string): string {
   return redacted === decoded ? value : redacted;
 }
 
+export function sanitizeAnalyticsUrl(value: string): string {
+  if (/^(blob:|data:)/i.test(value)) return "[uploaded-file]";
+  if (!/^(https?:\/\/|\/)/i.test(value)) return redactInviteUrl(value);
+  try {
+    const url = new URL(value, "https://analytics.invalid");
+    if (/(\.ufs\.sh|(?:^|\.)utfs\.io|\.ingest\.uploadthing\.com)$/.test(url.hostname)) return "[uploaded-file]";
+    for (const key of [...url.searchParams.keys()]) {
+      if (!/^(utm_(source|medium|campaign|term|content)|id|isGM|effect|version|tab|category)$/.test(key)) url.searchParams.delete(key);
+    }
+    url.hash = "";
+    const prefix = value.startsWith("//") ? `//${url.host}` : value.startsWith("/") ? "" : url.origin;
+    return redactInviteUrl(`${prefix}${url.pathname}${url.search}`);
+  } catch { return redactInviteUrl(value); }
+}
+
 function redactProperties<T>(value: T): T {
-  if (typeof value === "string") return redactInviteUrl(value) as T;
+  if (typeof value === "string") return sanitizeAnalyticsUrl(value) as T;
   if (Array.isArray(value)) {
     const redacted = value.map(redactProperties);
     return redacted.some((item, index) => item !== value[index]) ? redacted as T : value;
@@ -86,11 +104,54 @@ export function createAnalyticsPrivacyOptions() {
     before_send(event) {
       // Capture updates initial attribution before invoking this callback.
       if (client) redactPersistedAttribution(client);
-      return redactProperties(event);
+      const safe = redactProperties(event);
+      if (safe) {
+        if (safe.event === "$exception") {
+          // Keep stack locations for symbolication, without raw diagnostic text,
+          // locals, or source snippets from programmable effects.
+          delete safe.properties.$exception_message;
+          delete safe.properties.$exception_stack_trace_raw;
+          if (Array.isArray(safe.properties.$exception_list)) {
+            safe.properties.$exception_list = safe.properties.$exception_list.map((exception: Record<string, unknown>) => {
+              const stacktrace = exception.stacktrace as { frames?: Record<string, unknown>[] } | undefined;
+              return {
+                ...exception,
+                value: errorCategory(new Error(String(exception.value ?? ""))),
+                ...(stacktrace ? { stacktrace: { ...stacktrace, frames: stacktrace.frames?.map(frame => {
+                  const safeFrame = { ...frame };
+                  for (const key of ["vars", "context_line", "pre_context", "post_context"]) delete safeFrame[key];
+                  return safeFrame;
+                }) } } : {}),
+              };
+            });
+          }
+        }
+        // Survey responses are intentionally submitted free text; product events
+        // have a closed property contract so accidental content cannot leak.
+        if (!safe.event.startsWith("$") && !safe.event.startsWith("survey ")) {
+          // The SDK requires its public project token and identity transport fields.
+          safe.properties = Object.fromEntries(Object.entries(safe.properties).filter(([key]) => key.startsWith("$") || ["token", "distinct_id"].includes(key) || customKeys.has(key)));
+        }
+        safe.properties = { ...getAnalyticsContext(), ...safe.properties };
+      }
+      return safe;
     },
+    capture_pageleave: false,
+    mask_all_text: true,
+    mask_all_element_attributes: true,
+    autocapture: { capture_copied_text: false },
+    enable_recording_console_log: false,
+    logs: { captureConsoleLogs: false, beforeSend: () => null },
+    capture_performance: { network_timing: true, web_vitals: true },
     session_recording: {
+      maskAllInputs: true,
+      maskTextSelector: '[data-analytics-private], [data-slot="dialog-content"], [data-slot="sheet-content"], [data-slot="sidebar"], [data-slot="popover-content"], [data-slot="dropdown-menu-content"], [data-slot="context-menu-content"], .effect-editor',
+      blockSelector: ".cm-editor, [data-analytics-block]",
+      captureCanvas: { recordCanvas: false },
+      recordHeaders: false,
+      recordBody: false,
       // Replay compresses DOM snapshots before before_send; mask at the source.
-      maskAttributeFn: (_name, value) => redactInviteUrl(value),
+      maskAttributeFn: (name, value) => ["title", "alt", "placeholder", "aria-label"].includes(name) ? "[masked]" : sanitizeAnalyticsUrl(value),
       maskCapturedNetworkRequestFn: (request) => redactProperties(request),
     },
   } satisfies Partial<PostHogConfig>;

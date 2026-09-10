@@ -1,3 +1,5 @@
+import { analyticsOperationGuard } from "@/lib/analyticsOperation";
+import { useAnalyticsReady } from "@/lib/hooks/useAnalyticsView";
 import { useEffect, useRef, useState } from "react";
 import { usePostHog } from "@posthog/react";
 import { useUser } from "@clerk/react";
@@ -5,7 +7,7 @@ import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../../../../convex/_generated/api";
-import { ANALYTICS_EVENTS, setSceneEntrySource } from "@/lib/analytics";
+import { ANALYTICS_EVENTS, errorCategory, setSceneEntrySource } from "@/lib/analytics";
 import { createGuestPlayerToken, saveGuestPlayerToken } from "@/lib/playerSession";
 import {
   getClerkDisplayName,
@@ -16,6 +18,7 @@ export function useJoinScene() {
   const { inviteCode } = useParams<{ inviteCode: string }>();
   const navigate = useNavigate();
   const posthog = usePostHog();
+  const analyticsReady = useAnalyticsReady();
   const { user } = useUser();
   const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
   const sceneInfo = useQuery(
@@ -36,7 +39,7 @@ export function useJoinScene() {
   }, [inviteCode]);
 
   useEffect(() => {
-    if (sceneInfo === undefined) {
+    if (!analyticsReady || sceneInfo === undefined) {
       return;
     }
     if (sceneInfo === null) {
@@ -54,15 +57,18 @@ export function useJoinScene() {
       return;
     }
     if (inviteStateTrackedRef.current !== "valid") {
-      posthog.capture(ANALYTICS_EVENTS.JoinInviteValid, { already_joined: alreadyJoined });
+      posthog.capture(ANALYTICS_EVENTS.JoinInviteValid, { already_joined: alreadyJoined, scene_id: sceneInfo._id, auth_type: user ? "account" : "guest" });
       inviteStateTrackedRef.current = "valid";
     }
-  }, [sceneInfo, alreadyJoined, posthog]);
+  }, [sceneInfo, alreadyJoined, posthog, analyticsReady, user]);
 
   const handleJoin = async () => {
     if (!sceneInfo || authLoading || (user && !isAuthenticated) || !playerName.trim() || !characterName.trim()) {
       return;
     }
+    const measurable = analyticsOperationGuard();
+    const context = { scene_id: sceneInfo._id, role: "remote_player", auth_type: user ? "account" : "guest", attempt_id: crypto.randomUUID() };
+    posthog.capture(ANALYTICS_EVENTS.JoinSceneStarted, context);
     setIsJoining(true);
     setError(null);
     const result = await submitJoin();
@@ -83,13 +89,13 @@ export function useJoinScene() {
           guestToken,
         });
         if (guestToken) saveGuestPlayerToken(sceneInfo!._id, playerId, guestToken);
-        posthog.capture(ANALYTICS_EVENTS.JoinSceneSucceeded);
+        if (measurable()) posthog.capture(ANALYTICS_EVENTS.JoinSceneSucceeded, context);
         setSceneEntrySource("join");
         navigate(`/scene?id=${sceneInfo!._id}&playerId=${playerId}`);
         return { ok: true };
       } catch (joinError) {
-        posthog.capture(ANALYTICS_EVENTS.JoinSceneFailed, {
-          error_category: "join_failed",
+        if (measurable()) posthog.capture(ANALYTICS_EVENTS.JoinSceneFailed, {
+          ...context, error_category: errorCategory(joinError),
         });
         return { ok: false, message: getJoinErrorMessage(joinError) };
       }

@@ -1,3 +1,5 @@
+import { usePostHog } from "@posthog/react";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { Monitor } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
@@ -7,12 +9,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 export const PlayerViewToolbar = () => {
   const location = useLocation();
+  const posthog = usePostHog();
 
   const handleOpenPlayerView = () => {
     const url = new URL(`${window.location.origin}/scene`);
     const params = new URLSearchParams(location.search);
     params.set("isGM", "false");
     url.search = params.toString();
+    posthog.capture(ANALYTICS_EVENTS.PlayerViewOpenRequested);
     window.open(url.toString(), "_blank", "noopener,noreferrer");
   };
 

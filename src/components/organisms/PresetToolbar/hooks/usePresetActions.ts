@@ -57,9 +57,6 @@ export function usePresetActions() {
         return;
       }
       savePreset(presetName);
-      posthog.capture(ANALYTICS_EVENTS.PresetSavedNew, {
-        preset_count_bucket: toCountBucket(presets.length + 1),
-      });
       setNewPresetName("");
       setSaveAttempted(false);
       setIsSaveDialogOpen(false);
@@ -67,13 +64,11 @@ export function usePresetActions() {
     handleUpdateCurrent: () => {
       if (!activePresetId) return;
       updateSavedPreset(activePresetId);
-      posthog.capture(ANALYTICS_EVENTS.PresetUpdatedCurrent);
     },
     handleValueChange: (value: string) => loadVia(value, "select"),
     handleDelete: () => {
       if (!activePresetId) return;
       deletePreset(activePresetId);
-      posthog.capture(ANALYTICS_EVENTS.PresetDeleted);
     },
     handlePreviousPreset: () => cyclePreset(-1),
     handleNextPreset: () => cyclePreset(1),

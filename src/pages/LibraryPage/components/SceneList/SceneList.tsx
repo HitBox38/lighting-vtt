@@ -18,7 +18,7 @@ export function SceneList({ scenes }: SceneListProps) {
   const openScene = (sceneId: string) => openLibraryScene(navigate, sceneId);
 
   return (
-    <div className="divide-y divide-border/50 overflow-hidden rounded-lg border border-border/50">
+    <div data-analytics-private className="divide-y divide-border/50 overflow-hidden rounded-lg border border-border/50">
       {scenes.map((scene, index) => (
         <div
           key={scene._id}

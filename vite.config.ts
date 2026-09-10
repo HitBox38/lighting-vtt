@@ -15,11 +15,16 @@ const vendorChunks: ReadonlyArray<readonly [packagePath: string, chunkName: stri
 
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
+  const appEnv = loadEnv(mode, process.cwd(), "VITE_");
   if (command === "build") {
-    validateProductionEndpoints(loadEnv(mode, process.cwd(), "VITE_"));
+    validateProductionEndpoints(appEnv);
   }
 
   return {
+    define: {
+      "import.meta.env.VITE_APP_ENV": JSON.stringify(process.env.VERCEL_ENV ?? process.env.VITE_APP_ENV ?? appEnv.VITE_APP_ENV ?? (command === "serve" ? "development" : "preview")),
+      "import.meta.env.VITE_APP_RELEASE": JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.VITE_APP_RELEASE ?? appEnv.VITE_APP_RELEASE ?? "local"),
+    },
     plugins: [
       react(),
       babel({ presets: [reactCompilerPreset()] }),
@@ -27,6 +32,7 @@ export default defineConfig(({ command, mode }) => {
       pageMetadata(),
     ],
     build: {
+      sourcemap: "hidden",
       rolldownOptions: {
         output: {
           codeSplitting: {

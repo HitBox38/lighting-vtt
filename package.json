@@ -7,7 +7,7 @@
     "dev:frontend": "vite",
     "dev:backend": "bunx convex dev",
     "dev": "bun dev:backend && bun dev:frontend",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && bun scripts/upload-sourcemaps.ts",
     "lint": "eslint .",
     "test:workshop": "bun test --tsconfig-override tsconfig.app.json tests",
     "preview": "vite preview"
@@ -62,6 +62,7 @@
   "devDependencies": {
     "@babel/core": "^8.0.1",
     "@eslint/js": "^10.0.1",
+    "@posthog/cli": "^0.18.1",
     "@rolldown/plugin-babel": "^0.2.4",
     "@types/node": "^26.5.0",
     "@types/pngjs": "6.0.5",
@@ -85,6 +86,7 @@
   },
   "trustedDependencies": [
     "@clerk/shared",
+    "@posthog/cli",
     "@vgpu/adapter-node",
     "bun",
     "esbuild",

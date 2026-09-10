@@ -1,3 +1,5 @@
+import { AnalyticsIdentity } from "./components/atoms/AnalyticsIdentity";
+import { analyticsEnabled } from "./lib/analyticsContext";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ClerkProvider, useAuth } from "@clerk/react";
@@ -31,7 +33,7 @@ const options = {
 } as const;
 
 // Apply consent before any React effects can capture analytics.
-const applyAnalyticsConsent = createPostHogConsentController(posthog, import.meta.env.VITE_PUBLIC_POSTHOG_KEY, options);
+const applyAnalyticsConsent = createPostHogConsentController(posthog, analyticsEnabled() ? import.meta.env.VITE_PUBLIC_POSTHOG_KEY : undefined, options);
 applyAnalyticsConsent(useCookieConsentStore.getState().consent);
 const unsubscribeConsent = useCookieConsentStore.subscribe((state) => applyAnalyticsConsent(state.consent));
 const syncCookieConsent = (event: StorageEvent) => {
@@ -65,6 +67,7 @@ createRoot(document.getElementById("root")!).render(
               termsPageUrl: "/terms",
             },
           }}>
+          <AnalyticsIdentity />
           <ConvexProviderWithClerk client={convexClient} useAuth={useAuth}>
             <QueryClientProvider client={queryClient}>
               <RouterProvider router={router}/>
