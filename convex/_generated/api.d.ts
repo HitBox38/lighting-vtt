@@ -12,18 +12,21 @@ import type * as effects from "../effects.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_effectInstances from "../lib/effectInstances.js";
+import type * as lib_playerAuth from "../lib/playerAuth.js";
+import type * as lib_sceneAuth from "../lib/sceneAuth.js";
+import type * as lib_spamProtection from "../lib/spamProtection.js";
 import type * as lib_thumbnailDiagnosticRunner from "../lib/thumbnailDiagnosticRunner.js";
 import type * as lib_thumbnailJobs from "../lib/thumbnailJobs.js";
 import type * as lib_thumbnailProcess from "../lib/thumbnailProcess.js";
 import type * as lib_thumbnailRuntime from "../lib/thumbnailRuntime.js";
+import type * as lib_uploadthingRouter from "../lib/uploadthingRouter.js";
 import type * as players from "../players.js";
 import type * as scenes from "../scenes.js";
 import type * as thumbnailActions from "../thumbnailActions.js";
 import type * as thumbnailDiagnostics from "../thumbnailDiagnostics.js";
 import type * as thumbnails from "../thumbnails.js";
-import type * as uploadthingActions from "../uploadthingActions.js";
 import type * as uploads from "../uploads.js";
-import type * as lib_uploadthingRouter from "../lib/uploadthingRouter.js";
+import type * as uploadthingActions from "../uploadthingActions.js";
 
 import type {
   ApiFromModules,
@@ -36,18 +39,21 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/effectInstances": typeof lib_effectInstances;
+  "lib/playerAuth": typeof lib_playerAuth;
+  "lib/sceneAuth": typeof lib_sceneAuth;
+  "lib/spamProtection": typeof lib_spamProtection;
   "lib/thumbnailDiagnosticRunner": typeof lib_thumbnailDiagnosticRunner;
   "lib/thumbnailJobs": typeof lib_thumbnailJobs;
   "lib/thumbnailProcess": typeof lib_thumbnailProcess;
   "lib/thumbnailRuntime": typeof lib_thumbnailRuntime;
+  "lib/uploadthingRouter": typeof lib_uploadthingRouter;
   players: typeof players;
   scenes: typeof scenes;
   thumbnailActions: typeof thumbnailActions;
   thumbnailDiagnostics: typeof thumbnailDiagnostics;
   thumbnails: typeof thumbnails;
-  uploadthingActions: typeof uploadthingActions;
   uploads: typeof uploads;
-  "lib/uploadthingRouter": typeof lib_uploadthingRouter;
+  uploadthingActions: typeof uploadthingActions;
 }>;
 
 /**
