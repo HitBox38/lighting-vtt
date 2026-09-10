@@ -40,8 +40,8 @@ type EffectContextMenuProps = {
 
 const TONE_CLASS = {
   neutral: "text-muted-foreground",
-  ok: "text-emerald-500",
-  warning: "text-amber-500",
+  ok: "text-success",
+  warning: "text-warning",
   error: "text-destructive",
 } as const;
 

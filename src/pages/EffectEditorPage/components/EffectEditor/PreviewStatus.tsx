@@ -53,7 +53,7 @@ export function PreviewStatus({
             className="flex items-center gap-1.5 rounded px-1.5 py-1 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Icon
-              className={`size-3 ${failed ? "text-destructive" : fallback ? "text-amber-500" : busy ? "animate-spin" : "text-emerald-500"}`}
+              className={`size-3 ${failed ? "text-destructive" : fallback ? "text-warning" : busy ? "animate-spin" : "text-success"}`}
             />
             <span>
               {label}
