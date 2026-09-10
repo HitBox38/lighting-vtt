@@ -4,7 +4,6 @@ import { ClerkProvider, useAuth } from "@clerk/react";
 import { shadcn } from "@clerk/ui/themes";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import "pixi.js/advanced-blend-modes";
 import "./index.css";
 import App from "./App.tsx";
 import { ThemeProvider } from "@/components/atoms/ThemeProvider";

@@ -28,10 +28,22 @@ export default defineConfig(({ command, mode }) => {
       rolldownOptions: {
         output: {
           codeSplitting: {
-            groups: vendorChunks.map(([packagePath, name]) => ({
+            groups: [{
+              // Vite injects this helper into dynamic imports, including Pixi's.
+              // It must stay shared instead of pulling Pixi into every lazy route.
+              name: "preload-helper",
+              priority: 200,
+              test: (id: string) => id.replaceAll("\\", "/").includes("vite/preload-helper"),
+            }, {
+              // React is needed by every route. Keep it out of Pixi's recursive
+              // vendor group while preserving Pixi's renderer initialization order.
+              name: "react-core",
+              priority: 100,
+              test: (id: string) => /\/node_modules\/(?:react|react-dom|scheduler)\//.test(id.replaceAll("\\", "/")),
+            }, ...vendorChunks.map(([packagePath, name]) => ({
               name,
               test: (id: string) => id.replaceAll("\\", "/").includes(packagePath),
-            })),
+            }))],
           },
         },
       },

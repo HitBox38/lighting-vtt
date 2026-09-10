@@ -1,3 +1,4 @@
+import "pixi.js/advanced-blend-modes";
 import { useEffect, useRef, useState } from "react";
 import { useWorkshopStore } from "@/stores/workshopStore";
 import { EffectWorkshop } from "@/components/organisms/EffectWorkshop/EffectWorkshop";
