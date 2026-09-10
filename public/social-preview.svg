@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <title>Lighting VTT — Bring your battlemap to life.</title>
+  <defs>
+    <radialGradient id="glow">
+      <stop stop-color="#ffb547" stop-opacity=".14"/>
+      <stop offset="1" stop-color="#ffb547" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="56" height="56" patternUnits="userSpaceOnUse">
+      <path d="M56 0H0V56" fill="none" stroke="#35392e" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <path fill="#171915" d="M0 0h1200v630H0z"/>
+  <path fill="url(#grid)" d="M760 0h440v630H760z"/>
+  <circle cx="970" cy="305" r="320" fill="url(#glow)"/>
+  <path d="M64 64h48" stroke="#ffb547" stroke-width="5"/>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <text x="64" y="115" fill="#f2f1e9" font-size="30" font-weight="700">Lighting <tspan fill="#a6ab9d" font-weight="400">VTT</tspan></text>
+    <g fill="#f2f1e9" font-size="76" font-weight="700" letter-spacing="-3">
+      <text x="60" y="248">Bring your</text>
+      <text x="60" y="334">battlemap</text>
+      <text x="60" y="420" fill="#ffb547">to life.</text>
+    </g>
+    <text x="64" y="499" fill="#a6ab9d" font-size="23">Dynamic lighting. Custom effects.</text>
+    <text x="64" y="533" fill="#a6ab9d" font-size="23">Made for your TV table.</text>
+    <text x="64" y="592" fill="#a6ab9d" font-size="14" letter-spacing="2">YOUR MAP. YOUR TABLE. A LITTLE MORE MAGIC.</text>
+  </g>
+  <g transform="translate(790 145) scale(2.65)">
+    <path fill="#FFB547" fill-rule="evenodd" d="M76 8C77 30 99 33 99 56C110 50 115 40 114 31C135 76 113 117 76 119C42 121 19 103 17 80C15 65 25 53 30 43C31 60 39 62 43 53C49 39 43 22 76 8ZM40 70L54 73V82C54 90 40 90 40 82ZM68 73L82 70V82C82 90 68 90 68 82Z"/>
+    <path fill="#FF704D" d="M114 31C135 76 113 117 76 119C42 121 19 103 17 80C29 110 75 115 98 88C113 70 120 48 114 31Z"/>
+  </g>
+</svg>

@@ -133,6 +133,21 @@ data; production library contents are not copied automatically.
 
 See [Convex's Vercel preview setup](https://docs.convex.dev/production/hosting/vercel#preview-deployments).
 
+### Social previews
+
+Open Graph and Twitter cards use `public/social-preview.png` (1200 × 630).
+The editable artwork is `public/social-preview.svg`; export it to PNG at the
+same dimensions after changing the design. It reuses the Lightling brand icon.
+
+The HTML build includes sharing metadata for the homepage, effects library,
+privacy policy, and terms, so crawlers do not need JavaScript. Titles and
+descriptions also update during client navigation.
+
+Set `VITE_SITE_URL` to the public site origin when deploying outside Vercel or
+overriding the sharing image host. On Vercel, the build automatically uses
+`VERCEL_PROJECT_PRODUCTION_URL`, falling back to `VERCEL_URL`. Local builds
+without either setting use localhost and print a reminder to configure the URL.
+
 ## Project Structure
 
 ```
