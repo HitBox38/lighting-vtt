@@ -40,25 +40,27 @@ export function LandingHeader() {
             Effects
           </Link>
           <ThemeToggle />
-          <Show when="signed-out">
-            <SignInButton mode="modal" forceRedirectUrl="/library">
-              <Button
-                variant="ghost"
-                className="max-[760px]:px-2 max-[760px]:text-xs"
-                onClick={() =>
-                  posthog.capture(ANALYTICS_EVENTS.LandingCtaClicked, {
-                    placement: "header",
-                    action: "sign_in",
-                  })
-                }
-              >
-                Sign in
-              </Button>
-            </SignInButton>
-          </Show>
-          <Show when="signed-in">
-            <UserButton />
-          </Show>
+          <span className="inline-grid h-9 w-[72px] shrink-0 place-items-center max-[760px]:w-[58px]">
+            <Show when="signed-out">
+              <SignInButton mode="modal" forceRedirectUrl="/library">
+                <Button
+                  variant="ghost"
+                  className="max-[760px]:px-2 max-[760px]:text-xs"
+                  onClick={() =>
+                    posthog.capture(ANALYTICS_EVENTS.LandingCtaClicked, {
+                      placement: "header",
+                      action: "sign_in",
+                    })
+                  }
+                >
+                  Sign in
+                </Button>
+              </SignInButton>
+            </Show>
+            <Show when="signed-in">
+              <UserButton />
+            </Show>
+          </span>
           <LandingAction placement="header" />
         </nav>
       </div>
