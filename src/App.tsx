@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect } from "react";
 import { usePostHog } from "@posthog/react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Route, Routes, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 
 import { LandingPage } from "@/pages/LandingPage";
+import { NotFoundPage } from "@/pages/NotFoundPage";
 import { PageMetadata } from "@/components/PageMetadata";
 import { EFFECT_EDITOR_NEW_PATH, EFFECT_EDITOR_ROUTE_PATTERN, EFFECT_LIBRARY_PATH } from "@/lib/effects/routes";
 import { CookieConsent } from "@/components/organisms/CookieConsent/CookieConsent";
@@ -55,7 +56,7 @@ function App() {
         <Route path={EFFECT_LIBRARY_PATH} element={<EffectLibraryPage />} />
         <Route path={EFFECT_EDITOR_NEW_PATH} element={<EffectEditorPage />} />
         <Route path={EFFECT_EDITOR_ROUTE_PATTERN} element={<EffectEditorPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes></Suspense>
       <Toaster position="bottom-center" richColors closeButton />
       <CookieConsent />
