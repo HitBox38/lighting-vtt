@@ -16,6 +16,17 @@ function localContext() {
     auth: { async getUserIdentity() { return { subject: "author", name: "Test Author" }; } },
     async runMutation() { return { ok: true }; },
     db: {
+      query(table: string) {
+        const equalities: Array<[string, unknown]> = [];
+        const query = {
+          withIndex(_name: string, build: (q: unknown) => unknown) {
+            const q = { eq(field: string, value: unknown) { equalities.push([field, value]); return q; } };
+            build(q); return query;
+          },
+          async unique() { return [...rows.values()].find(row => String(row._id).startsWith(`${table}:`) && equalities.every(([key, value]) => row[key] === value)) ?? null; },
+        };
+        return query;
+      },
       async get(id: string) { return rows.get(id) ?? null; },
       async insert(table: string, fields: Record<string, unknown>) {
         const id = `${table}:${++sequence}`;
@@ -45,7 +56,7 @@ test("saving and publishing WGSL-only effects preserves immutable version source
 
   await handler<{ effectId: Id<"effects"> }, null>(publishEffect)(ctx, { effectId: created.effectId });
   expect(rows.get(created.effectId)?.visibility).toBe("public");
-  expect(patches.at(-1)?.fields).toEqual({ visibility: "public", updatedAt: expect.any(Number) });
+  expect(patches.at(-1)?.fields).toMatchObject({ visibility: "public", publishedVersion: 1, updatedAt: expect.any(Number) });
   expect(rows.get(version1._id as string)).toEqual(beforePublish);
   expect([...rows.values()].filter((row) => row.version)).toHaveLength(1);
 

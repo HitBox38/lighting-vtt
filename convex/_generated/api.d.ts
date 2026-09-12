@@ -12,6 +12,7 @@ import type * as effects from "../effects.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_effectInstances from "../lib/effectInstances.js";
+import type * as lib_effectReleases from "../lib/effectReleases.js";
 import type * as lib_playerAuth from "../lib/playerAuth.js";
 import type * as lib_sceneAuth from "../lib/sceneAuth.js";
 import type * as lib_spamProtection from "../lib/spamProtection.js";
@@ -39,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/effectInstances": typeof lib_effectInstances;
+  "lib/effectReleases": typeof lib_effectReleases;
   "lib/playerAuth": typeof lib_playerAuth;
   "lib/sceneAuth": typeof lib_sceneAuth;
   "lib/spamProtection": typeof lib_spamProtection;

@@ -1,3 +1,4 @@
+import { canReadVersion, versionReleasesEnabled } from "./effectReleases";
 import { EFFECT_LIMITS, effectInstanceSchema, type EffectInstance } from "../../shared/effects";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
@@ -55,6 +56,7 @@ export async function assertSceneEffectInstances(
     ...(scene.effects ?? []),
     ...scene.presets.flatMap((preset) => preset.effects ?? []),
   ].map(referenceKey));
+  const versioned = await versionReleasesEnabled(ctx);
   const checkedRefs = new Set<string>();
   const effectCache = new Map<string, Doc<"effects"> | null>();
 
@@ -75,7 +77,7 @@ export async function assertSceneEffectInstances(
     const version = await ctx.db.query("effectVersions")
       .withIndex("by_effect_version", (q) => q.eq("effectId", id).eq("version", instance.version))
       .unique();
-    if (!version) throw new Error("Effect version is unavailable");
+    if (!version || !canReadVersion(effect, version, scene.creatorId, versioned)) throw new Error("Effect version is unavailable");
     checkedRefs.add(key);
   }
   return parsed;

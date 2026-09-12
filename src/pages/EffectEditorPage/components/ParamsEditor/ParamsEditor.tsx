@@ -1,3 +1,4 @@
+import { reconcilePreviewValues } from "@/lib/effects/previewValues";
 import { useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Plus, Settings2, Trash2 } from "lucide-react";
 import { EffectParamFields } from "@/components/molecules/EffectParamFields";
@@ -81,12 +82,16 @@ function parseNumber(raw: string, fallback: number): number {
  */
 export function ParamsEditor({
   params,
-  onChange,
+  onChange: commitParams,
   issues,
   kind = "shader",
   values,
   onValuesChange,
 }: Props) {
+  const onChange = (next: EffectParam[]) => {
+    onValuesChange(reconcilePreviewValues(params, next, values));
+    commitParams(next);
+  };
   const atLimit = params.length >= EFFECT_LIMITS.maxParams;
 
   const replaceAt = (index: number, next: EffectParam) => {
@@ -118,7 +123,7 @@ export function ParamsEditor({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-muted-foreground text-xs">
           {params.length} / {EFFECT_LIMITS.maxParams} controls.{" "}
-          <span className="block">Tune here. Define defaults in settings.</span>
+          <span className="block">Preview overrides are temporary until you use them as defaults.</span>
         </p>
         <Button
           type="button"
@@ -132,6 +137,10 @@ export function ParamsEditor({
         </Button>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" onClick={() => onValuesChange(Object.fromEntries(params.map(p => [p.key, p.default])))}>Reset preview to defaults</Button>
+        <Button size="sm" variant="outline" onClick={() => onChange(params.map(p => ({ ...p, default: values[p.key] ?? p.default } as EffectParam)))}>Use preview values as defaults</Button>
+      </div>
       {params.length === 0 ? (
         <p className="text-muted-foreground rounded-md border border-dashed p-4 text-center text-xs">
           No params yet. Params become sliders, colour pickers and toggles for
@@ -218,7 +227,7 @@ function ParamRow({
           />
           <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] text-muted-foreground [overflow-wrap:anywhere]">
             <span>
-              Preview value · saved default{" "}
+              {values[param.key] !== undefined && values[param.key] !== param.default ? "Preview override" : "Using default"} · saved default{" "}
               <span className="font-mono">{String(param.default)}</span>
             </span>
             <code>
@@ -240,24 +249,10 @@ function ParamRow({
         </Button>
       </div>
       <div
-        className={cn("border-t bg-muted/20 p-3", !settingsOpen && "hidden")}
+        className="border-t bg-muted/20 p-3"
       >
         <div className="flex flex-col items-start gap-2 sm:flex-row">
           <div className="grid w-full min-w-0 flex-1 grid-cols-1 gap-3 min-[400px]:grid-cols-2">
-            <Field label="Key" issue={keyIssue}>
-              <Input
-                aria-label={`Control ${index + 1} key`}
-                value={param.key}
-                onChange={(event) =>
-                  onChange({ ...param, key: event.target.value })
-                }
-                placeholder="speed"
-                maxLength={EFFECT_LIMITS.maxParamKeyLength}
-                aria-invalid={Boolean(keyIssue)}
-                className="h-8 font-mono text-xs"
-                spellCheck={false}
-              />
-            </Field>
             <Field label="Label" issue={labelIssue}>
               <Input
                 aria-label={`Control ${index + 1} label`}
@@ -295,6 +290,25 @@ function ParamRow({
             <TypeFields param={param} issueFor={issueFor} onChange={onChange} />
           </div>
 
+
+        </div>
+        {settingsOpen && <div className="mt-3 rounded border p-3">
+          <p className="mb-2 text-xs text-muted-foreground">{kind === "script" ? "Advanced: renaming a key changes input.params references. Update your script too." : "Advanced: reordering or removing controls changes shader slot numbers. Update your source too."}</p>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Field label="Key" issue={keyIssue}>
+              <Input
+                aria-label={`Control ${index + 1} key`}
+                value={param.key}
+                onChange={(event) =>
+                  onChange({ ...param, key: event.target.value })
+                }
+                placeholder="speed"
+                maxLength={EFFECT_LIMITS.maxParamKeyLength}
+                aria-invalid={Boolean(keyIssue)}
+                className="h-8 font-mono text-xs"
+                spellCheck={false}
+              />
+            </Field>
           <div className="flex shrink-0 gap-1 sm:mt-5 sm:flex-col">
             <Button
               type="button"
@@ -328,8 +342,7 @@ function ParamRow({
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
-          </div>
-        </div>
+          </div></div></div>}
         <Button
           size="sm"
           variant="ghost"
