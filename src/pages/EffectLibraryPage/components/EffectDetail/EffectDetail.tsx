@@ -1,5 +1,5 @@
 import { useAnalyticsView } from "@/lib/hooks/useAnalyticsView";
-import { analyticsOperationGuard } from "@/lib/analyticsOperation";
+import { EffectRelease } from "@/components/organisms/EffectRelease/EffectRelease";
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
@@ -8,7 +8,6 @@ import {
   Code2,
   EyeOff,
   Flag,
-  Globe,
   Loader2,
   Lock,
   ShieldAlert,
@@ -33,7 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { versionDocToDefinition } from "@/lib/effects/hooks/useEffectDefinitions";
-import { ANALYTICS_EVENTS, errorCategory } from "@/lib/analytics";
+import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { describeMutationError } from "@/lib/effects/errors";
 import type { CompiledEffect } from "@/lib/effects/effectRegistry";
 import { effectEditorPath } from "@/lib/effects/routes";
@@ -184,7 +183,6 @@ interface OwnerActionsProps {
 
 function OwnerActions({ effect, onDeleted }: OwnerActionsProps) {
   const posthog = usePostHog();
-  const publishEffect = useMutation(api.effects.publishEffect);
   const unpublishEffect = useMutation(api.effects.unpublishEffect);
   const deleteEffect = useMutation(api.effects.deleteEffect);
   const [busy, setBusy] = useState<"publish" | "unpublish" | "delete" | null>(
@@ -205,21 +203,6 @@ function OwnerActions({ effect, onDeleted }: OwnerActionsProps) {
       setBusy(null);
     }
   };
-
-  const handlePublish = () =>
-    run(
-      "publish",
-      async () => {
-        const measurablePublish = analyticsOperationGuard();
-        const context = { attempt_id: crypto.randomUUID(), effect_id: effect._id, effect_kind: effect.kind, surface: "effect_detail" };
-        posthog.capture(ANALYTICS_EVENTS.EffectPublishStarted, context);
-        try { await publishEffect({ effectId: effect._id }); }
-        catch (error) { if (measurablePublish()) posthog.capture(ANALYTICS_EVENTS.EffectPublishFailed, { ...context, error_category: errorCategory(error) }); throw error; }
-        if (measurablePublish()) posthog.capture(ANALYTICS_EVENTS.EffectPublished, context);
-        toast.success(`“${effect.name}” is now in the public library.`);
-      },
-      "Could not publish the effect",
-    );
 
   const handleUnpublish = () =>
     run(
@@ -259,19 +242,6 @@ function OwnerActions({ effect, onDeleted }: OwnerActionsProps) {
     case "private":
       return (
         <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            size="sm"
-            onClick={handlePublish}
-            disabled={busy !== null}
-          >
-            {busy === "publish" ? (
-              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-            ) : (
-              <Globe className="mr-1 h-4 w-4" />
-            )}
-            Publish to library
-          </Button>
           <Button
             type="button"
             size="sm"
@@ -404,7 +374,7 @@ export function EffectDetail({
     });
   const [reportOpen, setReportOpen] = useState(false);
 
-  const version = pickedVersion ?? effect?.latestVersion ?? null;
+  const version = pickedVersion ?? (searchParams.get("tab") === "public" ? effect?.publishedVersion ?? effect?.latestVersion : effect?.latestVersion) ?? null;
   const versionDoc = useQuery(
     api.effects.getVersion,
     version !== null ? { effectId, version } : "skip",
@@ -436,7 +406,7 @@ export function EffectDetail({
       <div className="min-w-0 space-y-4 p-4 [overflow-wrap:anywhere]">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold">{effect.name}</h2>
+            <h2 className="text-lg font-semibold">{definition?.name ?? effect.name}</h2>
             <Badge variant="secondary" className="font-mono">
               v{version}
             </Badge>
@@ -445,7 +415,7 @@ export function EffectDetail({
                 variant={effect.visibility === "public" ? "default" : "outline"}
                 className="capitalize"
               >
-                {effect.visibility}
+                Saved v{effect.latestVersion} · {effect.visibility === "public" ? `Public v${effect.publishedVersion ?? effect.latestVersion}` : effect.visibility}
               </Badge>
             ) : null}
           </div>
@@ -455,8 +425,8 @@ export function EffectDetail({
           </p>
         </div>
 
-        {effect.description ? (
-          <p className="text-sm whitespace-pre-wrap">{effect.description}</p>
+        {(definition?.description ?? effect.description) ? (
+          <p className="text-sm whitespace-pre-wrap">{definition?.description ?? effect.description}</p>
         ) : (
           <p className="text-muted-foreground text-sm italic">
             No description.
@@ -523,7 +493,10 @@ export function EffectDetail({
           ) : null}
         </div>
 
-        {mine ? <OwnerActions effect={effect} onDeleted={onDeleted} /> : null}
+        {mine ? <div className="space-y-3">
+          {definition && version !== null && effect.visibility !== "hidden" && <EffectRelease key={`${effect._id}:${version}`} effectId={effect._id} version={version} definition={definition} />}
+          <OwnerActions effect={effect} onDeleted={onDeleted} />
+        </div> : null}
         {effect.source ? (
           <p className="text-xs text-muted-foreground">
             Remixed from{" "}

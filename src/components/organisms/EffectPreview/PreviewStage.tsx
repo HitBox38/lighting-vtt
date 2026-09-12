@@ -1,4 +1,4 @@
-import { useState, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
 import { Eye, EyeOff, Pause, Play, RotateCcw } from "lucide-react";
 import { EffectPreview } from "./EffectPreview";
 import { Button } from "@/components/ui/button";
@@ -11,31 +11,44 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
+export interface PreviewSession {
+  environment: "grid" | "room" | "lights";
+  paused: boolean;
+  enabled: boolean;
+  preference: "webgl" | "webgpu";
+  sample: { lightX: number; lightY: number; mirrorX: number; mirrorY: number };
+}
+
 export function PreviewStage({
+  initialSession,
+  onSessionChange,
   fill = false,
   status,
   ...props
 }: ComponentProps<typeof EffectPreview> & {
+  initialSession?: PreviewSession;
+  onSessionChange?: (session: PreviewSession) => void;
   fill?: boolean;
   status?: ReactNode;
 }) {
   const [environment, setEnvironment] = useState<"grid" | "room" | "lights">(
-    "grid",
+    initialSession?.environment ?? "grid",
   );
   const [paused, setPaused] = useState(
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => initialSession?.paused ?? window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
-  const [enabled, setEnabled] = useState(true);
+  const [enabled, setEnabled] = useState(initialSession?.enabled ?? true);
   const [restart, setRestart] = useState(0);
-  const [preference, setPreference] = useState<"webgl" | "webgpu">("webgl");
-  const [sample, setSample] = useState({
+  const [preference, setPreference] = useState<"webgl" | "webgpu">(initialSession?.preference ?? "webgl");
+  const [sample, setSample] = useState(initialSession?.sample ?? {
     lightX: 180,
     lightY: 270,
     mirrorX: 860,
     mirrorY: 760,
   });
+  useEffect(() => { onSessionChange?.({ environment, paused, enabled, preference, sample }); }, [environment, paused, enabled, preference, sample, onSessionChange]);
   return (
-    <div className={cn("space-y-2", fill && "flex min-h-48 flex-1 flex-col")}>
+    <div className={cn("min-w-0 space-y-2", fill && "flex min-h-48 flex-1 flex-col")}>
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
         <Select
           value={environment}
@@ -98,7 +111,7 @@ export function PreviewStage({
       </div>
       <div
         className={cn(
-          "relative overflow-hidden rounded-xl border",
+          "relative min-w-0 overflow-hidden rounded-xl border",
           fill ? "min-h-24 flex-1" : "aspect-[4/3] max-h-[48vh]",
         )}
       >

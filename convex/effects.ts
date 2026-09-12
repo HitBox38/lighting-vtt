@@ -1,10 +1,12 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
+import { canReadVersion, publicEffect, releaseSnapshot, retainVersionReleasePolicy, versionReleasesEnabled } from "./lib/effectReleases";
 import { canReadScene } from "./lib/sceneAuth";
 import { paginationOptsValidator } from "convex/server";
 import { RateLimiter, HOUR, MINUTE } from "@convex-dev/rate-limiter";
 import { components } from "./_generated/api";
 import {
   internalMutation,
+  internalQuery,
   mutation,
   query,
   type MutationCtx,
@@ -52,6 +54,7 @@ export const browse = query({
     ),
   }),
   handler: async (ctx, args) => {
+    const versioned = await versionReleasesEnabled(ctx);
     const result = await (async () => {
     const userId = args.mine ? await getCurrentUserIdOrNull(ctx) : null;
     if (args.mine && !userId)
@@ -62,6 +65,15 @@ export const browse = query({
       .split(/\s+/)
       .slice(0, 16)
       .join(" ");
+    if (!userId && versioned) {
+      if (search) return ctx.db.query("effects").withSearchIndex("search_public_effects", q => {
+        const scoped = q.search("publicSearchText", search).eq("visibility", "public");
+        return args.category ? scoped.eq("publicCategory", args.category) : scoped;
+      }).paginate(args.paginationOpts);
+      return args.category
+        ? ctx.db.query("effects").withIndex("by_public_category", q => q.eq("visibility", "public").eq("publicCategory", args.category)).order("desc").paginate(args.paginationOpts)
+        : ctx.db.query("effects").withIndex("by_public_release", q => q.eq("visibility", "public")).order("desc").paginate(args.paginationOpts);
+    }
     if (search)
       return await ctx.db
         .query("effects")
@@ -100,7 +112,7 @@ export const browse = query({
           .order("desc")
           .paginate(args.paginationOpts);
     })();
-    return { ...result, page: await Promise.all(result.page.map((effect) => withThumbnail(ctx, effect))) };
+    return { ...result, page: await Promise.all(result.page.map((effect) => !args.mine && versioned ? publicEffect(ctx, effect) : withThumbnail(ctx, effect))) };
   },
 });
 
@@ -124,7 +136,9 @@ export const prepareWorkshop = internalMutation({
           description: definition.description,
           kind: definition.kind,
           category: definition.category,
-          visibility: "public",
+          visibility: "public", publishedVersion: 1, publishedAt: now, legacyReleasedThrough: 1,
+          releasedCatalog: { name: definition.name, description: definition.description, category: definition.category ?? "Other", thumbnailUrl: definition.thumbnailUrl, thumbnailKey: definition.thumbnailKey },
+          publicCategory: definition.category ?? "Other", publicSearchText: searchable(definition.name, definition.description, "Lighting VTT"),
           latestVersion: 1,
           createdAt: now,
           updatedAt: now,
@@ -166,6 +180,7 @@ const rateLimiter = new RateLimiter(components.rateLimiter, {
     period: HOUR,
     capacity: 20,
   },
+  curatorPublishEffect: { kind: "token bucket", rate: 60, period: HOUR, capacity: 20 },
   publishEffect: { kind: "token bucket", rate: 10, period: HOUR, capacity: 5 },
   reportEffect: { kind: "token bucket", rate: 20, period: HOUR, capacity: 5 },
   hideEffect: { kind: "fixed window", rate: 60, period: MINUTE },
@@ -295,12 +310,13 @@ export const listPublic = query({
     ),
   }),
   handler: async (ctx, args) => {
+    const versioned = await versionReleasesEnabled(ctx);
     const result = await ctx.db
       .query("effects")
-      .withIndex("by_visibility", (q) => q.eq("visibility", "public"))
+      .withIndex(versioned ? "by_public_release" : "by_visibility", (q) => q.eq("visibility", "public"))
       .order("desc")
       .paginate(args.paginationOpts);
-    return { ...result, page: await Promise.all(result.page.map((effect) => withThumbnail(ctx, effect))) };
+    return { ...result, page: await Promise.all(result.page.map((effect) => versioned ? publicEffect(ctx, effect) : withThumbnail(ctx, effect))) };
   },
 });
 
@@ -314,7 +330,7 @@ export const getEffect = query({
     const effect = await ctx.db.get(id);
     if (!effect) return null;
     const userId = await getCurrentUserIdOrNull(ctx);
-    return canReadEffect(effect, userId) ? await withThumbnail(ctx, effect) : null;
+    return canReadEffect(effect, userId) ? ((await versionReleasesEnabled(ctx)) && effect.authorId !== userId ? await publicEffect(ctx, effect) : await withThumbnail(ctx, effect)) : null;
   },
 });
 
@@ -332,12 +348,13 @@ export const getVersion = query({
     if (!effect) return null;
     const userId = await getCurrentUserIdOrNull(ctx);
     if (!canReadEffect(effect, userId)) return null;
-    return await ctx.db
+    const row = await ctx.db
       .query("effectVersions")
       .withIndex("by_effect_version", (q) =>
         q.eq("effectId", id).eq("version", args.version),
       )
       .unique();
+    return row && canReadVersion(effect, row, userId, await versionReleasesEnabled(ctx)) ? row : null;
   },
 });
 
@@ -368,6 +385,7 @@ export const getVersions = query({
       ),
     );
 
+    const versioned = await versionReleasesEnabled(ctx);
     const effectCache = new Map<string, Doc<"effects"> | null>();
     const seen = new Set<string>();
     const out: Doc<"effectVersions">[] = [];
@@ -403,7 +421,7 @@ export const getVersions = query({
           q.eq("effectId", id).eq("version", ref.version),
         )
         .unique();
-      if (row) out.push(row);
+      if (row && (canReadVersion(effect, row, userId, versioned) || (effect.visibility !== "hidden" && readableScene?.creatorId === effect.authorId && pinnedByScene.has(key)))) out.push(row);
     }
     return out;
   },
@@ -427,7 +445,8 @@ export const listVersions = query({
       .withIndex("by_effect_version", (q) => q.eq("effectId", id))
       .order("desc")
       .collect();
-    return versions.map((row) => ({
+    const versioned = await versionReleasesEnabled(ctx);
+    return versions.filter(row => canReadVersion(effect, row, userId, versioned)).map((row) => ({
       version: row.version,
       createdAt: row.createdAt,
       name: row.name,
@@ -445,6 +464,7 @@ export const createEffect = mutation({
   returns: v.object({ effectId: v.id("effects"), version: v.number() }),
   handler: async (ctx, args) => {
     const userId = await getCurrentUserId(ctx);
+    await retainVersionReleasePolicy(ctx);
     await rateLimiter.limit(ctx, "createEffect", { key: userId, throws: true });
     const definition = parseDefinition(args.definition);
     if (definition.kind === "shader" && definition.source) {
@@ -467,7 +487,7 @@ export const createEffect = mutation({
             .eq("version", definition.source!.version),
         )
         .unique();
-      if (!version) throw new Error("Remix source version is unavailable");
+      if (!version || !canReadVersion(original, version, userId, await versionReleasesEnabled(ctx))) throw new Error("Remix source version is unavailable");
     }
     const authorName = await getCurrentUserDisplayName(ctx);
     const now = Date.now();
@@ -503,6 +523,7 @@ export const saveVersion = mutation({
   returns: v.object({ version: v.number() }),
   handler: async (ctx, args) => {
     const userId = await getCurrentUserId(ctx);
+    await retainVersionReleasePolicy(ctx);
     await rateLimiter.limit(ctx, "saveEffectVersion", {
       key: userId,
       throws: true,
@@ -536,6 +557,15 @@ export const saveVersion = mutation({
       updatedAt: now,
     });
 
+    if (!(await versionReleasesEnabled(ctx)) && effect.visibility === "public") {
+      const row = await ctx.db.query("effectVersions").withIndex("by_effect_version", q => q.eq("effectId", args.effectId).eq("version", version)).unique();
+      if (row) await ctx.db.patch(args.effectId, {
+        publishedVersion: version, publishedAt: now, legacyReleasedThrough: version,
+        releasedCatalog: await releaseSnapshot(ctx, effect, row),
+        publicCategory: definition.category ?? "Other",
+        publicSearchText: searchable(definition.name, definition.description, effect.authorName),
+      });
+    }
     if (definition.kind === "shader") await requestThumbnail(ctx, args.effectId, version);
 
     return { version };
@@ -563,11 +593,14 @@ export const deleteEffect = mutation({
       .withIndex("by_effect_version", (q) => q.eq("effectId", args.effectId))
       .collect();
     for (const version of versions) {
+      if (version.generatedThumbnailStorageId && await ctx.db.system.get(version.generatedThumbnailStorageId)) await ctx.storage.delete(version.generatedThumbnailStorageId);
       await ctx.db.delete(version._id);
     }
     const thumbnail = await findThumbnail(ctx, args.effectId);
+    const releasedImage = effect.releasedCatalog?.thumbnailStorageId;
+    if (releasedImage && releasedImage !== thumbnail?.storageId && await ctx.db.system.get(releasedImage)) await ctx.storage.delete(releasedImage);
     if (thumbnail) {
-      if (thumbnail.storageId) await ctx.storage.delete(thumbnail.storageId);
+      if (thumbnail.storageId && await ctx.db.system.get(thumbnail.storageId)) await ctx.storage.delete(thumbnail.storageId);
       await ctx.db.delete(thumbnail._id);
     }
     await ctx.db.delete(args.effectId);
@@ -580,34 +613,97 @@ export const deleteEffect = mutation({
 // ---------------------------------------------------------------------------
 
 /** Make an effect visible in the public library. Hidden effects cannot be republished. */
+export const releasePolicy = query({
+  args: {}, returns: v.object({ enabled: v.boolean() }),
+  handler: async (ctx) => ({ enabled: await versionReleasesEnabled(ctx) }),
+});
+
+export const releaseStatus = query({
+  args: { effectId: v.id("effects"), version: v.number() },
+  returns: v.object({ enabled: v.boolean(), curator: v.boolean(), publishedVersion: v.union(v.number(), v.null()), retryAt: v.union(v.number(), v.null()), reason: v.union(v.string(), v.null()) }),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx);
+    const effect = await getOwnedEffect(ctx, args.effectId, userId);
+    const enabled = await versionReleasesEnabled(ctx);
+    const curator = isAdmin(userId);
+    const row = await ctx.db.query("effectVersions").withIndex("by_effect_version", q => q.eq("effectId", effect._id).eq("version", args.version)).unique();
+    const reason = !enabled && args.version !== effect.latestVersion ? "Legacy publishing uses the latest saved version. Open that version first." : effect.visibility === "hidden" ? "A moderator hid this effect." : !row ? "Save this version first." : null;
+    const alreadyReleased = effect.visibility === "public" && (effect.publishedVersion ?? effect.latestVersion) === args.version;
+    const status = reason || alreadyReleased ? { ok: true, retryAfter: undefined } : await rateLimiter.check(ctx, curator ? "curatorPublishEffect" : "publishEffect", { key: userId });
+    return { enabled, curator, publishedVersion: effect.visibility === "public" ? effect.publishedVersion ?? effect.latestVersion : null,
+      retryAt: status.ok ? null : Date.now() + (status.retryAfter ?? 0), reason };
+  },
+});
+
 export const publishEffect = mutation({
-  args: { effectId: v.id("effects") },
+  args: { effectId: v.id("effects"), version: v.optional(v.number()) },
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getCurrentUserId(ctx);
-    await rateLimiter.limit(ctx, "publishEffect", {
-      key: userId,
-      throws: true,
-    });
+    await retainVersionReleasePolicy(ctx);
     const effect = await getOwnedEffect(ctx, args.effectId, userId);
-    switch (effect.visibility) {
-      case "public":
-        return null;
-      case "hidden":
-        throw new Error(
-          "This effect was hidden by a moderator and cannot be republished",
-        );
-      case "private":
-        await ctx.db.patch(args.effectId, {
-          visibility: "public",
-          updatedAt: Date.now(),
-        });
-        return null;
-      default: {
-        const exhaustive: never = effect.visibility;
-        throw new Error(`Unhandled visibility: ${String(exhaustive)}`);
-      }
+    if (effect.visibility === "hidden") throw new ConvexError({ kind: "ReleaseBlocked", message: "This effect was hidden by a moderator and cannot be released." });
+    const enabled = await versionReleasesEnabled(ctx);
+    if (enabled && args.version === undefined) throw new ConvexError({ kind: "ReleaseBlocked", message: "Choose a saved version to release. Refresh the editor." });
+    const version = enabled ? args.version! : effect.latestVersion;
+    if (effect.visibility === "public" && (!enabled || effect.publishedVersion === version)) return null;
+    const row = await ctx.db.query("effectVersions").withIndex("by_effect_version", q => q.eq("effectId", effect._id).eq("version", version)).unique();
+    if (!row) throw new ConvexError({ kind: "ReleaseBlocked", message: "The saved version no longer exists." });
+    await rateLimiter.limit(ctx, isAdmin(userId) ? "curatorPublishEffect" : "publishEffect", { key: userId, throws: true });
+    const now = Date.now();
+    // Release bookkeeping may change; authored source and controls remain immutable.
+    if (enabled && row.releasedAt === undefined) await ctx.db.patch(row._id, { releasedAt: now });
+    await ctx.db.patch(effect._id, {
+      visibility: "public", updatedAt: now, publishedAt: now, publishedVersion: version,
+      ...(!enabled ? { legacyReleasedThrough: effect.latestVersion } : {}),
+      releasedCatalog: await releaseSnapshot(ctx, effect, row),
+      publicCategory: row.category ?? "Other",
+      publicSearchText: searchable(row.name, row.description, effect.authorName),
+    });
+    return null;
+  },
+});
+
+/** Bounded, restartable rollout pass; run while the release flag is off. */
+export const backfillReleases = internalMutation({
+  args: { cursor: v.optional(v.string()) },
+  returns: v.object({ done: v.boolean(), cursor: v.string() }),
+  handler: async (ctx, args) => {
+    if (await versionReleasesEnabled(ctx)) throw new Error("Run the release backfill before enabling version releases.");
+    const page = await ctx.db.query("effects").paginate({ cursor: args.cursor ?? null, numItems: 50 });
+    for (const effect of page.page) {
+      if (effect.visibility !== "public") continue;
+      const row = await ctx.db.query("effectVersions").withIndex("by_effect_version", q => q.eq("effectId", effect._id).eq("version", effect.latestVersion)).unique();
+      if (!row) throw new Error(`Missing latest version for ${effect._id}`);
+      await ctx.db.patch(effect._id, { publishedVersion: effect.latestVersion, publishedAt: effect.updatedAt,
+        legacyReleasedThrough: effect.latestVersion, releasedCatalog: await releaseSnapshot(ctx, effect, row),
+        publicCategory: row.category ?? "Other", publicSearchText: searchable(row.name, row.description, effect.authorName) });
     }
+    return { done: page.isDone, cursor: page.continueCursor };
+  },
+});
+
+/** Read-only, bounded preflight. An empty missing list on every page is required for cutover. */
+export const auditReleaseMigration = internalQuery({
+  args: { cursor: v.optional(v.string()) },
+  returns: v.object({ done: v.boolean(), cursor: v.string(), missing: v.array(v.id("effects")) }),
+  handler: async (ctx, args) => {
+    const page = await ctx.db.query("effects").withIndex("by_visibility", q => q.eq("visibility", "public")).paginate({ cursor: args.cursor ?? null, numItems: 100 });
+    return { done: page.isDone, cursor: page.continueCursor, missing: page.page.filter(effect => !effect.releasedCatalog || effect.publishedVersion !== effect.latestVersion || effect.publicSearchText === undefined || effect.legacyReleasedThrough !== effect.latestVersion).map(effect => effect._id) };
+  },
+});
+
+export const backfillVersionReleases = internalMutation({
+  args: { cursor: v.optional(v.string()) },
+  returns: v.object({ done: v.boolean(), cursor: v.string() }),
+  handler: async (ctx, args) => {
+    const page = await ctx.db.query("effectVersions").paginate({ cursor: args.cursor ?? null, numItems: 100 });
+    for (const row of page.page) {
+      const effect = await ctx.db.get(row.effectId);
+      if (effect && row.version <= (effect.legacyReleasedThrough ?? 0) && row.releasedAt === undefined)
+        await ctx.db.patch(row._id, { releasedAt: effect.publishedAt ?? row.createdAt });
+    }
+    return { done: page.isDone, cursor: page.continueCursor };
   },
 });
 

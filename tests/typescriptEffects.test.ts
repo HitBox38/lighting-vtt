@@ -1,3 +1,4 @@
+import { importStarterScript } from "./helpers/importScript";
 import { expect, test } from "bun:test";
 import { EditorState } from "@codemirror/state";
 import { javascript } from "@codemirror/lang-javascript";
@@ -24,9 +25,7 @@ test("TypeScript definitions preserve editable source and emit executable JavaSc
   expect(effectDefinitionSchema.safeParse(definition).success).toBe(true);
   expect(lintScriptSource(definition.script ?? "")).toEqual([]);
   // This is the fixed local starter, never arbitrary community source.
-  const module = await import(
-    `data:text/javascript;base64,${Buffer.from(definition.script!).toString("base64")}`
-  );
+  const module = await importStarterScript(definition.script!);
   const output = module.compute({
     effect: { x: 100, y: 100, radius: 200 },
     params: { width: 20 },

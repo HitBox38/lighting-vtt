@@ -49,6 +49,8 @@ export interface PreviewHandle {
 }
 interface Props {
   preference?: "webgl" | "webgpu";
+  /** Optional backing-pixel density for captures and reproducible preview checks. */
+  resolution?: number;
   captureRef?: { current: PreviewHandle | null };
   paused?: boolean;
   enabled?: boolean;
@@ -63,6 +65,7 @@ interface Props {
   /** Fires after every script run, including failures. */
   onScript?: (result: ScriptPreviewResult) => void;
   /** Fires once the renderer exists so the caller can show a backend badge. */
+  onUnavailable?: (message: string) => void;
   onBackend?: (backend: EffectBackend) => void;
   /** Effect radius as a fraction of the shorter canvas edge. */
   radiusFraction?: number;
@@ -362,6 +365,7 @@ export function EffectPreview({
   definition,
   params,
   preference = "webgl",
+  resolution,
   captureRef,
   paused = false,
   enabled = true,
@@ -371,6 +375,7 @@ export function EffectPreview({
   onCompiled,
   onScript,
   onBackend,
+  onUnavailable,
   radiusFraction = DEFAULT_RADIUS_FRACTION,
   className,
 }: Props) {
@@ -386,12 +391,14 @@ export function EffectPreview({
   const onCompiledRef = useRef(onCompiled);
   const onScriptRef = useRef(onScript);
   const onBackendRef = useRef(onBackend);
+  const onUnavailableRef = useRef(onUnavailable);
   useLayoutEffect(() => {
     environmentRef.current = environment;
     onCompiledRef.current = onCompiled;
     onScriptRef.current = onScript;
     onBackendRef.current = onBackend;
-  }, [environment, onCompiled, onScript, onBackend]);
+    onUnavailableRef.current = onUnavailable;
+  }, [environment, onCompiled, onScript, onBackend, onUnavailable]);
   const isScript = definition?.kind === "script";
   const clockRef = useRef({ seconds: 0, last: 0 });
   useEffect(() => {
@@ -403,8 +410,8 @@ export function EffectPreview({
       capture: async () => {
         const stage = stageRef.current;
         if (!stage) return null;
-        const width = stage.renderer.width / stage.renderer.resolution;
-        const height = stage.renderer.height / stage.renderer.resolution;
+        const width = stage.renderer.screen.width;
+        const height = stage.renderer.screen.height;
         const guidesVisible = stage.sampleLayer.visible;
         const visibility = {
           mesh: stage.mesh?.visible,
@@ -467,7 +474,7 @@ export function EffectPreview({
       if (!stage) return;
       const { clientWidth, clientHeight } = host;
       if (clientWidth === 0 || clientHeight === 0) return;
-      stage.renderer.resize(clientWidth, clientHeight);
+      stage.renderer.resize(clientWidth, clientHeight, resolution ?? (window.devicePixelRatio || 1));
       drawBackdrop(
         stage.backdrop,
         clientWidth,
@@ -484,7 +491,7 @@ export function EffectPreview({
         backgroundColor: BACKGROUND,
         antialias: true,
         autoDensity: true,
-        resolution: window.devicePixelRatio || 1,
+        resolution: resolution ?? (window.devicePixelRatio || 1),
       });
       if (disposed) {
         destroyPreviewApp(app);
@@ -530,10 +537,12 @@ export function EffectPreview({
       setStageReady((n) => n + 1);
     }).catch((error: unknown) => {
       console.error("Effect preview failed to start", error);
-      if (!disposed)
+      if (!disposed) {
+        onUnavailableRef.current?.("This renderer could not start in this browser.");
         setBootError(
           "The graphics preview could not start. Reload to retry, or try a browser with hardware acceleration.",
         );
+      }
     });
 
     return () => {
@@ -551,15 +560,15 @@ export function EffectPreview({
         destroyPreviewApp(stage.app);
       }
     };
-  }, [preference]);
+  }, [preference, resolution]);
 
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
     drawBackdrop(
       stage.backdrop,
-      stage.renderer.width / stage.renderer.resolution,
-      stage.renderer.height / stage.renderer.resolution,
+      stage.renderer.screen.width,
+      stage.renderer.screen.height,
       environment,
     );
     const scene = syntheticScene(SCRIPT_SCENE_SIZE * radiusFraction);
@@ -581,6 +590,7 @@ export function EffectPreview({
     if (!stage) return;
     return watchDeviceLoss(stage.renderer, stage.backend, {
       onLost: (detail) => {
+        if (stage.disposed) return;
         stage.deviceLost = true;
         stage.app.ticker.stop();
         dropMesh(stage);
@@ -595,6 +605,7 @@ export function EffectPreview({
       },
       // Bumping stageReady re-runs the compile effect against the new device.
       onRestored: () => {
+        if (stage.disposed) return;
         stage.deviceLost = false;
         stage.app.ticker.start();
         setStageReady((n) => n + 1);
@@ -767,8 +778,8 @@ export function EffectPreview({
 
     const tick = () => {
       const { renderer } = stage;
-      const width = renderer.width / renderer.resolution;
-      const height = renderer.height / renderer.resolution;
+      const width = renderer.screen.width;
+      const height = renderer.screen.height;
       const cx = width / 2;
       const cy = height / 2;
       const radius = Math.max(8, Math.min(width, height) * radiusFraction);
