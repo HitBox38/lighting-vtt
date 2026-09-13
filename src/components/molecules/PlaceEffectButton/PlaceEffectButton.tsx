@@ -1,6 +1,6 @@
 import { createPlacementAttempt, placementProperties } from "@/lib/placementAnalytics";
 import { ANALYTICS_EVENTS } from "@/lib/analytics";
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useUser, SignInButton } from "@clerk/react";
 import { useConvexAuth, useQuery } from "convex/react";
@@ -19,10 +19,12 @@ export function PlaceEffectButton({
   item,
   returnTo,
   disabled = false,
+  size,
 }: {
   item: CatalogItem;
   returnTo: string | null;
   disabled?: boolean;
+  size?: ComponentProps<typeof Button>["size"];
 }) {
   const [open, setOpen] = useState(false);
   const { user } = useUser();
@@ -42,6 +44,7 @@ export function PlaceEffectButton({
     <>
       <Button
         className="workshop-primary"
+        size={size}
         disabled={disabled}
         onClick={() => {
           if (returnTo?.startsWith("/scene?")) place(returnTo);
