@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/popover";
 import { TemplatePicker } from "./TemplatePicker";
 import { PreviewStatus } from "./PreviewStatus";
+import { editorLanguage } from "./editorLanguage";
 import { previewSaveBlocker } from "./previewValidation";
 import { useWorkbenchLayout } from "../../hooks/useWorkbenchLayout";
 import type { Entry } from "../CodeEditor/authoringReference";
@@ -175,20 +176,6 @@ function sourceKeyOf(definition: EffectDefinition): string {
   return `${definition.kind}\u0000${definition.wgsl}\u0000${definition.glsl ?? ""}\u0000${definition.script ?? ""}`;
 }
 
-/** The code tab an effect of this kind opens on. */
-function defaultTabFor(kind: EffectKind): EffectSourceLanguage {
-  switch (kind) {
-    case "shader":
-      return "wgsl";
-    case "script":
-      return "js";
-    default: {
-      const exhaustive: never = kind;
-      throw new Error(`Unhandled effect kind: ${String(exhaustive)}`);
-    }
-  }
-}
-
 function lintDiagnostics(
   language: ShaderLanguage,
   source: string,
@@ -293,9 +280,10 @@ export function EffectEditor({
     target.kind === "new" && !dirty && !recoveryCandidate,
   );
 
-  const [activeTab, setActiveTab] = useState<EffectSourceLanguage>(() =>
-    view?.activeTab ?? defaultTabFor(draft.kind),
+  const [selectedTab, setSelectedTab] = useState<EffectSourceLanguage>(
+    view?.activeTab ?? "wgsl",
   );
+  const activeTab = editorLanguage(draft, selectedTab);
   const [showReference, setShowReference] = useState(false);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
@@ -313,7 +301,7 @@ export function EffectEditor({
   if (sessionAccount !== currentAccount) {
     setSessionAccount(currentAccount);
     if (sessionAccount !== "anonymous") {
-      setActiveTab(defaultTabFor(initialDraft.kind));
+      setSelectedTab("wgsl");
       setPreviewValues(defaultParamValues(initialDraft.params));
       setInspectorTab("controls");
       setChecks({}); setCompile(null); setScriptRun(null);
@@ -358,7 +346,7 @@ export function EffectEditor({
           }
         : {}),
     });
-    setActiveTab(language);
+    setSelectedTab(language);
   };
   const blocker = useBlocker(dirty && !saving);
   useEffect(() => {
@@ -589,7 +577,7 @@ export function EffectEditor({
 
   const revealDiagnostic = useCallback((diagnostic: EffectDiagnostic) => {
     if (diagnostic.line === null) return;
-    setActiveTab(diagnostic.language);
+    setSelectedTab(diagnostic.language);
     const ref = editorRefFor(diagnostic.language);
     // The target editor may have been hidden this frame; let it lay out before scrolling.
     requestAnimationFrame(() => ref.current?.revealLine(diagnostic.line ?? 1));
@@ -603,7 +591,7 @@ export function EffectEditor({
         readRecoveredDraft(`${recoveryKey}:${kind}`) ??
         newEffectDraft(kind),
     );
-    setActiveTab(defaultTabFor(kind));
+    setSelectedTab("wgsl");
   };
 
   // ---------------------------------------------------------------------------
@@ -1002,7 +990,7 @@ export function EffectEditor({
           patch(next);
           setPreviewValues(defaultParamValues(next.params));
           setReferenceContext(null);
-          setActiveTab(next.kind === "script" ? next.scriptLanguage : "wgsl");
+          setSelectedTab(next.kind === "script" ? next.scriptLanguage : "wgsl");
           setShowTemplates(false);
           posthog.capture(ANALYTICS_EVENTS.EffectTemplateSelected, {
             template: name,
@@ -1079,7 +1067,7 @@ export function EffectEditor({
                 <TabButton
                   active={activeTab === "wgsl"}
                   onClick={() => {
-                    setActiveTab("wgsl");
+                    setSelectedTab("wgsl");
                     setReferenceContext(null);
                   }}
                   problems={
@@ -1091,7 +1079,7 @@ export function EffectEditor({
                 <TabButton
                   active={activeTab === "glsl"}
                   onClick={() => {
-                    setActiveTab("glsl");
+                    setSelectedTab("glsl");
                     setReferenceContext(null);
                   }}
                   problems={
