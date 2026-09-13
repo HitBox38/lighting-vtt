@@ -1,3 +1,4 @@
+import { AppSettingsDialog } from "@/components/organisms/AppSettingsDialog";
 import { analyticsOperationGuard } from "@/lib/analyticsOperation";
 import { FeedbackButton } from "@/components/atoms/FeedbackButton";
 import { useAnalyticsView } from "@/lib/hooks/useAnalyticsView";
@@ -48,6 +49,7 @@ import {
 } from "@/components/ui/popover";
 import { TemplatePicker } from "./TemplatePicker";
 import { PreviewStatus } from "./PreviewStatus";
+import { editorLanguage } from "./editorLanguage";
 import { previewSaveBlocker } from "./previewValidation";
 import { useWorkbenchLayout } from "../../hooks/useWorkbenchLayout";
 import type { Entry } from "../CodeEditor/authoringReference";
@@ -175,20 +177,6 @@ function sourceKeyOf(definition: EffectDefinition): string {
   return `${definition.kind}\u0000${definition.wgsl}\u0000${definition.glsl ?? ""}\u0000${definition.script ?? ""}`;
 }
 
-/** The code tab an effect of this kind opens on. */
-function defaultTabFor(kind: EffectKind): EffectSourceLanguage {
-  switch (kind) {
-    case "shader":
-      return "wgsl";
-    case "script":
-      return "js";
-    default: {
-      const exhaustive: never = kind;
-      throw new Error(`Unhandled effect kind: ${String(exhaustive)}`);
-    }
-  }
-}
-
 function lintDiagnostics(
   language: ShaderLanguage,
   source: string,
@@ -293,9 +281,10 @@ export function EffectEditor({
     target.kind === "new" && !dirty && !recoveryCandidate,
   );
 
-  const [activeTab, setActiveTab] = useState<EffectSourceLanguage>(() =>
-    view?.activeTab ?? defaultTabFor(draft.kind),
+  const [selectedTab, setSelectedTab] = useState<EffectSourceLanguage>(
+    view?.activeTab ?? "wgsl",
   );
+  const activeTab = editorLanguage(draft, selectedTab);
   const [showReference, setShowReference] = useState(false);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
@@ -313,7 +302,7 @@ export function EffectEditor({
   if (sessionAccount !== currentAccount) {
     setSessionAccount(currentAccount);
     if (sessionAccount !== "anonymous") {
-      setActiveTab(defaultTabFor(initialDraft.kind));
+      setSelectedTab("wgsl");
       setPreviewValues(defaultParamValues(initialDraft.params));
       setInspectorTab("controls");
       setChecks({}); setCompile(null); setScriptRun(null);
@@ -358,7 +347,7 @@ export function EffectEditor({
           }
         : {}),
     });
-    setActiveTab(language);
+    setSelectedTab(language);
   };
   const blocker = useBlocker(dirty && !saving);
   useEffect(() => {
@@ -589,7 +578,7 @@ export function EffectEditor({
 
   const revealDiagnostic = useCallback((diagnostic: EffectDiagnostic) => {
     if (diagnostic.line === null) return;
-    setActiveTab(diagnostic.language);
+    setSelectedTab(diagnostic.language);
     const ref = editorRefFor(diagnostic.language);
     // The target editor may have been hidden this frame; let it lay out before scrolling.
     requestAnimationFrame(() => ref.current?.revealLine(diagnostic.line ?? 1));
@@ -603,7 +592,7 @@ export function EffectEditor({
         readRecoveredDraft(`${recoveryKey}:${kind}`) ??
         newEffectDraft(kind),
     );
-    setActiveTab(defaultTabFor(kind));
+    setSelectedTab("wgsl");
   };
 
   // ---------------------------------------------------------------------------
@@ -793,8 +782,9 @@ export function EffectEditor({
 
   const sceneActions =
     target.kind === "existing" ? (
-      <div className="flex gap-2">
+      <div className="flex items-start gap-2">
         <PlaceEffectButton
+          size="sm"
           item={{
             kind: "effect",
             effectId: target.effectId,
@@ -806,7 +796,7 @@ export function EffectEditor({
           disabled={dirty}
         />
         {target.isOwner && target.visibility !== "hidden" && !dirty ? (
-          <EffectRelease key={`${target.effectId}:${target.version}`} effectId={target.effectId} version={target.version} definition={definition} defaultOpen={view?.release} />
+          <EffectRelease key={`${target.effectId}:${target.version}`} effectId={target.effectId} version={target.version} definition={definition} defaultOpen={view?.release} showStatus={!isDesktop} />
         ) : null}
       </div>
     ) : null;
@@ -814,6 +804,7 @@ export function EffectEditor({
     <div className="mobile-page effect-editor workshop-studio bg-background text-foreground flex h-dvh flex-col">
       <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
         <FeedbackButton surface="effect_editor" />
+        <AppSettingsDialog mobileFriendly />
         <Button
           type="button"
           variant="ghost"
@@ -899,76 +890,78 @@ export function EffectEditor({
           </span>
         </div>
 
-        {signedIn && canSave && (target.kind === "new" || (target.isOwner && target.visibility !== "hidden")) && <Button size="sm" variant="outline" disabled={saving} onClick={() => void handleSave(true)}>Save and release</Button>}
-        {sceneActions &&
-          (isDesktop ? (
-            sceneActions
-          ) : (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-8"
-                  aria-label="Scene actions"
-                >
-                  <MoreHorizontal className="size-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="mobile-page w-auto max-w-[calc(100vw-2rem)]">
-                <p className="mb-2 text-xs text-muted-foreground">
-                  Saved version actions
-                </p>
-                {sceneActions}
-              </PopoverContent>
-            </Popover>
-          ))}
-        {!signedIn && !clerkSignedIn ? (
-          <SignInButton mode="modal">
-            <Button size="sm" className="workshop-primary">
-              <LogIn className="size-3.5" />
-              <span className="sm:hidden">Sign in</span>
-              <span className="hidden sm:inline">Sign in to save</span>
-            </Button>
-          </SignInButton>
-        ) : (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                {/* Disabled buttons swallow pointer events; the span keeps the tooltip reachable. */}
-                <span tabIndex={canSave ? -1 : 0}>
+        <div className="flex flex-wrap items-start gap-2">
+          {signedIn && canSave && (target.kind === "new" || (target.isOwner && target.visibility !== "hidden")) && <Button size="sm" variant="outline" disabled={saving} onClick={() => void handleSave(true)}>Save and release</Button>}
+          {sceneActions &&
+            (isDesktop ? (
+              sceneActions
+            ) : (
+              <Popover>
+                <PopoverTrigger asChild>
                   <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => void handleSave()}
-                    className="workshop-primary"
-                    disabled={!canSave}
-                    aria-label={
-                      !signedIn && clerkSignedIn
-                        ? "Save unavailable"
-                        : saveLabel
-                    }
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    aria-label="Scene actions"
                   >
-                    {saving ? (
-                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="mr-1 h-4 w-4" />
-                    )}
-                    <span className="sm:hidden">Save</span>
-                    <span className="hidden sm:inline">
-                      {!signedIn && clerkSignedIn
-                        ? "Save unavailable"
-                        : saveLabel}
-                    </span>
+                    <MoreHorizontal className="size-4" />
                   </Button>
-                </span>
-              </TooltipTrigger>
-              {saveBlocker ? (
-                <TooltipContent>{saveBlocker}</TooltipContent>
-              ) : null}
-            </Tooltip>
-          </TooltipProvider>
-        )}
+                </PopoverTrigger>
+                <PopoverContent align="end" className="mobile-page w-auto max-w-[calc(100vw-2rem)]">
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    Saved version actions
+                  </p>
+                  {sceneActions}
+                </PopoverContent>
+              </Popover>
+            ))}
+          {!signedIn && !clerkSignedIn ? (
+            <SignInButton mode="modal">
+              <Button size="sm" className="workshop-primary">
+                <LogIn className="size-3.5" />
+                <span className="sm:hidden">Sign in</span>
+                <span className="hidden sm:inline">Sign in to save</span>
+              </Button>
+            </SignInButton>
+          ) : (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  {/* Disabled buttons swallow pointer events; the span keeps the tooltip reachable. */}
+                  <span tabIndex={canSave ? -1 : 0}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => void handleSave()}
+                      className="workshop-primary"
+                      disabled={!canSave}
+                      aria-label={
+                        !signedIn && clerkSignedIn
+                          ? "Save unavailable"
+                          : saveLabel
+                      }
+                    >
+                      {saving ? (
+                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="mr-1 h-4 w-4" />
+                      )}
+                      <span className="sm:hidden">Save</span>
+                      <span className="hidden sm:inline">
+                        {!signedIn && clerkSignedIn
+                          ? "Save unavailable"
+                          : saveLabel}
+                      </span>
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {saveBlocker ? (
+                  <TooltipContent>{saveBlocker}</TooltipContent>
+                ) : null}
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
         <div className="order-last flex w-full items-center justify-between gap-2 text-[10px] text-muted-foreground sm:hidden">
           <span>
             {target.kind === "existing"
@@ -1002,7 +995,7 @@ export function EffectEditor({
           patch(next);
           setPreviewValues(defaultParamValues(next.params));
           setReferenceContext(null);
-          setActiveTab(next.kind === "script" ? next.scriptLanguage : "wgsl");
+          setSelectedTab(next.kind === "script" ? next.scriptLanguage : "wgsl");
           setShowTemplates(false);
           posthog.capture(ANALYTICS_EVENTS.EffectTemplateSelected, {
             template: name,
@@ -1079,7 +1072,7 @@ export function EffectEditor({
                 <TabButton
                   active={activeTab === "wgsl"}
                   onClick={() => {
-                    setActiveTab("wgsl");
+                    setSelectedTab("wgsl");
                     setReferenceContext(null);
                   }}
                   problems={
@@ -1091,7 +1084,7 @@ export function EffectEditor({
                 <TabButton
                   active={activeTab === "glsl"}
                   onClick={() => {
-                    setActiveTab("glsl");
+                    setSelectedTab("glsl");
                     setReferenceContext(null);
                   }}
                   problems={

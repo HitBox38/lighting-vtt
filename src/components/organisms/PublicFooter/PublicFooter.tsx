@@ -1,5 +1,6 @@
 import { ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import { CookieSettingsDialog } from "@/components/organisms/CookieConsent/CookieConsent";
 import { cn } from "@/lib/utils";
 
 export function PublicFooter({ className }: { className?: string }) {
@@ -11,6 +12,7 @@ export function PublicFooter({ className }: { className?: string }) {
       </Link>
       <p className="text-xs text-(--lp-muted) max-[760px]:order-3 max-[760px]:w-full">Made for the stories around your table.</p>
       <nav className="flex flex-wrap gap-x-5 gap-y-3 text-xs text-(--lp-muted) [&_a]:flex [&_a]:items-center [&_a]:gap-[7px] [&_a:hover]:text-(--lp-text)" aria-label="Footer navigation">
+        <CookieSettingsDialog />
         <Link to="/privacy">Privacy policy</Link>
         <Link to="/terms">Terms &amp; conditions</Link>
         <Link to="/effects">Explore effects<ArrowUpRight size={14} aria-hidden="true" /></Link>

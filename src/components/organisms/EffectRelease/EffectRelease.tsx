@@ -17,6 +17,7 @@ interface ReleaseProps {
   version: number;
   definition: EffectDefinition;
   defaultOpen?: boolean;
+  showStatus?: boolean;
 }
 
 export function EffectRelease(props: ReleaseProps) {
@@ -27,7 +28,7 @@ export function EffectRelease(props: ReleaseProps) {
 }
 
 /** Presentation accepts the transport so the full review can be tested locally. */
-export function EffectReleaseReview({ effectId, version, definition, defaultOpen = false, status, release, capture }: ReleaseProps & {
+export function EffectReleaseReview({ effectId, version, definition, defaultOpen = false, showStatus = true, status, release, capture }: ReleaseProps & {
   status: FunctionReturnType<typeof api.effects.releaseStatus> | undefined;
   release: (args: { effectId: Id<"effects">; version: number }) => Promise<null>;
   capture: (event: string, fields: Record<string, string | number>) => void;
@@ -76,9 +77,9 @@ export function EffectReleaseReview({ effectId, version, definition, defaultOpen
       }
     } finally { submitting.current = false; setBusy(false); }
   };
-  return <div className="space-y-1">
+  return <div className="flex flex-col items-start gap-1">
     <Button size="sm" variant="outline" onClick={() => setOpen(true)}>{alreadyPublic ? `Public v${version}` : "Release version"}</Button>
-    <p className="text-xs text-muted-foreground">Version v{version} · {status?.publishedVersion ? `Public v${status.publishedVersion}` : "Private"}{cooldown ? ` · ${cooldown}` : ""}</p>
+    {showStatus && <p className="text-xs text-muted-foreground">Version v{version} · {status?.publishedVersion ? `Public v${status.publishedVersion}` : "Private"}{cooldown ? ` · ${cooldown}` : ""}</p>}
     <Dialog open={open} onOpenChange={value => { if (!busy) setOpen(value); }}>
       <DialogContent className="max-h-[85dvh] overflow-y-auto overscroll-contain sm:max-w-xl">
         <DialogHeader><DialogTitle>Release {definition.name} · v{version}</DialogTitle>
