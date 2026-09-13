@@ -1,3 +1,4 @@
+import { AppSettingsDialog } from "@/components/organisms/AppSettingsDialog";
 import { analyticsOperationGuard } from "@/lib/analyticsOperation";
 import { FeedbackButton } from "@/components/atoms/FeedbackButton";
 import { useAnalyticsView } from "@/lib/hooks/useAnalyticsView";
@@ -802,6 +803,7 @@ export function EffectEditor({
     <div className="mobile-page effect-editor workshop-studio bg-background text-foreground flex h-dvh flex-col">
       <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
         <FeedbackButton surface="effect_editor" />
+        <AppSettingsDialog mobileFriendly />
         <Button
           type="button"
           variant="ghost"

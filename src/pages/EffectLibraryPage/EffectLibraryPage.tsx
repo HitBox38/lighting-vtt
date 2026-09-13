@@ -11,6 +11,7 @@ import { ANALYTICS_EVENTS } from "@/lib/analytics";
 import { ArrowLeft, Plus, Sparkles } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
+import { AppSettingsDialog } from "@/components/organisms/AppSettingsDialog";
 import { Input } from "@/components/ui/input";
 import { EffectGlyph } from "@/components/molecules/EffectGlyph/EffectGlyph";
 import { PlaceEffectButton } from "@/components/molecules/PlaceEffectButton/PlaceEffectButton";
@@ -86,6 +87,7 @@ export function EffectLibraryPage() {
           </Button>
         </nav>
         <div className="flex items-center gap-3">
+          <AppSettingsDialog mobileFriendly />
           <Button asChild size="sm" className="workshop-primary">
             <Link
               to={newEffectPath(returnTo ?? undefined, `/effects?${params}`)}
