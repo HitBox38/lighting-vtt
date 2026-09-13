@@ -74,6 +74,7 @@ export const effectParamValuesValidator = zodToConvex(effectParamValuesSchema);
 export const effectKindValidator = zodToConvex(effectKindSchema);
 export const thumbnailJobFields = {
   effectId: v.id("effects"), version: v.number(), revision: v.number(), generation: v.number(),
+  target: v.optional(v.literal("published")),
 };
 /** Matches `EffectDefinition` in shared/effects.ts (the immutable per-version payload). */
 export const effectDefinitionValidator = zodToConvex(effectDefinitionSchema);
@@ -223,6 +224,8 @@ export default defineSchema({
   }).index("by_key", ["key"]),
   effectThumbnails: defineTable({
     effectId: v.id("effects"),
+    // Missing target is the legacy/latest job; published repair uses its own slot.
+    target: v.optional(v.literal("published")),
     requestedVersion: v.number(),
     rendererRevision: v.number(),
     generation: v.number(),
@@ -236,7 +239,7 @@ export default defineSchema({
     renderedVersion: v.optional(v.number()),
     renderedRevision: v.optional(v.number()),
     failureCategory: v.optional(v.string()),
-  }).index("by_effectId", ["effectId"]),
+  }).index("by_effectId", ["effectId"]).index("by_effectId_target", ["effectId", "target"]),
   scenes: defineTable({
     creatorId: v.string(),
     name: v.string(),

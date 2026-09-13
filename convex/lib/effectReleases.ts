@@ -1,5 +1,6 @@
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
+import { findThumbnail } from "./thumbnailJobs";
 
 export async function versionReleasesEnabled(ctx: QueryCtx | MutationCtx): Promise<boolean> {
   return process.env.EFFECT_VERSION_RELEASES_ENABLED === "true" || Boolean(await ctx.db.query("effectReleaseRollout").withIndex("by_name", q => q.eq("name", "versioned")).unique());
@@ -22,7 +23,7 @@ export function canReadVersion(effect: Doc<"effects">, version: Doc<"effectVersi
 }
 
 export async function releaseSnapshot(ctx: QueryCtx | MutationCtx, effect: Doc<"effects">, version: Doc<"effectVersions">) {
-  const thumbnail = await ctx.db.query("effectThumbnails").withIndex("by_effectId", q => q.eq("effectId", effect._id)).unique();
+  const thumbnail = await findThumbnail(ctx, effect._id);
   const thumbnailStorageId = version.generatedThumbnailStorageId ?? (thumbnail?.renderedVersion === version.version ? thumbnail.storageId : undefined);
   return {
     name: version.name, description: version.description, category: version.category ?? "Other",

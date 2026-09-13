@@ -143,6 +143,40 @@ data; production library contents are not copied automatically.
 
 See [Convex's Vercel preview setup](https://docs.convex.dev/production/hosting/vercel#preview-deployments).
 
+### Shader thumbnails
+
+Shader previews are generated asynchronously in the Convex backend. Each
+deployment requires `EFFECT_THUMBNAILS_ENABLED=true`; setting it only in Vercel
+does not enable generation. Saving while the flag is unset does not enqueue a
+thumbnail, and enabling it later does not automatically process existing effects.
+
+To activate or repair generation in the intended Convex deployment:
+
+1. Run the internal `thumbnailDiagnostics:probe` action with
+   `{ "effects": true, "freshCache": true }`. It must successfully render the
+   fixtures using the deployed Linux ARM64 runtime before enabling jobs. This
+   check does not retain images unless `retainImages` is explicitly requested.
+2. Set `EFFECT_THUMBNAILS_ENABLED=true` in that Convex deployment.
+3. Run internal `thumbnails:backfill` with `{}`. Repeat with
+   `{ "cursor": "<returned cursor>" }` until `done: true`. This requests images
+   for existing shaders' latest saved versions and missing images of their exact
+   public releases. Generation finishes separately.
+4. If jobs previously failed, first repair the cause reported by the diagnostic
+   probe or `effect_thumbnail_failed` logs, then repeat the backfill with
+   `{ "retryFailed": true }` (and the returned cursor on subsequent pages).
+   This resets exhausted attempts without restarting ready or active jobs.
+
+Public-release repair has a separate job slot from latest-draft rendering and
+shares the same two-worker limit. Existing exact-version images are reused;
+private draft images never replace a public release. Verify the public library
+and DM workshop after jobs finish; backfill completion alone does not confirm
+rendering succeeded.
+
+Deployment adds an optional job target and index without rewriting existing rows.
+After published-target jobs exist, rollback must retain this additive schema and
+target-aware reads; old code assumes one job per effect. Disable generation to
+pause jobs and roll forward with a fix instead of redeploying that old code.
+
 ## Project Structure
 
 ```

@@ -596,12 +596,14 @@ export const deleteEffect = mutation({
       if (version.generatedThumbnailStorageId && await ctx.db.system.get(version.generatedThumbnailStorageId)) await ctx.storage.delete(version.generatedThumbnailStorageId);
       await ctx.db.delete(version._id);
     }
-    const thumbnail = await findThumbnail(ctx, args.effectId);
     const releasedImage = effect.releasedCatalog?.thumbnailStorageId;
-    if (releasedImage && releasedImage !== thumbnail?.storageId && await ctx.db.system.get(releasedImage)) await ctx.storage.delete(releasedImage);
-    if (thumbnail) {
-      if (thumbnail.storageId && await ctx.db.system.get(thumbnail.storageId)) await ctx.storage.delete(thumbnail.storageId);
-      await ctx.db.delete(thumbnail._id);
+    if (releasedImage && await ctx.db.system.get(releasedImage)) await ctx.storage.delete(releasedImage);
+    for (const target of [undefined, "published"] as const) {
+      const thumbnail = await findThumbnail(ctx, args.effectId, target);
+      if (thumbnail) {
+        if (thumbnail.storageId && await ctx.db.system.get(thumbnail.storageId)) await ctx.storage.delete(thumbnail.storageId);
+        await ctx.db.delete(thumbnail._id);
+      }
     }
     await ctx.db.delete(args.effectId);
     return null;
