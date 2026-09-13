@@ -1,10 +1,11 @@
+import { CookieSettingsDialog } from "@/components/organisms/CookieConsent/CookieConsent";
 import { DmOfflineCard } from "@/pages/JoinPage/components/DmOfflineCard";
 import { InvalidInviteCard } from "@/pages/JoinPage/components/InvalidInviteCard";
 import { JoinLoadingState } from "@/pages/JoinPage/components/JoinLoadingState";
 import { JoinSceneCard } from "@/pages/JoinPage/components/JoinSceneCard";
 import { useJoinScene } from "@/pages/JoinPage/hooks/useJoinScene";
 
-export function JoinPage() {
+function JoinContent() {
   const join = useJoinScene();
 
   if (join.sceneInfo === undefined) {
@@ -30,5 +31,14 @@ export function JoinPage() {
       onCharacterNameChange={join.setCharacterName}
       onJoin={() => void join.handleJoin()}
     />
+  );
+}
+
+export function JoinPage() {
+  return (
+    <div className="bg-background text-foreground [&>div]:min-h-[calc(100dvh-4rem)]">
+      <JoinContent />
+      <footer className="flex h-16 items-center justify-center"><CookieSettingsDialog /></footer>
+    </div>
   );
 }
