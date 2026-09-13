@@ -92,6 +92,7 @@ export function EffectEditorPage() {
       effectId: effect._id,
       version,
       latestVersion: effect.latestVersion,
+      publishedVersion: effect.publishedVersion,
       visibility: effect.visibility,
       isOwner: user?.id === effect.authorId,
     };

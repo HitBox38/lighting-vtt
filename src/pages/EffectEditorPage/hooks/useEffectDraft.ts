@@ -181,19 +181,20 @@ export interface EffectDraftState {
   /** True when the draft differs from what was last loaded or saved. */
   dirty: boolean;
   recoveryStatus: "pending" | "saved" | "unavailable";
+  recovered: boolean;
+  recoveryCandidate: EffectDraft | undefined;
+  resolveRecovery: (restore: boolean) => void;
   patch: (partial: Partial<EffectDraft>) => void;
   setParams: (params: EffectParam[]) => void;
   /** Replace the draft and the dirty baseline, e.g. after loading a version or saving. */
   reset: (draft: EffectDraft) => void;
 }
 
-function serialize(draft: EffectDraft): string {
-  // Recovery parses fields in schema order; compare values independently of key order.
-  return JSON.stringify(
-    Object.fromEntries(
-      Object.entries(draft).sort(([a], [b]) => a.localeCompare(b)),
-    ),
-  );
+export function serializeDraft(draft: EffectDraft): string {
+  const canonical = (value: unknown): unknown => Array.isArray(value) ? value.map(canonical)
+    : value && typeof value === "object" ? Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => [k, canonical(v)]))
+    : value;
+  return JSON.stringify(canonical(draft));
 }
 
 // Recovery validates structure, not save-time constraints: an unfinished name,
@@ -266,11 +267,19 @@ export function useEffectDraft(
   const [recoveryStatus, setRecoveryStatus] = useState<
     "pending" | "saved" | "unavailable"
   >("pending");
-  const [draft, setDraft] = useState<EffectDraft>(() => {
-    return (recoveryKey && readRecoveredDraft(recoveryKey)) || initial;
+  const [draft, setDraft] = useState<EffectDraft>(initial);
+  const [recoveryCandidate, setRecoveryCandidate] = useState(() => {
+    const stored = recoveryKey ? readRecoveredDraft(recoveryKey) : undefined;
+    return stored && serializeDraft(stored) !== serializeDraft(initial) ? stored : undefined;
   });
+  const [recovered, setRecovered] = useState(false);
+  const resolveRecovery = (restore: boolean) => {
+    if (restore && recoveryCandidate) { setDraft(recoveryCandidate); setRecovered(true); }
+    setRecoveryCandidate(undefined);
+  };
+
   useEffect(() => {
-    if (!recoveryKey) return;
+    if (!recoveryKey || recoveryCandidate) return;
     const persist = () => {
       if (recoveryCleared.current) return;
       try {
@@ -289,8 +298,18 @@ export function useEffectDraft(
       window.clearTimeout(timer);
       persist();
     };
-  }, [draft, recoveryKey]);
-  const [baseline, setBaseline] = useState<string>(() => serialize(initial));
+  }, [draft, recoveryKey, recoveryCandidate]);
+  const [baseline, setBaseline] = useState<string>(() => serializeDraft(initial));
+  const [scope, setScope] = useState(recoveryKey);
+  if (scope !== recoveryKey) {
+    const anonymousTransfer = scope?.startsWith("workshop:draft:v2:anonymous:") && scope.split(":").slice(4).join(":") === recoveryKey?.split(":").slice(4).join(":");
+    const stored = recoveryKey ? readRecoveredDraft(recoveryKey) : undefined;
+    setScope(recoveryKey);
+    if (!anonymousTransfer) { setDraft(initial); setBaseline(serializeDraft(initial)); }
+    setRecoveryCandidate(stored && serializeDraft(stored) !== serializeDraft(initial) ? stored : undefined);
+    setRecovered(false);
+  }
+
 
   const patch = useCallback((partial: Partial<EffectDraft>) => {
     setRecoveryStatus("pending");
@@ -315,8 +334,11 @@ export function useEffectDraft(
           /* Optional storage. */
         }
       }
+      setRecovered(false);
+      setRecoveryCandidate(undefined);
+      setRecoveryStatus("saved");
       setDraft(next);
-      setBaseline(serialize(next));
+      setBaseline(serializeDraft(next));
     },
     [recoveryKey],
   );
@@ -336,7 +358,7 @@ export function useEffectDraft(
     return map;
   }, [definition]);
 
-  const dirty = useMemo(() => serialize(draft) !== baseline, [draft, baseline]);
+  const dirty = useMemo(() => serializeDraft(draft) !== baseline, [draft, baseline]);
 
   return {
     draft,
@@ -344,6 +366,7 @@ export function useEffectDraft(
     issues,
     dirty,
     recoveryStatus,
+    recovered, recoveryCandidate, resolveRecovery,
     patch,
     setParams,
     reset,

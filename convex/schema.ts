@@ -82,6 +82,23 @@ export const effectDefinitionFields = zodToConvexFields(
   effectDefinitionSchema.shape,
 );
 
+export const releasedCatalogValidator = v.object({
+  name: v.string(), description: v.string(),
+  category: v.optional(zodToConvex(effectCategorySchema)),
+  thumbnailUrl: v.optional(v.string()), thumbnailKey: v.optional(v.string()),
+  thumbnailStorageId: v.optional(v.id("_storage")),
+  source: v.optional(v.object({ effectId: v.string(), version: v.number() })),
+});
+export const effectReleaseFields = {
+  publishedVersion: v.optional(v.number()),
+  publishedAt: v.optional(v.number()),
+  // Boundary for versions exposed by the legacy whole-effect publication model.
+  legacyReleasedThrough: v.optional(v.number()),
+  releasedCatalog: v.optional(releasedCatalogValidator),
+  publicSearchText: v.optional(v.string()),
+  publicCategory: v.optional(zodToConvex(effectCategorySchema)),
+};
+
 export const effectCatalogFields = {
   category: v.optional(zodToConvex(effectCategorySchema)),
   thumbnailUrl: v.optional(v.string()),
@@ -101,6 +118,7 @@ export const effectVisibilityValidator = v.union(
 /** `effects` document including system fields, for query `returns`. */
 export const effectDocValidator = v.object({
   ...effectCatalogFields,
+  ...effectReleaseFields,
   generatedThumbnailUrl: v.optional(v.string()),
   thumbnailStatus: v.optional(v.string()),
   thumbnailVersion: v.optional(v.number()),
@@ -124,6 +142,8 @@ export const effectVersionDocValidator = v.object({
   effectId: v.id("effects"),
   version: v.number(),
   createdAt: v.number(),
+  releasedAt: v.optional(v.number()),
+  generatedThumbnailStorageId: v.optional(v.id("_storage")),
   ...effectDefinitionFields,
 });
 
@@ -193,6 +213,8 @@ export const sceneDocValidator = v.object({
 // ---------------------------------------------------------------------------
 
 export default defineSchema({
+  // Activation is sticky: disabling a rollout flag must never expose private drafts.
+  effectReleaseRollout: defineTable({ name: v.literal("versioned"), activatedAt: v.number() }).index("by_name", ["name"]),
   // Populated only by verified UploadThing completion callbacks.
   uploadedFiles: defineTable({
     key: v.string(),
@@ -255,6 +277,7 @@ export default defineSchema({
   /** Effect metadata. The editable surface is name/description/visibility; code lives in versions. */
   effects: defineTable({
     ...effectCatalogFields,
+  ...effectReleaseFields,
     authorId: v.string(),
     /** Display name snapshotted from the Clerk identity at create time; the library shows it. */
     authorName: v.optional(v.string()),
@@ -266,6 +289,9 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .index("by_public_category", ["visibility", "publicCategory", "publishedAt"])
+    .index("by_public_release", ["visibility", "publishedAt"])
+    .searchIndex("search_public_effects", { searchField: "publicSearchText", filterFields: ["visibility", "publicCategory"] })
     .index("by_author", ["authorId"])
     .index("by_visibility", ["visibility", "updatedAt"])
     .index("by_visibility_and_category", [
@@ -280,11 +306,13 @@ export default defineSchema({
       filterFields: ["visibility", "authorId", "category"],
     }),
 
-  /** Immutable snapshots. A scene pins `effectId@version`; rows are never patched. */
+  /** Immutable authored snapshots. Release and generated-image bookkeeping may change. */
   effectVersions: defineTable({
     effectId: v.id("effects"),
     version: v.number(),
     createdAt: v.number(),
+    releasedAt: v.optional(v.number()),
+  generatedThumbnailStorageId: v.optional(v.id("_storage")),
     ...effectDefinitionFields,
   }).index("by_effect_version", ["effectId", "version"]),
 

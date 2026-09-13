@@ -2,6 +2,8 @@ import { analyticsOperationGuard } from "@/lib/analyticsOperation";
 import { FeedbackButton } from "@/components/atoms/FeedbackButton";
 import { useAnalyticsView } from "@/lib/hooks/useAnalyticsView";
 import { errorCategory } from "@/lib/analytics";
+import { EffectRelease } from "@/components/organisms/EffectRelease/EffectRelease";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   useCallback,
   useEffect,
@@ -12,8 +14,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useBlocker, useNavigate, useSearchParams } from "react-router-dom";
-import { useMutation } from "convex/react";
+import { useBlocker, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useMutation, useQuery } from "convex/react";
 import { SignInButton, useUser } from "@clerk/react";
 import { usePostHog } from "@posthog/react";
 import {
@@ -35,7 +37,7 @@ import { api } from "../../../../../convex/_generated/api";
 import type { Doc, Id } from "../../../../../convex/_generated/dataModel";
 import { EffectParamFields } from "@/components/molecules/EffectParamFields";
 import { type ScriptPreviewResult } from "@/components/organisms/EffectPreview";
-import { PreviewStage } from "@/components/organisms/EffectPreview/PreviewStage";
+import { PreviewStage, type PreviewSession } from "@/components/organisms/EffectPreview/PreviewStage";
 import type { PreviewHandle } from "@/components/organisms/EffectPreview/EffectPreview";
 import { useUploadThing } from "@/utils/uploadthing";
 import { PlaceEffectButton } from "@/components/molecules/PlaceEffectButton/PlaceEffectButton";
@@ -130,6 +132,7 @@ import {
   useEffectDraft,
   newEffectDraft,
   readRecoveredDraft,
+  draftFromDefinition,
   type EffectDraft,
 } from "@/pages/EffectEditorPage/hooks/useEffectDraft";
 
@@ -141,6 +144,7 @@ export type EditorTarget =
       effectId: Id<"effects">;
       version: number;
       latestVersion: number;
+      publishedVersion?: number;
       visibility: Doc<"effects">["visibility"];
       /** Owners append versions; everyone else saves a private copy. */
       isOwner: boolean;
@@ -216,20 +220,27 @@ export function EffectEditor({
   signedIn,
 }: Props) {
   const navigate = useNavigate();
-  const { isSignedIn: clerkSignedIn } = useUser();
+  const { isSignedIn: clerkSignedIn, user } = useUser();
+  const location = useLocation();
+  const handedView = (location.state as { workbench?: { account: string; preview?: PreviewSession; activeTab: EffectSourceLanguage; inspectorTab: string; previewValues: EffectParamValues; release: boolean } } | null)?.workbench;
+  const view = handedView?.account === (user?.id ?? "anonymous") ? handedView : undefined;
+  const previewSession = useRef<PreviewSession | undefined>(view?.preview);
+  const rememberPreview = useCallback((session: PreviewSession) => { previewSession.current = session; }, []);
   const [searchParams] = useSearchParams();
   const browseFrom = sanitizeReturnTo(searchParams.get("browseFrom"));
   const posthog = usePostHog();
+  const releasePolicy = useQuery(api.effects.releasePolicy);
   const createEffect = useMutation(api.effects.createEffect);
   const saveVersion = useMutation(api.effects.saveVersion);
 
-  const recoveryKey = `workshop:draft:v1:${target.kind === "new" ? "new" : `${target.effectId}@${target.version}`}`;
+  const recoveryKey = `workshop:draft:v2:${user?.id ?? "anonymous"}:${target.kind === "new" ? "new" : `${target.effectId}@${target.version}`}`;
   const {
     draft,
     definition,
     issues,
     dirty,
     recoveryStatus,
+    recovered, recoveryCandidate, resolveRecovery,
     patch,
     setParams,
     reset,
@@ -273,28 +284,41 @@ export function EffectEditor({
           },
     );
   }, [isDesktop, mobilePanel, workbenchRef, desktopLayoutRef]);
-  const [inspectorTab, setInspectorTab] = useState("controls");
+  const [inspectorTab, setInspectorTab] = useState(view?.inspectorTab ?? "controls");
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [dismissedDiagnostics, setDismissedDiagnostics] = useState<
     string | null
   >(null);
   const [showTemplates, setShowTemplates] = useState(
-    target.kind === "new" && !dirty,
+    target.kind === "new" && !dirty && !recoveryCandidate,
   );
-  const publishEffect = useMutation(api.effects.publishEffect);
 
   const [activeTab, setActiveTab] = useState<EffectSourceLanguage>(() =>
-    defaultTabFor(draft.kind),
+    view?.activeTab ?? defaultTabFor(draft.kind),
   );
   const [showReference, setShowReference] = useState(false);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [backend, setBackend] = useState<EffectBackend | null>(null);
+  const [checks, setChecks] = useState<Partial<Record<EffectBackend, CompileRecord>>>({});
+  const [unavailable, setUnavailable] = useState<Partial<Record<EffectBackend, boolean>>>({});
   const [compile, setCompile] = useState<CompileRecord | null>(null);
   const [scriptRun, setScriptRun] = useState<ScriptRunRecord | null>(null);
   const [previewValues, setPreviewValues] = useState<EffectParamValues>(() =>
-    defaultParamValues(draft.params),
+    view?.previewValues ?? defaultParamValues(draft.params),
   );
+
+  const [sessionAccount, setSessionAccount] = useState(user?.id ?? "anonymous");
+  const currentAccount = user?.id ?? "anonymous";
+  if (sessionAccount !== currentAccount) {
+    setSessionAccount(currentAccount);
+    if (sessionAccount !== "anonymous") {
+      setActiveTab(defaultTabFor(initialDraft.kind));
+      setPreviewValues(defaultParamValues(initialDraft.params));
+      setInspectorTab("controls");
+      setChecks({}); setCompile(null); setScriptRun(null);
+    }
+  }
 
   const wgslEditorRef = useRef<CodeEditorHandle>(null);
   const glslEditorRef = useRef<CodeEditorHandle>(null);
@@ -381,6 +405,7 @@ export function EffectEditor({
   const handleCompiled = useCallback(
     (result: CompiledEffect, compiledOn: EffectBackend) => {
       // The preview drops stale results itself, so what it reports is always for the current debounced source.
+      setChecks(current => ({ ...current, [compiledOn]: { sourceKey: sourceKeyOf(debouncedRef.current), result, backend: compiledOn } }));
       setCompile({
         sourceKey: sourceKeyOf(debouncedRef.current),
         result,
@@ -632,7 +657,7 @@ export function EffectEditor({
     return `Save as v${target.latestVersion + 1}`;
   })();
 
-  const handleSave = async () => {
+  const handleSave = async (release = false) => {
     if (savingRef.current) return;
     if (!canSave) {
       if (saveBlocker) toast.error(saveBlocker);
@@ -676,7 +701,7 @@ export function EffectEditor({
           effectId: target.effectId,
           definition: savedDefinition,
         });
-        reset(draft);
+        reset(draftFromDefinition(savedDefinition));
         toast.success(`Saved ${definition.name} as v${version}`);
         if (measurableSave()) posthog.capture(ANALYTICS_EVENTS.EffectVersionSaved, {
           ...saveContext,
@@ -691,7 +716,7 @@ export function EffectEditor({
             returnTo ?? undefined,
             browseFrom ?? undefined,
           ),
-          { replace: true },
+          { replace: true, state: { workbench: { account: user?.id ?? "anonymous", preview: previewSession.current, activeTab, inspectorTab, previewValues, release } } },
         );
       } else {
         if (savedDefinition.kind === "shader") {
@@ -707,7 +732,7 @@ export function EffectEditor({
         const { effectId, version } = await createEffect({
           definition: savedDefinition,
         });
-        reset(draft);
+        reset(draftFromDefinition(savedDefinition));
         toast.success(
           target.kind === "new"
             ? `Created ${definition.name}`
@@ -728,6 +753,7 @@ export function EffectEditor({
           ),
           {
             replace: true,
+            state: { workbench: { account: user?.id ?? "anonymous", preview: previewSession.current, activeTab, inspectorTab, previewValues, release } },
           },
         );
       }
@@ -779,31 +805,8 @@ export function EffectEditor({
           returnTo={returnTo}
           disabled={dirty}
         />
-        {target.isOwner && target.visibility === "private" ? (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={dirty || saving}
-            onClick={() => {
-              if (
-                window.confirm(
-                  "Publish this saved version to the public library? Its source and controls will be available for others to use and remix. Preview compatibility is only verified for this browser.",
-                )
-              ) {
-                const measurablePublish = analyticsOperationGuard();
-                const context = { attempt_id: crypto.randomUUID(), effect_id: target.effectId, effect_kind: draft.kind };
-                posthog.capture(ANALYTICS_EVENTS.EffectPublishStarted, context);
-                void publishEffect({ effectId: target.effectId })
-                  .then(() => {
-                    toast.success("Published to the effect library.");
-                    if (measurablePublish()) posthog.capture(ANALYTICS_EVENTS.EffectPublished, context);
-                  })
-                  .catch((error) => { if (measurablePublish()) posthog.capture(ANALYTICS_EVENTS.EffectPublishFailed, { ...context, error_category: errorCategory(error) }); toast.error("Could not publish. Try again."); });
-              }
-            }}
-          >
-            Publish
-          </Button>
+        {target.isOwner && target.visibility !== "hidden" && !dirty ? (
+          <EffectRelease key={`${target.effectId}:${target.version}`} effectId={target.effectId} version={target.version} definition={definition} defaultOpen={view?.release} />
         ) : null}
       </div>
     ) : null;
@@ -869,7 +872,7 @@ export function EffectEditor({
             className="hidden min-w-32 text-[11px] leading-tight text-muted-foreground sm:block"
             title={
               recoveryStatus === "saved"
-                ? "Recovered on this device. Save a version to use this effect in scenes."
+                ? (recovered ? "Recovered draft. Save a version to use these changes in scenes." : "Backed up on this device.")
                 : recoveryStatus === "unavailable"
                   ? "Browser storage is unavailable. Keep this page open until you save a version."
                   : "Updating the recovery copy on this device."
@@ -879,7 +882,7 @@ export function EffectEditor({
               ? "Unsaved version"
               : target.kind === "new"
                 ? "New draft"
-                : "Version saved"}
+                : `Saved v${target.latestVersion}${target.visibility === "public" ? ` · Public v${target.publishedVersion ?? target.latestVersion}` : " · Private"}`}
             <span
               className={cn(
                 "mt-0.5 block",
@@ -888,7 +891,7 @@ export function EffectEditor({
               )}
             >
               {recoveryStatus === "saved"
-                ? "Draft backed up locally"
+                ? (recovered ? "Recovered draft" : "Backed up locally")
                 : recoveryStatus === "unavailable"
                   ? "Local recovery unavailable"
                   : "Backing up draft…"}
@@ -896,6 +899,7 @@ export function EffectEditor({
           </span>
         </div>
 
+        {signedIn && canSave && (target.kind === "new" || (target.isOwner && target.visibility !== "hidden")) && <Button size="sm" variant="outline" disabled={saving} onClick={() => void handleSave(true)}>Save and release</Button>}
         {sceneActions &&
           (isDesktop ? (
             sceneActions
@@ -936,7 +940,7 @@ export function EffectEditor({
                   <Button
                     type="button"
                     size="sm"
-                    onClick={handleSave}
+                    onClick={() => void handleSave()}
                     className="workshop-primary"
                     disabled={!canSave}
                     aria-label={
@@ -976,7 +980,7 @@ export function EffectEditor({
             className={recoveryStatus === "unavailable" ? "text-warning" : ""}
           >
             {recoveryStatus === "saved"
-              ? "Draft backed up locally"
+              ? (recovered ? "Recovered draft" : "Backed up locally")
               : recoveryStatus === "unavailable"
                 ? "Local recovery unavailable"
                 : "Backing up draft…"}
@@ -984,6 +988,12 @@ export function EffectEditor({
         </div>
       </header>
 
+      {target.kind === "existing" && target.isOwner && target.visibility === "public" && releasePolicy?.enabled === false && <p className="border-b bg-amber-500/10 px-4 py-2 text-xs" role="status">Version releases are not enabled yet. Saving changes updates this effect’s public listing.</p>}
+      <Dialog open={Boolean(recoveryCandidate)} onOpenChange={() => {}}>
+        <DialogContent><DialogHeader><DialogTitle>Recover your unfinished draft?</DialogTitle><DialogDescription>A local draft differs from this saved version. Restore it to continue, or discard it and use the saved version.</DialogDescription></DialogHeader>
+          <Button onClick={() => resolveRecovery(true)}>Restore draft</Button><Button variant="outline" onClick={() => resolveRecovery(false)}>Discard local draft</Button>
+        </DialogContent>
+      </Dialog>
       <TemplatePicker
         open={showTemplates}
         onOpenChange={setShowTemplates}
@@ -1286,7 +1296,7 @@ export function EffectEditor({
             ) : null}
           </ResizablePanelGroup>
 
-          <div className="shrink-0 border-t">
+          <div className="flex shrink-0 justify-end border-t px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
             <Button
               variant="ghost"
               size="sm"
@@ -1341,7 +1351,16 @@ export function EffectEditor({
             >
               <PreviewStage
                 fill={isDesktop}
+                initialSession={view?.preview}
+                onSessionChange={rememberPreview}
                 status={
+                  <div className="space-y-1">
+                  <p className="text-xs">Editing {activeTab.toUpperCase()} · Preview {backend ?? "starting"}</p>
+                  {!isScript && <p className="text-xs" role="status">{(["webgl", "webgpu"] as const).map(renderer => {
+                    const check = checks[renderer];
+                    const state = unavailable[renderer] ? "unavailable" : !check ? "not checked" : check.sourceKey !== sourceKeyOf(definition) ? "stale" : check.result.status === "ok" ? "passed" : check.result.status === "error" ? "failed" : "fallback";
+                    return `${renderer === "webgl" ? "WebGL" : "WebGPU"}: ${state}`;
+                  }).join(" · ")}</p>}
                   <PreviewStatus
                     status={compileStatus}
                     failed={compileFailed}
@@ -1352,13 +1371,15 @@ export function EffectEditor({
                       if (!isDesktop) setMobilePanel("code");
                     }}
                   />
+                  </div>
                 }
                 captureRef={captureRef}
                 definition={debouncedDefinition}
                 params={coercedPreviewValues}
                 onCompiled={handleCompiled}
                 onScript={handleScript}
-                onBackend={setBackend}
+                onBackend={value => { setBackend(value); const requested = previewSession.current?.preference ?? "webgl"; setUnavailable(current => ({ ...current, [requested]: requested !== value, [value]: false })); }}
+                onUnavailable={() => setUnavailable(current => ({ ...current, [previewSession.current?.preference ?? "webgl"]: true }))}
                 className="aspect-square w-full overflow-hidden rounded-md border"
               />
             </ResizablePanel>
@@ -1370,7 +1391,7 @@ export function EffectEditor({
               id="inspector"
               defaultSize={`${initialLayout.inspector.inspector}%`}
               minSize="25%"
-              className="h-full overflow-y-auto"
+              className="h-full overflow-y-auto overscroll-contain scroll-pt-14 pb-16"
               aria-label="Effect controls and details"
             >
               <div
@@ -1418,16 +1439,7 @@ export function EffectEditor({
                       onChange={setPreviewValues}
                     />
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      setPreviewValues(defaultParamValues(draft.params))
-                    }
-                  >
-                    <RotateCcw className="size-3.5" />
-                    Try saved defaults
-                  </Button>
+
                   <p className="text-[11px] text-muted-foreground">
                     Preview values only. This does not change defaults or scene
                     permissions.
@@ -1540,10 +1552,10 @@ export function EffectEditor({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="circle" className="text-xs">
-                          Circle (cuts darkness)
+                          {isScript ? "Returned geometry plus radius circle" : "Circle (cuts darkness)"}
                         </SelectItem>
                         <SelectItem value="none" className="text-xs">
-                          None (paint only)
+                          {isScript ? "Returned geometry only" : "None (paint only)"}
                         </SelectItem>
                       </SelectContent>
                     </Select>

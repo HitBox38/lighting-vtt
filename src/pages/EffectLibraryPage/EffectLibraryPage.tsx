@@ -273,9 +273,9 @@ export function EffectLibraryPage() {
         {selected ? (
           <aside
             aria-label="Effect preview"
-            className="w-full shrink-0 overflow-y-auto border-l bg-card/30 lg:w-[min(45vw,560px)]"
+            className="flex w-full shrink-0 flex-col overflow-hidden border-l bg-card/30 lg:w-[min(45vw,560px)]"
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/95 p-3">
+            <div className="flex shrink-0 items-center justify-between border-b bg-background/95 p-3">
               <span className="flex items-center gap-2 text-sm font-medium">
                 <Sparkles className="size-4 text-amber-500" /> Preview & tune
               </span>
@@ -287,6 +287,7 @@ export function EffectLibraryPage() {
                 Close
               </Button>
             </div>
+            <div className="min-h-0 overflow-y-auto overscroll-contain pb-16">
             <EffectDetail
               key={selected}
               effectId={selected}
@@ -295,6 +296,7 @@ export function EffectLibraryPage() {
               isAdmin={admin}
               onDeleted={() => update("effect", null)}
             />
+            </div>
           </aside>
         ) : null}
       </div>

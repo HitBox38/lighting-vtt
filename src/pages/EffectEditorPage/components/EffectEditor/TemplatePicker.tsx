@@ -54,7 +54,7 @@ export function TemplatePicker({
           <DialogDescription>
             {pending
               ? "Your unsaved source and control settings will be replaced."
-              : "Choose a working effect to make your own, or start with code."}
+              : "Shaders paint animated visuals. Scripts compute light geometry from scene inputs. Choose a working effect or start with code."}
           </DialogDescription>
         </DialogHeader>
         <div className={pending ? "hidden" : "contents"}>

@@ -98,6 +98,10 @@ function CatalogResults({
     <>
       <div className="grid grid-cols-2 gap-2">
         {choices.map((effect) => {
+          const thumbnailUrl =
+            "generatedThumbnailUrl" in effect && typeof effect.generatedThumbnailUrl === "string"
+              ? effect.generatedThumbnailUrl
+              : effect.thumbnailUrl;
           const item: CatalogItem = {
             kind: "effect",
             effectId: effect._id,
@@ -111,9 +115,9 @@ function CatalogResults({
               key={effect._id}
               onClick={() => onChoose(item)}
             >
-              {effect.thumbnailUrl ? (
+              {thumbnailUrl ? (
                 <img
-                  src={effect.thumbnailUrl}
+                  src={thumbnailUrl}
                   alt={`Preview of ${effect.name} effect`}
                   width={320}
                   height={180}

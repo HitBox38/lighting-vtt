@@ -1,3 +1,4 @@
+import { SCRIPT_STARTERS } from "./scriptStarters";
 import type { EffectDefinition } from "./effects";
 
 const colorSpeed: EffectDefinition["params"] = [
@@ -97,4 +98,5 @@ export const EFFECT_STARTERS: readonly EffectDefinition[] = [
   return { polygons, segments: [] };
 }`,
   },
+  ...SCRIPT_STARTERS,
 ];

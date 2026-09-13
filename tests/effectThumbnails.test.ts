@@ -77,7 +77,7 @@ test("publication is idempotent, keeps immutable versions and ordering, and prot
   const storageId = await image();
   expect(await t.mutation(internal.thumbnails.finish, { ...job, storageId })).toBe(true);
   expect(await t.mutation(internal.thumbnails.finish, { ...job, storageId })).toBe(true);
-  expect(await owner.query(api.effects.getVersion, { effectId, version: 1 })).toEqual(immutable);
+  expect(await owner.query(api.effects.getVersion, { effectId, version: 1 })).toEqual({ ...immutable, generatedThumbnailStorageId: storageId });
   expect((await owner.query(api.effects.getEffect, { effectId }))!.updatedAt).toBe(before!.updatedAt);
   expect(await t.query(api.effects.getEffect, { effectId })).toBeNull();
   expect(await t.withIdentity({ subject: "someone-else" }).query(api.effects.getEffect, { effectId })).toBeNull();
@@ -151,4 +151,28 @@ test("a save while generation is disabled cannot be overwritten after re-enablin
   const storageId = await image();
   expect(await t.mutation(internal.thumbnails.finish, { ...job, storageId })).toBe(false);
   expect(await t.run((ctx) => ctx.storage.get(storageId))).toBeNull();
+});
+
+test("released thumbnails stay with their version when newer drafts render", async () => {
+  process.env.EFFECT_VERSION_RELEASES_ENABLED = "true";
+  try {
+    const { t, owner, effectId, claim, image } = await setup();
+    const first = await claim();
+    await t.mutation(internal.thumbnails.begin, first.job);
+    const image1 = await image();
+    await t.mutation(internal.thumbnails.finish, { ...first.job, storageId: image1 });
+    await owner.mutation(api.effects.publishEffect, { effectId, version: 1 });
+    const public1 = await t.query(api.effects.getEffect, { effectId });
+    await owner.mutation(api.effects.saveVersion, { effectId, definition: THUMBNAIL_FIXTURES[1] });
+    const second = await claim();
+    await t.mutation(internal.thumbnails.begin, second.job);
+    const image2 = await t.run(ctx => ctx.storage.store(new Blob(["second fixture"], { type: "image/png" })));
+    await t.mutation(internal.thumbnails.finish, { ...second.job, storageId: image2 });
+    expect((await t.query(api.effects.getEffect, { effectId }))?.generatedThumbnailUrl).toBe(public1?.generatedThumbnailUrl);
+    expect(await t.run(async ctx => (await ctx.storage.get(image1)) !== null)).toBe(true);
+    await owner.mutation(api.effects.publishEffect, { effectId, version: 2 });
+    expect((await t.query(api.effects.getEffect, { effectId }))?.generatedThumbnailUrl).not.toBe(public1?.generatedThumbnailUrl);
+    await owner.mutation(api.effects.publishEffect, { effectId, version: 1 });
+    expect((await t.query(api.effects.getEffect, { effectId }))?.generatedThumbnailUrl).toBe(public1?.generatedThumbnailUrl);
+  } finally { delete process.env.EFFECT_VERSION_RELEASES_ENABLED; }
 });

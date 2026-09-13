@@ -61,11 +61,23 @@ export const finish = internalMutation({
       if (await ctx.db.system.get(job.storageId)) await ctx.storage.delete(job.storageId);
       return false;
     }
-    if (row.storageId) await ctx.storage.delete(row.storageId);
+    const version = await ctx.db.query("effectVersions").withIndex("by_effect_version", q => q.eq("effectId", job.effectId).eq("version", job.version)).unique();
+    if (!version) { await ctx.storage.delete(job.storageId); return false; }
+    // Keep images with their immutable source versions so releasing an older
+    // version never borrows an image from a newer private draft.
+    const oldVersionImage = version.generatedThumbnailStorageId;
+    await ctx.db.patch(version._id, { generatedThumbnailStorageId: job.storageId });
+    if (oldVersionImage && oldVersionImage !== effect?.releasedCatalog?.thumbnailStorageId && oldVersionImage !== job.storageId)
+      await ctx.storage.delete(oldVersionImage);
     await ctx.db.patch(row._id, {
       storageId: job.storageId, renderedVersion: job.version, renderedRevision: job.revision,
       status: "ready", workId: undefined, failureCategory: undefined,
     });
+    if (effect?.publishedVersion === job.version && effect.releasedCatalog) {
+      const previous = effect.releasedCatalog.thumbnailStorageId;
+      await ctx.db.patch(effect._id, { releasedCatalog: { ...effect.releasedCatalog, thumbnailStorageId: job.storageId } });
+      if (previous && previous === oldVersionImage && previous !== job.storageId) await ctx.storage.delete(previous);
+    }
     return true;
   },
 });
@@ -73,7 +85,7 @@ export const finish = internalMutation({
 export const discard = internalMutation({
   args: { effectId: v.id("effects"), storageId: v.id("_storage") }, returns: v.null(),
   handler: async (ctx, args) => {
-    if ((await findThumbnail(ctx, args.effectId))?.storageId !== args.storageId && await ctx.db.system.get(args.storageId)) await ctx.storage.delete(args.storageId);
+    if ((await ctx.db.get(args.effectId))?.releasedCatalog?.thumbnailStorageId !== args.storageId && (await findThumbnail(ctx, args.effectId))?.storageId !== args.storageId && await ctx.db.system.get(args.storageId)) await ctx.storage.delete(args.storageId);
     return null;
   },
 });
