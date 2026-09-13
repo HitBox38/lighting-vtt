@@ -782,8 +782,9 @@ export function EffectEditor({
 
   const sceneActions =
     target.kind === "existing" ? (
-      <div className="flex gap-2">
+      <div className="flex items-start gap-2">
         <PlaceEffectButton
+          size="sm"
           item={{
             kind: "effect",
             effectId: target.effectId,
@@ -889,76 +890,78 @@ export function EffectEditor({
           </span>
         </div>
 
-        {signedIn && canSave && (target.kind === "new" || (target.isOwner && target.visibility !== "hidden")) && <Button size="sm" variant="outline" disabled={saving} onClick={() => void handleSave(true)}>Save and release</Button>}
-        {sceneActions &&
-          (isDesktop ? (
-            sceneActions
-          ) : (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-8"
-                  aria-label="Scene actions"
-                >
-                  <MoreHorizontal className="size-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="mobile-page w-auto max-w-[calc(100vw-2rem)]">
-                <p className="mb-2 text-xs text-muted-foreground">
-                  Saved version actions
-                </p>
-                {sceneActions}
-              </PopoverContent>
-            </Popover>
-          ))}
-        {!signedIn && !clerkSignedIn ? (
-          <SignInButton mode="modal">
-            <Button size="sm" className="workshop-primary">
-              <LogIn className="size-3.5" />
-              <span className="sm:hidden">Sign in</span>
-              <span className="hidden sm:inline">Sign in to save</span>
-            </Button>
-          </SignInButton>
-        ) : (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                {/* Disabled buttons swallow pointer events; the span keeps the tooltip reachable. */}
-                <span tabIndex={canSave ? -1 : 0}>
+        <div className="flex flex-wrap items-start gap-2">
+          {signedIn && canSave && (target.kind === "new" || (target.isOwner && target.visibility !== "hidden")) && <Button size="sm" variant="outline" disabled={saving} onClick={() => void handleSave(true)}>Save and release</Button>}
+          {sceneActions &&
+            (isDesktop ? (
+              sceneActions
+            ) : (
+              <Popover>
+                <PopoverTrigger asChild>
                   <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => void handleSave()}
-                    className="workshop-primary"
-                    disabled={!canSave}
-                    aria-label={
-                      !signedIn && clerkSignedIn
-                        ? "Save unavailable"
-                        : saveLabel
-                    }
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    aria-label="Scene actions"
                   >
-                    {saving ? (
-                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="mr-1 h-4 w-4" />
-                    )}
-                    <span className="sm:hidden">Save</span>
-                    <span className="hidden sm:inline">
-                      {!signedIn && clerkSignedIn
-                        ? "Save unavailable"
-                        : saveLabel}
-                    </span>
+                    <MoreHorizontal className="size-4" />
                   </Button>
-                </span>
-              </TooltipTrigger>
-              {saveBlocker ? (
-                <TooltipContent>{saveBlocker}</TooltipContent>
-              ) : null}
-            </Tooltip>
-          </TooltipProvider>
-        )}
+                </PopoverTrigger>
+                <PopoverContent align="end" className="mobile-page w-auto max-w-[calc(100vw-2rem)]">
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    Saved version actions
+                  </p>
+                  {sceneActions}
+                </PopoverContent>
+              </Popover>
+            ))}
+          {!signedIn && !clerkSignedIn ? (
+            <SignInButton mode="modal">
+              <Button size="sm" className="workshop-primary">
+                <LogIn className="size-3.5" />
+                <span className="sm:hidden">Sign in</span>
+                <span className="hidden sm:inline">Sign in to save</span>
+              </Button>
+            </SignInButton>
+          ) : (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  {/* Disabled buttons swallow pointer events; the span keeps the tooltip reachable. */}
+                  <span tabIndex={canSave ? -1 : 0}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => void handleSave()}
+                      className="workshop-primary"
+                      disabled={!canSave}
+                      aria-label={
+                        !signedIn && clerkSignedIn
+                          ? "Save unavailable"
+                          : saveLabel
+                      }
+                    >
+                      {saving ? (
+                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="mr-1 h-4 w-4" />
+                      )}
+                      <span className="sm:hidden">Save</span>
+                      <span className="hidden sm:inline">
+                        {!signedIn && clerkSignedIn
+                          ? "Save unavailable"
+                          : saveLabel}
+                      </span>
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {saveBlocker ? (
+                  <TooltipContent>{saveBlocker}</TooltipContent>
+                ) : null}
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
         <div className="order-last flex w-full items-center justify-between gap-2 text-[10px] text-muted-foreground sm:hidden">
           <span>
             {target.kind === "existing"
