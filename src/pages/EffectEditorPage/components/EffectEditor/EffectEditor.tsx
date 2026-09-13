@@ -796,7 +796,7 @@ export function EffectEditor({
           disabled={dirty}
         />
         {target.isOwner && target.visibility !== "hidden" && !dirty ? (
-          <EffectRelease key={`${target.effectId}:${target.version}`} effectId={target.effectId} version={target.version} definition={definition} defaultOpen={view?.release} />
+          <EffectRelease key={`${target.effectId}:${target.version}`} effectId={target.effectId} version={target.version} definition={definition} defaultOpen={view?.release} showStatus={!isDesktop} />
         ) : null}
       </div>
     ) : null;
