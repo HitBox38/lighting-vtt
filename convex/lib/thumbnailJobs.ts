@@ -14,10 +14,16 @@ export async function scheduleThumbnail(ctx: MutationCtx, row: Doc<"effectThumbn
 }
 
 /** Called in the save transaction; rendering and native failures happen later. */
-export async function requestThumbnail(ctx: MutationCtx, effectId: Id<"effects">, version: number) {
+export async function requestThumbnail(
+  ctx: MutationCtx,
+  effectId: Id<"effects">,
+  version: number,
+  options: { retryFailed?: boolean } = {},
+) {
   if (!thumbnailsEnabled()) return;
   let row = await findThumbnail(ctx, effectId);
-  if (row && row.requestedVersion === version && row.rendererRevision === THUMBNAIL_SPEC.revision && row.status !== "canceled") return;
+  const retryFailed = options.retryFailed && row?.status === "failed" && !row.workId;
+  if (row && row.requestedVersion === version && row.rendererRevision === THUMBNAIL_SPEC.revision && row.status !== "canceled" && !retryFailed) return;
   const patch = {
     requestedVersion: version, rendererRevision: THUMBNAIL_SPEC.revision,
     attempts: 0, nextRunAt: Math.max(Date.now() + 2000, (row?.startedAt ?? 0) + 60_000),

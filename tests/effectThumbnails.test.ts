@@ -141,6 +141,33 @@ test("fixed snapshot packs saved number, boolean, and color defaults and rejects
   expect(() => thumbnailShaderInput({ ...THUMBNAIL_FIXTURES[0], kind: "script" })).toThrow("Only WGSL");
 });
 
+test("backfill can explicitly retry failed thumbnails without restarting active or ready jobs", async () => {
+  const { t, row, claim, image } = await setup();
+  const failed = await claim();
+  await t.mutation(internal.thumbnails.begin, failed.job);
+  await t.mutation(internal.thumbnails.completed, {
+    workId: failed.workId as never,
+    context: failed.job,
+    result: { kind: "success", returnValue: { category: "initialization", retryable: false } },
+  });
+  await t.mutation(internal.thumbnails.backfill, {});
+  expect((await row())!.status).toBe("failed");
+
+  await t.mutation(internal.thumbnails.backfill, { retryFailed: true });
+  expect((await row())!.status).toBe("pending");
+  expect((await row())!.attempts).toBe(0);
+  expect((await row())!.failureCategory).toBeUndefined();
+  const retry = await claim();
+  await t.mutation(internal.thumbnails.begin, retry.job);
+  const rendering = await row();
+  await t.mutation(internal.thumbnails.backfill, { retryFailed: true });
+  expect(await row()).toEqual(rendering);
+  await t.mutation(internal.thumbnails.finish, { ...retry.job, storageId: await image() });
+  const ready = await row();
+  await t.mutation(internal.thumbnails.backfill, { retryFailed: true });
+  expect(await row()).toEqual(ready);
+});
+
 test("a save while generation is disabled cannot be overwritten after re-enabling", async () => {
   const { t, owner, effectId, claim, image } = await setup();
   const { job } = await claim();

@@ -112,16 +112,19 @@ export const completed = internalMutation({
   },
 });
 
-/** Bounded, resumable backfill of latest versions only. */
+/** Bounded, resumable backfill of latest versions; explicit retries follow runtime repairs. */
 export const backfill = internalMutation({
-  args: { cursor: v.optional(v.string()) },
+  args: { cursor: v.optional(v.string()), retryFailed: v.optional(v.boolean()) },
   returns: v.object({ done: v.boolean(), cursor: v.string(), requested: v.number() }),
   handler: async (ctx, args) => {
     if (!thumbnailsEnabled()) throw new Error("Enable EFFECT_THUMBNAILS_ENABLED before backfill");
     const page = await ctx.db.query("effects").paginate({ cursor: args.cursor ?? null, numItems: 25 });
     let requested = 0;
     for (const effect of page.page) {
-      if (effect.kind === "shader") { await requestThumbnail(ctx, effect._id, effect.latestVersion); requested++; }
+      if (effect.kind === "shader") {
+        await requestThumbnail(ctx, effect._id, effect.latestVersion, { retryFailed: args.retryFailed });
+        requested++;
+      }
     }
     return { done: page.isDone, cursor: page.continueCursor, requested };
   },
