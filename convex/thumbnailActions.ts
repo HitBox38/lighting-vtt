@@ -31,7 +31,7 @@ export const render = internalAction({
       console.info("effect_thumbnail", { ...job, attempt, durationMs: Date.now() - started, adapter: image.adapter.name, maxRssKiB: image.maxRssKiB, parentMaxRssKiB: process.resourceUsage().maxRSS, accepted });
       return { category: accepted ? "ready" : "superseded", retryable: false };
     } catch (error) {
-      if (storageId) await ctx.runMutation(internal.thumbnails.discard, { effectId: job.effectId, storageId });
+      if (storageId) await ctx.runMutation(internal.thumbnails.discard, { effectId: job.effectId, version: job.version, storageId });
       const timeout = error instanceof ThumbnailProcessError && error.category === "timeout";
       const shader = stage === "validate" || String(error).includes("shader:") || String(error).includes("WGSL effect contract");
       const deviceLoss = /device.*lost/i.test(String(error));

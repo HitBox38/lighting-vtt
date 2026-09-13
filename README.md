@@ -159,17 +159,23 @@ To activate or repair generation in the intended Convex deployment:
 2. Set `EFFECT_THUMBNAILS_ENABLED=true` in that Convex deployment.
 3. Run internal `thumbnails:backfill` with `{}`. Repeat with
    `{ "cursor": "<returned cursor>" }` until `done: true`. This requests images
-   for existing shaders' latest saved versions; generation finishes separately.
+   for existing shaders' latest saved versions and missing images of their exact
+   public releases. Generation finishes separately.
 4. If jobs previously failed, first repair the cause reported by the diagnostic
    probe or `effect_thumbnail_failed` logs, then repeat the backfill with
    `{ "retryFailed": true }` (and the returned cursor on subsequent pages).
    This resets exhausted attempts without restarting ready or active jobs.
 
-The public catalog only displays an image of the exact released version. A
-newer private draft's image must never replace it. The latest-version backfill
-does not generate images for older releases when a newer draft exists. Verify
-both the public library and the DM workshop after jobs finish; a completed
-backfill page alone is not confirmation that rendering succeeded.
+Public-release repair has a separate job slot from latest-draft rendering and
+shares the same two-worker limit. Existing exact-version images are reused;
+private draft images never replace a public release. Verify the public library
+and DM workshop after jobs finish; backfill completion alone does not confirm
+rendering succeeded.
+
+Deployment adds an optional job target and index without rewriting existing rows.
+After published-target jobs exist, rollback must retain this additive schema and
+target-aware reads; old code assumes one job per effect. Disable generation to
+pause jobs and roll forward with a fix instead of redeploying that old code.
 
 ## Project Structure
 

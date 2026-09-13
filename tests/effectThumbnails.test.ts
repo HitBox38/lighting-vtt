@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url";
 import { join } from "node:path";
 import schema from "../convex/schema";
 import { api, internal } from "../convex/_generated/api";
-import { requestThumbnail } from "../convex/lib/thumbnailJobs";
+import { findThumbnail, requestThumbnail } from "../convex/lib/thumbnailJobs";
 import { THUMBNAIL_FIXTURES } from "../shared/effectThumbnailFixtures";
 import { thumbnailShaderInput } from "../shared/effectThumbnail";
 
@@ -35,13 +35,13 @@ async function setup() {
   }
   const owner = t.withIdentity({ subject: "thumbnail-test-owner", name: "Test" });
   const { effectId } = await owner.mutation(api.effects.createEffect, { definition: THUMBNAIL_FIXTURES[0] });
-  const row = () => t.run((ctx) => ctx.db.query("effectThumbnails").withIndex("by_effectId", (q) => q.eq("effectId", effectId)).unique());
-  const claim = async () => {
-    const pending = (await row())!;
+  const row = (target?: "published") => t.run((ctx) => findThumbnail(ctx, effectId, target));
+  const claim = async (target?: "published") => {
+    const pending = (await row(target))!;
     await t.run((ctx) => ctx.db.patch(pending._id, { nextRunAt: 0 }));
-    await t.mutation(internal.thumbnails.dispatch, { effectId });
-    const r = (await row())!;
-    const job = { effectId, version: r.requestedVersion, revision: r.rendererRevision, generation: r.generation };
+    await t.mutation(internal.thumbnails.dispatch, { effectId, ...(target ? { target } : {}) });
+    const r = (await row(target))!;
+    const job = { effectId, version: r.requestedVersion, revision: r.rendererRevision, generation: r.generation, ...(target ? { target } : {}) };
     return { job, workId: r.workId! };
   };
   const image = () => t.run((ctx) => ctx.storage.store(new Blob(["fixture"], { type: "image/png" })));
@@ -201,5 +201,116 @@ test("released thumbnails stay with their version when newer drafts render", asy
     expect((await t.query(api.effects.getEffect, { effectId }))?.generatedThumbnailUrl).not.toBe(public1?.generatedThumbnailUrl);
     await owner.mutation(api.effects.publishEffect, { effectId, version: 1 });
     expect((await t.query(api.effects.getEffect, { effectId }))?.generatedThumbnailUrl).toBe(public1?.generatedThumbnailUrl);
+  } finally { delete process.env.EFFECT_VERSION_RELEASES_ENABLED; }
+});
+
+test("backfill repairs an older public release without restarting the latest image or exposing private drafts", async () => {
+  process.env.EFFECT_VERSION_RELEASES_ENABLED = "true";
+  try {
+    const { t, owner, effectId, row, claim, image } = await setup();
+    await owner.mutation(api.effects.publishEffect, { effectId, version: 1 });
+    await owner.mutation(api.effects.saveVersion, { effectId, definition: THUMBNAIL_FIXTURES[1] });
+    const latest = await claim();
+    await t.mutation(internal.thumbnails.begin, latest.job);
+    const draftImage = await image();
+    await t.mutation(internal.thumbnails.finish, { ...latest.job, storageId: draftImage });
+    const readyLatest = await row();
+    await t.mutation(internal.thumbnails.backfill, {});
+    expect(await row()).toEqual(readyLatest);
+    expect((await row("published"))?.requestedVersion).toBe(1);
+    const released = await claim("published");
+    expect((await t.mutation(internal.thumbnails.begin, released.job))).toHaveProperty("definition.version", 1);
+    await owner.mutation(api.effects.saveVersion, { effectId, definition: THUMBNAIL_FIXTURES[2] });
+    const nextLatest = await row();
+    const activeDraft = await claim();
+    await t.mutation(internal.thumbnails.begin, activeDraft.job);
+    const activeLatest = await row();
+    await t.mutation(internal.thumbnails.backfill, { retryFailed: true });
+    expect(await row()).toEqual(activeLatest);
+    const releasedImage = await t.run(ctx => ctx.storage.store(new Blob(["released v1"], { type: "image/png" })));
+    expect(await t.mutation(internal.thumbnails.finish, { ...released.job, storageId: releasedImage })).toBe(true);
+    expect((await row())?.requestedVersion).toBe(nextLatest?.requestedVersion);
+    expect(await row()).toEqual(activeLatest);
+    const publicEffect = await t.query(api.effects.getEffect, { effectId });
+    expect(publicEffect?.thumbnailVersion).toBe(1);
+    expect(publicEffect?.generatedThumbnailUrl).toBe(await t.run(ctx => ctx.storage.getUrl(releasedImage)));
+    expect((await owner.query(api.effects.getEffect, { effectId }))?.generatedThumbnailUrl).toBe(await t.run(ctx => ctx.storage.getUrl(draftImage)));
+    await t.mutation(internal.thumbnails.backfill, { retryFailed: true });
+    expect((await row("published"))?.status).toBe("ready");
+  } finally { delete process.env.EFFECT_VERSION_RELEASES_ENABLED; }
+});
+
+for (const change of ["release", "unpublish", "delete"] as const) {
+  test(`published repair rejects obsolete output after ${change} and keeps latest work independent`, async () => {
+    process.env.EFFECT_VERSION_RELEASES_ENABLED = "true";
+    try {
+      const { t, owner, effectId, row, claim, image } = await setup();
+      await owner.mutation(api.effects.publishEffect, { effectId, version: 1 });
+      await owner.mutation(api.effects.saveVersion, { effectId, definition: THUMBNAIL_FIXTURES[1] });
+      await t.mutation(internal.thumbnails.backfill, {});
+      const released = await claim("published");
+      await t.mutation(internal.thumbnails.begin, released.job);
+      if (change === "release") await owner.mutation(api.effects.publishEffect, { effectId, version: 2 });
+      else await owner.mutation(api.effects.unpublishEffect, { effectId });
+      if (change === "delete") await owner.mutation(api.effects.deleteEffect, { effectId });
+      const latest = await row();
+      const output = await image();
+      expect(await t.mutation(internal.thumbnails.finish, { ...released.job, storageId: output })).toBe(false);
+      expect(await t.run(ctx => ctx.storage.get(output))).toBeNull();
+      await t.mutation(internal.thumbnails.completed, { workId: released.workId as never, context: released.job, result: { kind: "success", returnValue: { category: "superseded", retryable: false } } });
+      expect(await row()).toEqual(latest);
+      expect((await t.query(api.effects.getEffect, { effectId }))?.generatedThumbnailUrl).toBeUndefined();
+      if (change === "delete") expect(await row("published")).toBeNull();
+    } finally { delete process.env.EFFECT_VERSION_RELEASES_ENABLED; }
+  });
+}
+
+test("accepted release images survive delayed duplicate cleanup and both job rows are deleted with their effect", async () => {
+  process.env.EFFECT_VERSION_RELEASES_ENABLED = "true";
+  try {
+    const { t, owner, effectId, row, claim, image } = await setup();
+    await owner.mutation(api.effects.publishEffect, { effectId, version: 1 });
+    await owner.mutation(api.effects.saveVersion, { effectId, definition: THUMBNAIL_FIXTURES[1] });
+    await t.mutation(internal.thumbnails.backfill, {});
+    const released = await claim("published");
+    await t.mutation(internal.thumbnails.begin, released.job);
+    const acceptedImage = await image();
+    await t.mutation(internal.thumbnails.finish, { ...released.job, storageId: acceptedImage });
+    await owner.mutation(api.effects.publishEffect, { effectId, version: 2 });
+    await owner.mutation(api.effects.saveVersion, { effectId, definition: THUMBNAIL_FIXTURES[2] });
+    await t.mutation(internal.thumbnails.backfill, {});
+    const next = await claim("published");
+    await t.mutation(internal.thumbnails.begin, next.job);
+    const nextImage = await t.run(ctx => ctx.storage.store(new Blob(["release v2"], { type: "image/png" })));
+    await t.mutation(internal.thumbnails.finish, { ...next.job, storageId: nextImage });
+    expect(await t.mutation(internal.thumbnails.finish, { ...released.job, storageId: acceptedImage })).toBe(true);
+    await t.mutation(internal.thumbnails.discard, { effectId, version: 1, storageId: acceptedImage });
+    expect(await t.run(async ctx => (await ctx.storage.get(acceptedImage)) !== null)).toBe(true);
+    await owner.mutation(api.effects.unpublishEffect, { effectId });
+    await owner.mutation(api.effects.deleteEffect, { effectId });
+    expect(await row()).toBeNull();
+    expect(await row("published")).toBeNull();
+    expect(await t.run(ctx => ctx.storage.get(acceptedImage))).toBeNull();
+    expect(await t.run(ctx => ctx.storage.get(nextImage))).toBeNull();
+  } finally { delete process.env.EFFECT_VERSION_RELEASES_ENABLED; }
+});
+
+test("backfill reuses an existing released-version image instead of scheduling another render", async () => {
+  process.env.EFFECT_VERSION_RELEASES_ENABLED = "true";
+  try {
+    const { t, owner, effectId, row, claim, image } = await setup();
+    const first = await claim();
+    await t.mutation(internal.thumbnails.begin, first.job);
+    const existing = await image();
+    await t.mutation(internal.thumbnails.finish, { ...first.job, storageId: existing });
+    await owner.mutation(api.effects.publishEffect, { effectId, version: 1 });
+    await owner.mutation(api.effects.saveVersion, { effectId, definition: THUMBNAIL_FIXTURES[1] });
+    await t.run(async ctx => {
+      const effect = (await ctx.db.get(effectId))!;
+      await ctx.db.patch(effectId, { releasedCatalog: { ...effect.releasedCatalog!, thumbnailStorageId: undefined } });
+    });
+    await t.mutation(internal.thumbnails.backfill, {});
+    expect(await row("published")).toBeNull();
+    expect((await t.query(api.effects.getEffect, { effectId }))?.generatedThumbnailUrl).toBe(await t.run(ctx => ctx.storage.getUrl(existing)));
   } finally { delete process.env.EFFECT_VERSION_RELEASES_ENABLED; }
 });

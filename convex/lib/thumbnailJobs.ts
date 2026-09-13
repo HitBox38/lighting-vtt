@@ -4,12 +4,12 @@ import { internal } from "../_generated/api";
 import { THUMBNAIL_SPEC } from "../../shared/effectThumbnail";
 
 export const thumbnailsEnabled = () => process.env.EFFECT_THUMBNAILS_ENABLED === "true";
-export const findThumbnail = (ctx: QueryCtx | MutationCtx, effectId: Id<"effects">) =>
-  ctx.db.query("effectThumbnails").withIndex("by_effectId", (q) => q.eq("effectId", effectId)).unique();
+export const findThumbnail = (ctx: QueryCtx | MutationCtx, effectId: Id<"effects">, target?: "published") =>
+  ctx.db.query("effectThumbnails").withIndex("by_effectId_target", (q) => q.eq("effectId", effectId).eq("target", target)).unique();
 
 export async function scheduleThumbnail(ctx: MutationCtx, row: Doc<"effectThumbnails">) {
   if (row.dispatchScheduled || row.workId) return;
-  await ctx.scheduler.runAfter(Math.max(0, row.nextRunAt - Date.now()), internal.thumbnails.dispatch, { effectId: row.effectId });
+  await ctx.scheduler.runAfter(Math.max(0, row.nextRunAt - Date.now()), internal.thumbnails.dispatch, { effectId: row.effectId, ...(row.target ? { target: row.target } : {}) });
   await ctx.db.patch(row._id, { dispatchScheduled: true });
 }
 
@@ -18,10 +18,10 @@ export async function requestThumbnail(
   ctx: MutationCtx,
   effectId: Id<"effects">,
   version: number,
-  options: { retryFailed?: boolean } = {},
+  options: { retryFailed?: boolean; target?: "published" } = {},
 ) {
   if (!thumbnailsEnabled()) return;
-  let row = await findThumbnail(ctx, effectId);
+  let row = await findThumbnail(ctx, effectId, options.target);
   const retryFailed = options.retryFailed && row?.status === "failed" && !row.workId;
   if (row && row.requestedVersion === version && row.rendererRevision === THUMBNAIL_SPEC.revision && row.status !== "canceled" && !retryFailed) return;
   const patch = {
@@ -31,7 +31,7 @@ export async function requestThumbnail(
   };
   if (row) await ctx.db.patch(row._id, patch);
   else {
-    const id = await ctx.db.insert("effectThumbnails", { effectId, ...patch, generation: 0, dispatchScheduled: false });
+    const id = await ctx.db.insert("effectThumbnails", { effectId, ...(options.target ? { target: options.target } : {}), ...patch, generation: 0, dispatchScheduled: false });
     row = await ctx.db.get(id);
   }
   if (row) await scheduleThumbnail(ctx, { ...row, ...patch });
