@@ -7,6 +7,7 @@ import { api, internal } from "../convex/_generated/api";
 import { findThumbnail, requestThumbnail } from "../convex/lib/thumbnailJobs";
 import { THUMBNAIL_FIXTURES } from "../shared/effectThumbnailFixtures";
 import { thumbnailShaderInput } from "../shared/effectThumbnail";
+import { thumbnailStatusQuery } from "../scripts/repair-shader-thumbnails.mjs";
 
 const modules = {
   "../convex/_generated/server.ts": () => import("../convex/_generated/server"),
@@ -130,6 +131,31 @@ test("flag disables enqueue; shader remixes discard inherited thumbnails", async
   const saved = await owner.query(api.effects.getVersion, remix);
   expect(saved!.thumbnailUrl).toBeUndefined();
   expect(await t.run((ctx) => ctx.db.query("effectThumbnails").withIndex("by_effectId", (q) => q.eq("effectId", remix.effectId)).unique())).toBeNull();
+});
+
+test("repair inspection requires stored images for both the latest draft and exact public version", async () => {
+  const { t, owner, effectId, claim, image } = await setup();
+  await owner.mutation(api.effects.saveVersion, { effectId, definition: THUMBNAIL_FIXTURES[1] });
+  await t.run(ctx => ctx.db.patch(effectId, { visibility: "public", publishedVersion: 1, releasedCatalog: { name: "Public", description: "" } }));
+  const { job } = await claim();
+  await t.mutation(internal.thumbnails.begin, job);
+  const storageId = await image();
+  await t.mutation(internal.thumbnails.finish, { ...job, storageId });
+  // Execute the actual CLI read-only query against Convex's database test seam.
+  const inspect = new Function("ctx", `return (async () => { ${thumbnailStatusQuery()} })()`);
+  const status = await t.run(ctx => inspect(ctx));
+  expect(status.effects[0].latest.ready).toBe(true);
+  expect(status.effects[0].published.ready).toBe(false);
+  expect(status.effects[0].publishedVersion).toBe(1);
+  await t.run(ctx => ctx.storage.delete(storageId));
+  const missingFile = await t.run(ctx => inspect(ctx));
+  expect(missingFile.effects[0].latest.status).toBe("ready");
+  expect(missingFile.effects[0].latest.ready).toBe(false);
+  // Legacy release snapshots can own an image before per-version references
+  // were introduced; don't report those working public thumbnails as missing.
+  const legacyImage = await image();
+  await t.run(ctx => ctx.db.patch(effectId, { releasedCatalog: { name: "Public", description: "", thumbnailStorageId: legacyImage } }));
+  expect((await t.run(ctx => inspect(ctx))).effects[0].published.ready).toBe(true);
 });
 
 test("fixed snapshot packs saved number, boolean, and color defaults and rejects script effects", () => {

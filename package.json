@@ -10,6 +10,7 @@
     "build": "tsc -b && vite build && bun scripts/upload-sourcemaps.ts",
     "lint": "eslint .",
     "test:workshop": "bun test --tsconfig-override tsconfig.app.json tests",
+    "thumbnails:repair": "bun scripts/repair-shader-thumbnails.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

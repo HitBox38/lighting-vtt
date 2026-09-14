@@ -150,6 +150,35 @@ deployment requires `EFFECT_THUMBNAILS_ENABLED=true`; setting it only in Vercel
 does not enable generation. Saving while the flag is unset does not enqueue a
 thumbnail, and enabling it later does not automatically process existing effects.
 
+Use the authenticated Convex CLI from this checkout to inspect an explicit
+deployment. Inspection is read-only and exits nonzero if generation is disabled
+or any current shader thumbnail is missing:
+
+```bash
+bun run thumbnails:repair --deployment dev
+bun run thumbnails:repair --deployment prod
+```
+
+To repair the selected deployment, add `--apply`:
+
+```bash
+bun run thumbnails:repair --deployment dev --apply
+```
+
+The command first renders all diagnostic fixtures with a fresh native cache
+without retaining their images. Only after that succeeds does it enable the
+Convex flag, backfill every page (including failed jobs), and wait for stored
+latest-version and exact public-release images. Ready deployments are left
+alone. Terminal job failures or a ten-minute wait deadline produce a nonzero
+exit; use `--timeout-seconds` for larger libraries. A timeout does not cancel
+queued jobs or turn the flag back off. Run inspection again to check their state.
+
+Use `--deployment prod --apply` only when intending to activate production:
+it changes the production flag and queues rendering for existing shaders.
+Merging or deploying this code alone does **not** activate production generation.
+The command requires the current thumbnail backend/schema to be deployed and
+uses CLI login; unset `CONVEX_DEPLOY_KEY` to keep deployment selection explicit.
+
 To activate or repair generation in the intended Convex deployment:
 
 1. Run the internal `thumbnailDiagnostics:probe` action with
