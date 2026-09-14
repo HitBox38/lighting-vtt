@@ -28,6 +28,7 @@ if (!publishableKey) {
 const options = {
   ...createAnalyticsPrivacyOptions(),
   api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
+  ui_host: "https://eu.posthog.com",
   defaults: "2026-01-30",
   prepare_external_dependency_script: deferredAnalyticsScripts.prepare,
 } as const;
