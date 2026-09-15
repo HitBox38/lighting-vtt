@@ -54,14 +54,19 @@ function EffectThumbnail({
   thumbnailUrl,
   failedUrl,
   onFailedUrl,
+  shaderHovering,
 }: {
   effect: Props["effect"];
   thumbnailUrl: string | undefined;
   failedUrl: string | null;
   onFailedUrl: (url: string) => void;
+  shaderHovering: boolean;
 }) {
   return (
-    <span className="relative isolate block aspect-video w-full overflow-hidden rounded-md bg-stone-950 text-amber-300 ring-1 ring-stone-900/10">
+    <span
+      data-effect-thumb
+      className="relative isolate block aspect-video w-full overflow-hidden rounded-md bg-stone-950 text-amber-300 ring-1 ring-stone-900/10 [contain:paint]"
+    >
       <span className="absolute inset-0 bg-[radial-gradient(circle_at_35%_28%,rgba(251,191,36,0.32),transparent_34%),linear-gradient(135deg,rgba(120,113,108,0.24),rgba(28,25,23,0.96))]" />
       {thumbnailUrl && thumbnailUrl !== failedUrl ? (
         <img
@@ -84,6 +89,19 @@ function EffectThumbnail({
           className="workshop-stage relative h-full w-full text-amber-300"
         />
       )}
+      {shaderHovering ? (
+        <span
+          data-shader-hover-preview
+          className="pointer-events-none absolute inset-0 z-10 overflow-hidden bg-stone-950 [contain:paint]"
+        >
+          <span className="absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,rgba(251,191,36,0.5),rgba(251,191,36,0.13)_34%,transparent_58%),linear-gradient(90deg,rgba(251,191,36,0.08)_1px,transparent_1px),linear-gradient(rgba(251,191,36,0.08)_1px,transparent_1px)] bg-[length:auto,24px_24px,24px_24px]" />
+          <span className="absolute top-1/2 left-1/2 aspect-square w-[42%] -translate-x-1/2 -translate-y-1/2 animate-spin rounded-full border-2 border-amber-300/80 shadow-[0_0_28px_rgba(251,191,36,0.55)] [animation-duration:5s]" />
+          <span className="absolute top-1/2 left-1/2 aspect-square w-[58%] -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full border border-amber-200/35" />
+          <span className="sr-only">
+            Animated shader hover preview for {effect.name}
+          </span>
+        </span>
+      ) : null}
       <span className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-stone-950/70 via-stone-950/20 to-transparent" />
       <span className="pointer-events-none absolute inset-0 rounded-md ring-1 ring-inset ring-amber-100/10" />
     </span>
@@ -93,16 +111,25 @@ function EffectThumbnail({
 /** One compact library card. Clicking selects it for the detail pane. */
 export function EffectCard({ effect, selected, mine, onSelect }: Props) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const [hoverPreview, setHoverPreview] = useState(false);
   const thumbnailUrl = effect.generatedThumbnailUrl ?? effect.thumbnailUrl;
   const byline = authorLabel(effect, mine);
+  const shaderHovering = hoverPreview && effect.kind === "shader";
   return (
     <button
       type="button"
       onClick={() => onSelect(effect._id)}
+      onPointerEnter={(event) => {
+        if (event.pointerType === "mouse" && effect.kind === "shader") {
+          setHoverPreview(true);
+        }
+      }}
+      onPointerLeave={() => setHoverPreview(false)}
+      onBlur={() => setHoverPreview(false)}
       aria-pressed={selected}
       aria-label={`Preview ${effect.name} by ${byline}`}
       className={cn(
-        "group bg-card text-card-foreground hover:border-amber-500/70 hover:bg-amber-500/5 focus-visible:ring-ring flex h-full w-full flex-col gap-2 rounded-lg border p-2.5 text-left transition-colors outline-none focus-visible:ring-2",
+        "group bg-card text-card-foreground hover:border-amber-500/70 hover:bg-amber-500/5 focus-visible:ring-ring flex h-full w-full flex-col gap-1.5 rounded-lg border p-2 text-left transition-colors outline-none focus-visible:ring-2",
         selected && "border-amber-500 bg-amber-500/10 shadow-sm shadow-amber-500/15",
       )}
     >
@@ -111,9 +138,10 @@ export function EffectCard({ effect, selected, mine, onSelect }: Props) {
         thumbnailUrl={thumbnailUrl}
         failedUrl={failedUrl}
         onFailedUrl={setFailedUrl}
+        shaderHovering={shaderHovering}
       />
       <div className="flex min-w-0 items-start gap-2">
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
           {effect.name}
         </span>
         <Badge variant="secondary" className="font-mono text-[10px]">
@@ -128,11 +156,11 @@ export function EffectCard({ effect, selected, mine, onSelect }: Props) {
         </Badge>
       </div>
       {effect.description ? (
-        <p className="text-muted-foreground line-clamp-2 min-h-8 text-xs leading-4">
+        <p className="text-muted-foreground line-clamp-1 min-h-4 text-[11px] leading-4">
           {effect.description}
         </p>
       ) : (
-        <p className="text-muted-foreground min-h-8 text-xs italic">
+        <p className="text-muted-foreground min-h-4 text-[11px] italic">
           No description
         </p>
       )}

@@ -21,7 +21,7 @@ export class EffectLibraryPresenter {
   static readonly pageSize = 24;
 
   static readonly cardGridClass =
-    "grid grid-cols-1 gap-3 min-[460px]:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4";
+    "grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6";
 
   static sortFromParam(value: string | null): EffectSort {
     return value === "name" ? "name" : "newest";
