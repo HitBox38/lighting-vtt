@@ -1,4 +1,5 @@
 import type { Doc } from "../../../convex/_generated/dataModel";
+import type { EffectSort } from "@shared/effects";
 
 export function authorLabel(
   effect: Pick<Doc<"effects">, "authorName">,
@@ -14,4 +15,19 @@ export function formatDate(ms: number): string {
     month: "short",
     day: "numeric",
   });
+}
+
+export class EffectLibraryPresenter {
+  static readonly pageSize = 24;
+
+  static readonly cardGridClass =
+    "grid grid-cols-1 gap-3 min-[460px]:grid-cols-2 2xl:grid-cols-3";
+
+  static sortFromParam(value: string | null): EffectSort {
+    return value === "name" ? "name" : "newest";
+  }
+
+  static countLabel(count: number): string {
+    return `${count} ${count === 1 ? "effect" : "effects"} shown`;
+  }
 }

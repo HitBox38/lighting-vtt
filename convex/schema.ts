@@ -294,15 +294,33 @@ export default defineSchema({
   })
     .index("by_public_category", ["visibility", "publicCategory", "publishedAt"])
     .index("by_public_release", ["visibility", "publishedAt"])
+    .index("by_public_name", ["visibility", "name"])
+    .index("by_public_category_and_name", [
+      "visibility",
+      "publicCategory",
+      "name",
+    ])
     .searchIndex("search_public_effects", { searchField: "publicSearchText", filterFields: ["visibility", "publicCategory"] })
     .index("by_author", ["authorId"])
+    .index("by_author_and_name", ["authorId", "name"])
     .index("by_visibility", ["visibility", "updatedAt"])
+    .index("by_visibility_and_name", ["visibility", "name"])
     .index("by_visibility_and_category", [
       "visibility",
       "category",
       "updatedAt",
     ])
     .index("by_author_and_category", ["authorId", "category", "updatedAt"])
+    .index("by_visibility_and_category_and_name", [
+      "visibility",
+      "category",
+      "name",
+    ])
+    .index("by_author_and_category_and_name", [
+      "authorId",
+      "category",
+      "name",
+    ])
     .index("by_starterKey", ["starterKey"])
     .searchIndex("search_effects", {
       searchField: "searchText",

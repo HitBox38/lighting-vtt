@@ -55,6 +55,32 @@ test("save keeps public catalog, search, thumbnail, and source at the released v
   expect(await t.query(api.effects.listVersions, { effectId })).toHaveLength(2);
 });
 
+test("browse defaults to newest and supports name A-Z sorting", async () => {
+  const { t, author, create } = await setup();
+  const alphaId = await create("Amber Aura");
+  await author.mutation(api.effects.publishEffect, { effectId: alphaId, version: 1 });
+  now += 1_000;
+  const zetaId = await create("Zeta Fog");
+  await author.mutation(api.effects.publishEffect, { effectId: zetaId, version: 1 });
+
+  const newest = await t.query(api.effects.browse, {
+    paginationOpts: { cursor: null, numItems: 10 },
+  });
+  expect(newest.page.map((effect) => effect.name)).toEqual([
+    "Zeta Fog",
+    "Amber Aura",
+  ]);
+
+  const byName = await t.query(api.effects.browse, {
+    sort: "name",
+    paginationOpts: { cursor: null, numItems: 10 },
+  });
+  expect(byName.page.map((effect) => effect.name)).toEqual([
+    "Amber Aura",
+    "Zeta Fog",
+  ]);
+});
+
 test("real regular cooldown survives reopening and retries the saved version without resaving", async () => {
   const { author, create, t, other } = await setup();
   const ids: Id<"effects">[] = [];

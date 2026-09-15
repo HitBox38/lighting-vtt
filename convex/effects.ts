@@ -26,6 +26,7 @@ import {
 import {
   effectDefinitionSchema,
   effectCategorySchema,
+  effectSortSchema,
   type EffectDefinition,
 } from "../shared/effects";
 import { zodToConvex } from "convex-helpers/server/zod4";
@@ -39,6 +40,7 @@ export const browse = query({
     search: v.optional(v.string()),
     mine: v.optional(v.boolean()),
     category: v.optional(zodToConvex(effectCategorySchema)),
+    sort: v.optional(zodToConvex(effectSortSchema)),
   },
   returns: v.object({
     page: v.array(effectDocValidator),
@@ -55,64 +57,107 @@ export const browse = query({
   }),
   handler: async (ctx, args) => {
     const versioned = await versionReleasesEnabled(ctx);
+    const sort = args.sort ?? "newest";
     const result = await (async () => {
-    const userId = args.mine ? await getCurrentUserIdOrNull(ctx) : null;
-    if (args.mine && !userId)
-      return { page: [], isDone: true, continueCursor: "" };
-    const search = args.search
-      ?.trim()
-      .slice(0, 200)
-      .split(/\s+/)
-      .slice(0, 16)
-      .join(" ");
-    if (!userId && versioned) {
-      if (search) return ctx.db.query("effects").withSearchIndex("search_public_effects", q => {
-        const scoped = q.search("publicSearchText", search).eq("visibility", "public");
-        return args.category ? scoped.eq("publicCategory", args.category) : scoped;
-      }).paginate(args.paginationOpts);
-      return args.category
-        ? ctx.db.query("effects").withIndex("by_public_category", q => q.eq("visibility", "public").eq("publicCategory", args.category)).order("desc").paginate(args.paginationOpts)
-        : ctx.db.query("effects").withIndex("by_public_release", q => q.eq("visibility", "public")).order("desc").paginate(args.paginationOpts);
-    }
-    if (search)
-      return await ctx.db
-        .query("effects")
-        .withSearchIndex("search_effects", (q) => {
-          const scoped = userId
-            ? q.search("searchText", search).eq("authorId", userId)
-            : q.search("searchText", search).eq("visibility", "public");
-          return args.category ? scoped.eq("category", args.category) : scoped;
-        })
-        .paginate(args.paginationOpts);
-    if (userId)
+      const userId = args.mine ? await getCurrentUserIdOrNull(ctx) : null;
+      if (args.mine && !userId)
+        return { page: [], isDone: true, continueCursor: "" };
+      const search = args.search
+        ?.trim()
+        .slice(0, 200)
+        .split(/\s+/)
+        .slice(0, 16)
+        .join(" ");
+      if (!userId && versioned) {
+        if (search) return ctx.db.query("effects").withSearchIndex("search_public_effects", q => {
+          const scoped = q.search("publicSearchText", search).eq("visibility", "public");
+          return args.category ? scoped.eq("publicCategory", args.category) : scoped;
+        }).paginate(args.paginationOpts);
+        if (sort === "name") {
+          return args.category
+            ? ctx.db.query("effects").withIndex("by_public_category_and_name", q => q.eq("visibility", "public").eq("publicCategory", args.category)).order("asc").paginate(args.paginationOpts)
+            : ctx.db.query("effects").withIndex("by_public_name", q => q.eq("visibility", "public")).order("asc").paginate(args.paginationOpts);
+        }
+        return args.category
+          ? ctx.db.query("effects").withIndex("by_public_category", q => q.eq("visibility", "public").eq("publicCategory", args.category)).order("desc").paginate(args.paginationOpts)
+          : ctx.db.query("effects").withIndex("by_public_release", q => q.eq("visibility", "public")).order("desc").paginate(args.paginationOpts);
+      }
+      if (search)
+        return await ctx.db
+          .query("effects")
+          .withSearchIndex("search_effects", (q) => {
+            const scoped = userId
+              ? q.search("searchText", search).eq("authorId", userId)
+              : q.search("searchText", search).eq("visibility", "public");
+            return args.category ? scoped.eq("category", args.category) : scoped;
+          })
+          .paginate(args.paginationOpts);
+      if (userId) {
+        if (sort === "name") {
+          return args.category
+            ? await ctx.db
+                .query("effects")
+                .withIndex("by_author_and_category_and_name", (q) =>
+                  q.eq("authorId", userId).eq("category", args.category),
+                )
+                .order("asc")
+                .paginate(args.paginationOpts)
+            : await ctx.db
+                .query("effects")
+                .withIndex("by_author_and_name", (q) => q.eq("authorId", userId))
+                .order("asc")
+                .paginate(args.paginationOpts);
+        }
+        return args.category
+          ? await ctx.db
+              .query("effects")
+              .withIndex("by_author_and_category", (q) =>
+                q.eq("authorId", userId).eq("category", args.category),
+              )
+              .order("desc")
+              .paginate(args.paginationOpts)
+          : await ctx.db
+              .query("effects")
+              .withIndex("by_author", (q) => q.eq("authorId", userId))
+              .order("desc")
+              .paginate(args.paginationOpts);
+      }
+      if (sort === "name") {
+        return args.category
+          ? await ctx.db
+              .query("effects")
+              .withIndex("by_visibility_and_category_and_name", (q) =>
+                q.eq("visibility", "public").eq("category", args.category),
+              )
+              .order("asc")
+              .paginate(args.paginationOpts)
+          : await ctx.db
+              .query("effects")
+              .withIndex("by_visibility_and_name", (q) => q.eq("visibility", "public"))
+              .order("asc")
+              .paginate(args.paginationOpts);
+      }
       return args.category
         ? await ctx.db
             .query("effects")
-            .withIndex("by_author_and_category", (q) =>
-              q.eq("authorId", userId).eq("category", args.category),
+            .withIndex("by_visibility_and_category", (q) =>
+              q.eq("visibility", "public").eq("category", args.category),
             )
             .order("desc")
             .paginate(args.paginationOpts)
         : await ctx.db
             .query("effects")
-            .withIndex("by_author", (q) => q.eq("authorId", userId))
+            .withIndex("by_visibility", (q) => q.eq("visibility", "public"))
             .order("desc")
             .paginate(args.paginationOpts);
-    return args.category
-      ? await ctx.db
-          .query("effects")
-          .withIndex("by_visibility_and_category", (q) =>
-            q.eq("visibility", "public").eq("category", args.category),
-          )
-          .order("desc")
-          .paginate(args.paginationOpts)
-      : await ctx.db
-          .query("effects")
-          .withIndex("by_visibility", (q) => q.eq("visibility", "public"))
-          .order("desc")
-          .paginate(args.paginationOpts);
     })();
-    return { ...result, page: await Promise.all(result.page.map((effect) => !args.mine && versioned ? publicEffect(ctx, effect) : withThumbnail(ctx, effect))) };
+    const page = await Promise.all(result.page.map((effect) => !args.mine && versioned ? publicEffect(ctx, effect) : withThumbnail(ctx, effect)));
+    return {
+      ...result,
+      page: sort === "name" && args.search
+        ? [...page].sort((a, b) => a.name.localeCompare(b.name))
+        : page,
+    };
   },
 });
 
