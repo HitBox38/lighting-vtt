@@ -13,6 +13,13 @@ import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { AppSettingsDialog } from "@/components/organisms/AppSettingsDialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EffectGlyph } from "@/components/molecules/EffectGlyph/EffectGlyph";
 import { PlaceEffectButton } from "@/components/molecules/PlaceEffectButton/PlaceEffectButton";
 import { EffectCard } from "./components/EffectCard";
@@ -299,27 +306,43 @@ export function EffectLibraryPage() {
                 ) : null}
               </div>
               <div className="min-w-36 space-y-1.5">
-                <label htmlFor="effect-sort" className="workshop-eyebrow block">
+                <label
+                  id="effect-sort-label"
+                  htmlFor="effect-sort"
+                  className="workshop-eyebrow block"
+                >
                   Sort
                 </label>
-                <select
-                  id="effect-sort"
-                  className="workshop-select h-10 border-stone-300 bg-background text-sm focus-visible:ring-2 focus-visible:ring-amber-500 dark:border-stone-700"
+                <Select
                   value={sort}
                   disabled={tab === "reports"}
-                  onChange={(e) =>
+                  onValueChange={(value) =>
                     update(
                       "sort",
-                      e.target.value === "newest" ? null : e.target.value,
+                      value === "newest" ? null : value,
                     )
                   }
                 >
-                  {SORT_OPTIONS.map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger
+                    id="effect-sort"
+                    aria-labelledby="effect-sort-label"
+                    size="sm"
+                    className="h-10 w-full border-stone-300 bg-background text-sm text-foreground focus-visible:ring-amber-500 dark:border-stone-700 dark:bg-stone-950/80"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="border-amber-900/20 bg-stone-950 text-stone-50">
+                    {SORT_OPTIONS.map(([value, label]) => (
+                      <SelectItem
+                        key={value}
+                        value={value}
+                        className="focus:bg-amber-500/20 focus:text-amber-100"
+                      >
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div
