@@ -118,6 +118,9 @@ export type EffectBlend = z.infer<typeof effectBlendSchema>;
 
 export const EFFECT_CATEGORIES = ["Light", "Atmosphere", "Magic", "Geometry", "Other"] as const;
 export const effectCategorySchema = z.enum(EFFECT_CATEGORIES);
+export const EFFECT_SORT_OPTIONS = ["newest", "name"] as const;
+export const effectSortSchema = z.enum(EFFECT_SORT_OPTIONS);
+export type EffectSort = z.infer<typeof effectSortSchema>;
 
 const sourceSchema = z.string().max(EFFECT_LIMITS.maxSourceLength, "Source is too long");
 

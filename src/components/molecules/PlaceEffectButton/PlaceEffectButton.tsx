@@ -45,6 +45,7 @@ export function PlaceEffectButton({
       <Button
         className="workshop-primary"
         size={size}
+        type="button"
         disabled={disabled}
         onClick={() => {
           if (returnTo?.startsWith("/scene?")) place(returnTo);
@@ -62,12 +63,14 @@ export function PlaceEffectButton({
           </DialogDescription>
           {!user ? (
             <SignInButton mode="modal">
-              <Button>Sign in to choose your scene</Button>
+              <Button className="workshop-primary">
+                Sign in to choose your scene
+              </Button>
             </SignInButton>
           ) : scenes === undefined ? (
             <p role="status">Loading scenes…</p>
           ) : scenes.length === 0 ? (
-            <Button asChild>
+            <Button asChild className="workshop-primary">
               <Link to="/library">Create your first scene</Link>
             </Button>
           ) : (
