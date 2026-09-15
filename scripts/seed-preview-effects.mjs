@@ -59,6 +59,14 @@ class PreviewEffectsSeeder {
       throw new Error(`Refusing to seed non-preview Convex deployment "${deployment}".`);
     }
 
+    // Snapshot IDs encode table numbers. A backend that already has a schema
+    // can assign those numbers to different tables, even when it has no rows.
+    // Seed only before the first schema push; never reset an existing preview.
+    if (this.hasExistingTables(deployment)) {
+      console.log(`Skipping effects seed: ${deployment} already has tables. Preserving existing preview data and table IDs.`);
+      return;
+    }
+
     const tempRoot = mkdtempSync(join(tmpdir(), "lighting-vtt-effects-seed-"));
     try {
       const seedZip = this.resolveSeedZip(tempRoot);
@@ -90,6 +98,13 @@ class PreviewEffectsSeeder {
 
   static isPreviewDeploymentRef(deployment) {
     return deployment.startsWith("preview/") || deployment.includes(":preview/");
+  }
+
+  static hasExistingTables(deployment) {
+    const tables = this.exec("bunx", [
+      "--bun", "convex", "data", "--deployment", deployment,
+    ], { stdio: ["ignore", "pipe", "inherit"], encoding: "utf8" });
+    return tables.trim().length > 0;
   }
 
   static resolveSeedZip(tempRoot) {
@@ -196,8 +211,9 @@ class PreviewEffectsSeeder {
   }
 
   static exec(command, args, options = {}) {
-    execFileSync(command, args, {
-      stdio: "inherit",
+    return execFileSync(command, args, {
+      stdio: options.stdio ?? "inherit",
+      encoding: options.encoding,
       cwd: options.cwd ?? process.cwd(),
       env: options.env ?? process.env,
     });

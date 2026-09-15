@@ -139,12 +139,19 @@ Set the matching `CLERK_JWT_ISSUER_DOMAIN` in Convex's default environment
 variables for preview deployments. Uploads also require `UPLOADTHING_TOKEN` in
 the preview **Convex backend** environment. To exercise thumbnail generation,
 enable `EFFECT_THUMBNAILS_ENABLED=true` there. Preview backends have their own
-data, but Vercel preview builds now seed the published effects library after a
-successful `convex deploy` + frontend build.
+data. On fresh preview backends, Vercel builds seed the effects library after
+the frontend build and before Convex's first schema push (`--cmd` runs before
+the backend code is deployed).
 
 Preview effect seeding runs through `scripts/seed-preview-effects.mjs` only when
 `VERCEL_ENV=preview`. Production builds call the script too, but it exits before
-importing anything. The script imports with `convex import --replace -y` into the
+contacting Convex. The script first lists the target's tables with `convex data`.
+If any tables already exist, it skips seeding and preserves the preview's data.
+This includes backends with an existing schema but no rows: snapshot IDs encode
+table numbers that may conflict with that schema. Table-list failures stop the
+build instead of treating an inaccessible backend as empty.
+
+On a fresh backend, the script imports with `convex import --replace -y` into the
 derived preview deployment ref `preview/<branch-with-slashes-as-dashes>` (for
 example, `preview/cursor-effects-browse-facelift-5a3d`). Set
 `CONVEX_PREVIEW_SEED_DEPLOYMENT` only if Vercel needs a fully qualified
