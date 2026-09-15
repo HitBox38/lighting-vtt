@@ -846,6 +846,12 @@ export function EffectPreview({
   return (
     <div
       ref={hostRef}
+      role="img"
+      aria-label={
+        definition
+          ? `Animated preview canvas for ${definition.name}`
+          : "Effect preview canvas"
+      }
       className={cn("relative h-full w-full overflow-hidden", className)}
     >
       {bootError ? (

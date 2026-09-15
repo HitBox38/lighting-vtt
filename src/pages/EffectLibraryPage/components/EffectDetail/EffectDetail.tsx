@@ -403,6 +403,9 @@ export function EffectDetail({
 
   return (
     <div data-analytics-private className="flex h-full flex-col">
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        Previewing {definition?.name ?? effect.name}
+      </p>
       <div className="min-w-0 space-y-4 p-4 [overflow-wrap:anywhere]">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">

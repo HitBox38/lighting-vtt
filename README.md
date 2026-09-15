@@ -139,7 +139,56 @@ Set the matching `CLERK_JWT_ISSUER_DOMAIN` in Convex's default environment
 variables for preview deployments. Uploads also require `UPLOADTHING_TOKEN` in
 the preview **Convex backend** environment. To exercise thumbnail generation,
 enable `EFFECT_THUMBNAILS_ENABLED=true` there. Preview backends have their own
-data; production library contents are not copied automatically.
+data. On fresh preview backends, Vercel builds seed the effects library after
+the frontend build and before Convex's first schema push (`--cmd` runs before
+the backend code is deployed).
+
+Preview effect seeding runs through `scripts/seed-preview-effects.mjs` only when
+`VERCEL_ENV=preview`. Production builds call the script too, but it exits before
+contacting Convex. The script first lists the target's tables with `convex data`.
+If any tables already exist, it skips seeding and preserves the preview's data.
+This includes backends with an existing schema but no rows: snapshot IDs encode
+table numbers that may conflict with that schema. Table-list failures stop the
+build instead of treating an inaccessible backend as empty.
+
+On a fresh backend, the script imports with `convex import --replace -y` into the
+derived preview deployment ref `preview/<branch-with-slashes-as-dashes>` (for
+example, `preview/cursor-effects-browse-facelift-5a3d`). Set
+`CONVEX_PREVIEW_SEED_DEPLOYMENT` only if Vercel needs a fully qualified
+`team:project:preview/...` deployment ref.
+
+The import is effects-only. The script slims every source archive before import
+and keeps only `effects`, `effectVersions`, `effectReleaseRollout`, `_storage`,
+and `uploadedFiles`. It removes scenes, guest/player sessions, reports, and
+thumbnail work queues; do not use `--replace-all` for this workflow.
+
+There are two seed sources:
+
+1. Preferred for automatic fresh previews: set `CONVEX_PROD_DEPLOY_KEY` in
+   Vercel Preview. The script temporarily uses that key to run
+   `convex export --prod --include-file-storage`, slims the export, then imports
+   the effects-only archive into the preview deployment with the Preview-scoped
+   `CONVEX_DEPLOY_KEY`.
+2. Fallback: commit `convex/seed/effects-library.zip`. To refresh it from a
+   trusted machine with production access:
+
+   ```bash
+   CONVEX_DEPLOY_KEY=<production deploy key> \
+     bunx --bun convex export --prod --include-file-storage \
+     --path /tmp/effects-library.full.zip
+   bun scripts/seed-preview-effects.mjs --slim \
+     /tmp/effects-library.full.zip convex/seed/effects-library.zip
+   ```
+
+   Inspect the slim archive before committing it. It must contain the effects
+   tables and `_storage` thumbnails, and must not contain scenes, sessions,
+   reports, or thumbnail job tables.
+
+If neither `CONVEX_PROD_DEPLOY_KEY` nor `convex/seed/effects-library.zip` is
+available, preview builds log a warning and skip data seeding rather than
+importing an incorrect or empty library. Set
+`CONVEX_SKIP_PREVIEW_EFFECT_SEED=true` only for intentionally empty preview
+backends.
 
 See [Convex's Vercel preview setup](https://docs.convex.dev/production/hosting/vercel#preview-deployments).
 
