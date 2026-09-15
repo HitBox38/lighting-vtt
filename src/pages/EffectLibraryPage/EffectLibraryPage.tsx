@@ -53,6 +53,8 @@ const SORT_OPTIONS = [
   ["name", "Name A-Z"],
 ] as const;
 
+const SEARCH_SORT_OPTIONS = [["relevance", "Search relevance"]] as const;
+
 interface ShaderHoverPreviewState {
   effectId: string;
   version: number;
@@ -119,6 +121,8 @@ export function EffectLibraryPage() {
   const category = effectCategorySchema.safeParse(params.get("category"));
   const activeCategory = category.success ? category.data : undefined;
   const sort = EffectLibraryPresenter.sortFromParam(params.get("sort"));
+  const searchActive = search.trim().length > 0;
+  const visibleSort = searchActive ? "relevance" : sort;
   const admin =
     useQuery(api.effects.amAdmin, isAuthenticated ? {} : "skip") ?? false;
   const result = usePaginatedQuery(
@@ -129,7 +133,7 @@ export function EffectLibraryPage() {
           search,
           mine: tab === "mine",
           category: activeCategory,
-          sort,
+          sort: searchActive ? "newest" : sort,
         },
     { initialNumItems: EffectLibraryPresenter.pageSize },
   );
@@ -191,7 +195,11 @@ export function EffectLibraryPage() {
       : `${EffectLibraryPresenter.countLabel(visibleResultCount)}. Search ${
           search || "empty"
         }. Category ${activeCategory ?? "All"}. Sort ${
-          sort === "name" ? "name A-Z" : "newest first"
+          searchActive
+            ? "search relevance"
+            : sort === "name"
+              ? "name A-Z"
+              : "newest first"
         }.`
     : tab === "reports"
       ? "Moderation reports selected."
@@ -392,8 +400,8 @@ export function EffectLibraryPage() {
                     Sort
                   </label>
                   <Select
-                    value={sort}
-                    disabled={tab === "reports"}
+                    value={visibleSort}
+                    disabled={tab === "reports" || searchActive}
                     onValueChange={(value) =>
                       update(
                         "sort",
@@ -403,6 +411,7 @@ export function EffectLibraryPage() {
                   >
                     <SelectTrigger
                       id="effect-sort"
+                      aria-describedby={searchActive ? "effect-sort-hint" : undefined}
                       aria-labelledby="effect-sort-label"
                       size="sm"
                       className="h-10 w-full border-stone-300 bg-background text-sm text-foreground focus-visible:ring-amber-500 dark:border-stone-700 dark:bg-stone-950/80"
@@ -410,7 +419,7 @@ export function EffectLibraryPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="border-amber-900/20 bg-stone-950 text-stone-50">
-                      {SORT_OPTIONS.map(([value, label]) => (
+                      {(searchActive ? SEARCH_SORT_OPTIONS : SORT_OPTIONS).map(([value, label]) => (
                         <SelectItem
                           key={value}
                           value={value}
@@ -421,6 +430,11 @@ export function EffectLibraryPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {searchActive ? (
+                    <p id="effect-sort-hint" className="text-[11px] text-muted-foreground">
+                      Clear search to sort A-Z.
+                    </p>
+                  ) : null}
                 </div>
               </div>
               <div
@@ -528,7 +542,11 @@ export function EffectLibraryPage() {
                     </h2>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {sort === "name" ? "Name A-Z" : "Newest first"}
+                    {searchActive
+                      ? "Search relevance"
+                      : sort === "name"
+                        ? "Name A-Z"
+                        : "Newest first"}
                   </span>
                 </div>
                 <ul className={EffectLibraryPresenter.cardGridClass}>

@@ -152,12 +152,7 @@ export const browse = query({
             .paginate(args.paginationOpts);
     })();
     const page = await Promise.all(result.page.map((effect) => !args.mine && versioned ? publicEffect(ctx, effect) : withThumbnail(ctx, effect)));
-    return {
-      ...result,
-      page: sort === "name" && args.search
-        ? [...page].sort((a, b) => a.name.localeCompare(b.name))
-        : page,
-    };
+    return { ...result, page };
   },
 });
 
