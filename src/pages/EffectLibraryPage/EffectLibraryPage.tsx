@@ -1,3 +1,5 @@
+import { useCallback, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   useUser,
@@ -22,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { EffectGlyph } from "@/components/molecules/EffectGlyph/EffectGlyph";
 import { PlaceEffectButton } from "@/components/molecules/PlaceEffectButton/PlaceEffectButton";
-import { EffectCard } from "./components/EffectCard";
+import { EffectCard, type EffectCardEffect } from "./components/EffectCard";
 import { EffectDetail } from "./components/EffectDetail";
 import { ModerationQueue } from "./components/ModerationQueue";
 import { cn } from "@/lib/utils";
@@ -32,8 +34,14 @@ import {
   RETURN_TO_PARAM,
   sanitizeReturnTo,
 } from "@/lib/effects/routes";
-import { EFFECT_CATEGORIES, effectCategorySchema } from "@shared/effects";
+import {
+  defaultParamValues,
+  EFFECT_CATEGORIES,
+  effectCategorySchema,
+} from "@shared/effects";
 import { EffectLibraryPresenter } from "./helpers";
+import { EffectPreview } from "@/components/organisms/EffectPreview/EffectPreview";
+import { versionDocToDefinition } from "@/lib/effects/hooks/useEffectDefinitions";
 
 const SOURCE_TABS = [
   ["public", "Explore"],
@@ -45,8 +53,61 @@ const SORT_OPTIONS = [
   ["name", "Name A-Z"],
 ] as const;
 
+interface ShaderHoverPreviewState {
+  effectId: string;
+  version: number;
+  name: string;
+  target: HTMLElement;
+}
+
+function ShaderHoverPreviewPortal({
+  preview,
+}: {
+  preview: ShaderHoverPreviewState | null;
+}) {
+  const versionDoc = useQuery(
+    api.effects.getVersion,
+    preview
+      ? { effectId: preview.effectId, version: preview.version }
+      : "skip",
+  );
+  const definition = useMemo(() => {
+    if (!versionDoc || versionDoc.kind !== "shader") return null;
+    return versionDocToDefinition(versionDoc);
+  }, [versionDoc]);
+  const params = useMemo(
+    () => (definition ? defaultParamValues(definition.params) : null),
+    [definition],
+  );
+
+  if (!preview || !preview.target.isConnected || !definition || !params) {
+    return null;
+  }
+
+  return createPortal(
+    <span className="pointer-events-none absolute inset-0 z-10 overflow-hidden bg-stone-950 [contain:paint]">
+      <EffectPreview
+        key={`${preview.effectId}:${preview.version}`}
+        definition={definition}
+        params={params}
+        paused={false}
+        enabled
+        environment="grid"
+        className="h-full w-full [&>canvas]:!h-full [&>canvas]:!max-h-full [&>canvas]:!max-w-full [&>canvas]:!object-cover [&>canvas]:!w-full"
+        radiusFraction={0.44}
+      />
+      <span className="sr-only">
+        Live shader hover preview for {preview.name}
+      </span>
+    </span>,
+    preview.target,
+  );
+}
+
 export function EffectLibraryPage() {
   const [params, setParams] = useSearchParams();
+  const [shaderPreview, setShaderPreview] =
+    useState<ShaderHoverPreviewState | null>(null);
   const { user } = useUser();
   const { isAuthenticated } = useConvexAuth();
   const returnTo = sanitizeReturnTo(params.get(RETURN_TO_PARAM));
@@ -95,6 +156,22 @@ export function EffectLibraryPage() {
       },
       { replace: true },
     );
+  const handleShaderPreviewStart = useCallback(
+    (effect: EffectCardEffect, target: HTMLElement) => {
+      setShaderPreview({
+        effectId: effect._id,
+        version: effect.latestVersion,
+        name: effect.name,
+        target,
+      });
+    },
+    [],
+  );
+  const handleShaderPreviewEnd = useCallback((effectId: string) => {
+    setShaderPreview((current) =>
+      current?.effectId === effectId ? null : current,
+    );
+  }, []);
   useAnalyticsView(ANALYTICS_EVENTS.EffectLibraryViewed, "effect-library", {
     from_scene: Boolean(returnTo),
   });
@@ -366,6 +443,7 @@ export function EffectLibraryPage() {
           <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
             {resultAnnouncement}
           </p>
+          <ShaderHoverPreviewPortal preview={shaderPreview} />
           {showBasics ? (
             <section className="mb-8" aria-labelledby="built-in-effects-title">
               <div className="mb-3 flex items-end justify-between gap-3">
@@ -467,6 +545,8 @@ export function EffectLibraryPage() {
                         selected={selected === effect._id}
                         mine={user?.id === effect.authorId}
                         onSelect={(id) => update("effect", id)}
+                        onShaderPreviewStart={handleShaderPreviewStart}
+                        onShaderPreviewEnd={handleShaderPreviewEnd}
                       />
                     </li>
                   ))}

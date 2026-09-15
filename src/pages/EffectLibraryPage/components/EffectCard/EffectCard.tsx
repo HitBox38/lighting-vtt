@@ -1,16 +1,24 @@
 import { EffectGlyph } from "@/components/molecules/EffectGlyph/EffectGlyph";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Doc } from "../../../../../convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { authorLabel, formatDate } from "@/pages/EffectLibraryPage/helpers";
 
+export type EffectCardEffect = Doc<"effects"> & {
+  generatedThumbnailUrl?: string;
+  thumbnailStatus?: string;
+  thumbnailVersion?: number;
+};
+
 interface Props {
-  effect: Doc<"effects"> & { generatedThumbnailUrl?: string; thumbnailStatus?: string; thumbnailVersion?: number };
+  effect: EffectCardEffect;
   selected: boolean;
   /** True when the signed-in user authored this effect. */
   mine: boolean;
   onSelect: (effectId: string) => void;
+  onShaderPreviewStart: (effect: EffectCardEffect, target: HTMLElement) => void;
+  onShaderPreviewEnd: (effectId: string) => void;
 }
 
 function visibilityBadge(visibility: Doc<"effects">["visibility"]) {
@@ -54,13 +62,11 @@ function EffectThumbnail({
   thumbnailUrl,
   failedUrl,
   onFailedUrl,
-  shaderHovering,
 }: {
   effect: Props["effect"];
   thumbnailUrl: string | undefined;
   failedUrl: string | null;
   onFailedUrl: (url: string) => void;
-  shaderHovering: boolean;
 }) {
   return (
     <span
@@ -89,19 +95,6 @@ function EffectThumbnail({
           className="workshop-stage relative h-full w-full text-amber-300"
         />
       )}
-      {shaderHovering ? (
-        <span
-          data-shader-hover-preview
-          className="pointer-events-none absolute inset-0 z-10 overflow-hidden bg-stone-950 [contain:paint]"
-        >
-          <span className="absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,rgba(251,191,36,0.5),rgba(251,191,36,0.13)_34%,transparent_58%),linear-gradient(90deg,rgba(251,191,36,0.08)_1px,transparent_1px),linear-gradient(rgba(251,191,36,0.08)_1px,transparent_1px)] bg-[length:auto,24px_24px,24px_24px]" />
-          <span className="absolute top-1/2 left-1/2 aspect-square w-[42%] -translate-x-1/2 -translate-y-1/2 animate-spin rounded-full border-2 border-amber-300/80 shadow-[0_0_28px_rgba(251,191,36,0.55)] [animation-duration:5s]" />
-          <span className="absolute top-1/2 left-1/2 aspect-square w-[58%] -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full border border-amber-200/35" />
-          <span className="sr-only">
-            Animated shader hover preview for {effect.name}
-          </span>
-        </span>
-      ) : null}
       <span className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-stone-950/70 via-stone-950/20 to-transparent" />
       <span className="pointer-events-none absolute inset-0 rounded-md ring-1 ring-inset ring-amber-100/10" />
     </span>
@@ -109,23 +102,37 @@ function EffectThumbnail({
 }
 
 /** One compact library card. Clicking selects it for the detail pane. */
-export function EffectCard({ effect, selected, mine, onSelect }: Props) {
+export function EffectCard({
+  effect,
+  selected,
+  mine,
+  onSelect,
+  onShaderPreviewStart,
+  onShaderPreviewEnd,
+}: Props) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const [hoverPreview, setHoverPreview] = useState(false);
   const thumbnailUrl = effect.generatedThumbnailUrl ?? effect.thumbnailUrl;
   const byline = authorLabel(effect, mine);
-  const shaderHovering = hoverPreview && effect.kind === "shader";
+
+  useEffect(
+    () => () => onShaderPreviewEnd(effect._id),
+    [effect._id, onShaderPreviewEnd],
+  );
+
   return (
     <button
       type="button"
       onClick={() => onSelect(effect._id)}
       onPointerEnter={(event) => {
         if (event.pointerType === "mouse" && effect.kind === "shader") {
-          setHoverPreview(true);
+          const thumb = event.currentTarget.querySelector<HTMLElement>(
+            "[data-effect-thumb]",
+          );
+          if (thumb) onShaderPreviewStart(effect, thumb);
         }
       }}
-      onPointerLeave={() => setHoverPreview(false)}
-      onBlur={() => setHoverPreview(false)}
+      onPointerLeave={() => onShaderPreviewEnd(effect._id)}
+      onBlur={() => onShaderPreviewEnd(effect._id)}
       aria-pressed={selected}
       aria-label={`Preview ${effect.name} by ${byline}`}
       className={cn(
@@ -138,7 +145,6 @@ export function EffectCard({ effect, selected, mine, onSelect }: Props) {
         thumbnailUrl={thumbnailUrl}
         failedUrl={failedUrl}
         onFailedUrl={setFailedUrl}
-        shaderHovering={shaderHovering}
       />
       <div className="flex min-w-0 items-start gap-2">
         <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
