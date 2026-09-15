@@ -207,158 +207,160 @@ export function EffectLibraryPage() {
           </div>
           <section
             aria-labelledby="effect-browse-controls"
-            className="sticky top-0 z-20 mb-6 rounded-2xl border border-amber-900/10 bg-stone-50/95 p-3 shadow-lg shadow-stone-950/5 backdrop-blur-xl dark:border-amber-300/10 dark:bg-stone-950/90"
+            className="sticky top-0 z-30 -mx-4 mb-6 bg-background px-4 pt-2 pb-3 sm:-mx-6 sm:px-6"
           >
-            <h2 id="effect-browse-controls" className="sr-only">
-              Browse effects
-            </h2>
-            <div className="grid gap-3 xl:grid-cols-[minmax(240px,1fr)_auto_auto] xl:items-end">
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="effect-search"
-                  className="workshop-eyebrow block"
-                >
-                  Search
-                </label>
-                <div className="relative">
-                  <Input
-                    id="effect-search"
-                    className="h-10 border-stone-300 bg-background pr-16 focus-visible:ring-amber-500 dark:border-stone-700"
-                    aria-describedby="effect-result-count"
-                    placeholder="Search lighting and atmosphere..."
-                    value={search}
-                    onChange={(e) => update("q", e.target.value, true)}
-                  />
-                  {search ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute top-1/2 right-1 h-8 -translate-y-1/2 px-2 text-xs text-amber-800 hover:bg-amber-500/10 hover:text-amber-950 dark:text-amber-300"
-                      aria-label="Clear search"
-                      onClick={clearSearch}
-                    >
-                      Clear
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-3 xl:justify-center">
-                <fieldset className="min-w-0">
-                  <legend className="workshop-eyebrow mb-1">Source</legend>
-                  <div className="flex flex-wrap gap-1" aria-label="Effect source">
-                    {sourceTabs.map(([value, label]) => (
+            <div className="rounded-2xl border border-amber-900/10 bg-stone-50 p-3 shadow-lg shadow-stone-950/5 dark:border-amber-300/10 dark:bg-stone-950">
+              <h2 id="effect-browse-controls" className="sr-only">
+                Browse effects
+              </h2>
+              <div className="grid gap-3 xl:grid-cols-[minmax(240px,1fr)_auto_auto] xl:items-end">
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="effect-search"
+                    className="workshop-eyebrow block"
+                  >
+                    Search
+                  </label>
+                  <div className="relative">
+                    <Input
+                      id="effect-search"
+                      className="h-10 border-stone-300 bg-background pr-16 focus-visible:ring-amber-500 dark:border-stone-700"
+                      aria-describedby="effect-result-count"
+                      placeholder="Search lighting and atmosphere..."
+                      value={search}
+                      onChange={(e) => update("q", e.target.value, true)}
+                    />
+                    {search ? (
                       <Button
-                        size="sm"
+                        type="button"
                         variant="ghost"
-                        aria-pressed={tab === value}
-                        key={value}
-                        className={cn(
-                          "h-8 rounded-full px-3 text-xs",
-                          tab === value
-                            ? "bg-amber-500 text-stone-950 hover:bg-amber-400"
-                            : "text-stone-700 hover:bg-amber-500/10 dark:text-stone-200",
-                        )}
-                        onClick={() => update("tab", value)}
+                        size="sm"
+                        className="absolute top-1/2 right-1 h-8 -translate-y-1/2 px-2 text-xs text-amber-800 hover:bg-amber-500/10 hover:text-amber-950 dark:text-amber-300"
+                        aria-label="Clear search"
+                        onClick={clearSearch}
                       >
-                        {label}
+                        Clear
                       </Button>
-                    ))}
+                    ) : null}
                   </div>
-                </fieldset>
-                {tab !== "reports" ? (
+                </div>
+                <div className="flex flex-wrap gap-3 xl:justify-center">
                   <fieldset className="min-w-0">
-                    <legend className="workshop-eyebrow mb-1">Category</legend>
-                    <div className="flex flex-wrap gap-1" aria-label="Effect category">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        aria-pressed={!activeCategory}
-                        className={cn(
-                          "h-8 rounded-full px-3 text-xs",
-                          !activeCategory
-                            ? "bg-amber-500 text-stone-950 hover:bg-amber-400"
-                            : "text-stone-700 hover:bg-amber-500/10 dark:text-stone-200",
-                        )}
-                        onClick={() => update("category", null)}
-                      >
-                        All
-                      </Button>
-                      {EFFECT_CATEGORIES.map((c) => (
+                    <legend className="workshop-eyebrow mb-1">Source</legend>
+                    <div className="flex flex-wrap gap-1" aria-label="Effect source">
+                      {sourceTabs.map(([value, label]) => (
                         <Button
                           size="sm"
-                          key={c}
                           variant="ghost"
-                          aria-pressed={activeCategory === c}
+                          aria-pressed={tab === value}
+                          key={value}
                           className={cn(
                             "h-8 rounded-full px-3 text-xs",
-                            activeCategory === c
+                            tab === value
                               ? "bg-amber-500 text-stone-950 hover:bg-amber-400"
                               : "text-stone-700 hover:bg-amber-500/10 dark:text-stone-200",
                           )}
-                          onClick={() => update("category", c)}
+                          onClick={() => update("tab", value)}
                         >
-                          {c}
+                          {label}
                         </Button>
                       ))}
                     </div>
                   </fieldset>
-                ) : null}
-              </div>
-              <div className="min-w-36 space-y-1.5">
-                <label
-                  id="effect-sort-label"
-                  htmlFor="effect-sort"
-                  className="workshop-eyebrow block"
-                >
-                  Sort
-                </label>
-                <Select
-                  value={sort}
-                  disabled={tab === "reports"}
-                  onValueChange={(value) =>
-                    update(
-                      "sort",
-                      value === "newest" ? null : value,
-                    )
-                  }
-                >
-                  <SelectTrigger
-                    id="effect-sort"
-                    aria-labelledby="effect-sort-label"
-                    size="sm"
-                    className="h-10 w-full border-stone-300 bg-background text-sm text-foreground focus-visible:ring-amber-500 dark:border-stone-700 dark:bg-stone-950/80"
+                  {tab !== "reports" ? (
+                    <fieldset className="min-w-0">
+                      <legend className="workshop-eyebrow mb-1">Category</legend>
+                      <div className="flex flex-wrap gap-1" aria-label="Effect category">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-pressed={!activeCategory}
+                          className={cn(
+                            "h-8 rounded-full px-3 text-xs",
+                            !activeCategory
+                              ? "bg-amber-500 text-stone-950 hover:bg-amber-400"
+                              : "text-stone-700 hover:bg-amber-500/10 dark:text-stone-200",
+                          )}
+                          onClick={() => update("category", null)}
+                        >
+                          All
+                        </Button>
+                        {EFFECT_CATEGORIES.map((c) => (
+                          <Button
+                            size="sm"
+                            key={c}
+                            variant="ghost"
+                            aria-pressed={activeCategory === c}
+                            className={cn(
+                              "h-8 rounded-full px-3 text-xs",
+                              activeCategory === c
+                                ? "bg-amber-500 text-stone-950 hover:bg-amber-400"
+                                : "text-stone-700 hover:bg-amber-500/10 dark:text-stone-200",
+                            )}
+                            onClick={() => update("category", c)}
+                          >
+                            {c}
+                          </Button>
+                        ))}
+                      </div>
+                    </fieldset>
+                  ) : null}
+                </div>
+                <div className="min-w-36 space-y-1.5">
+                  <label
+                    id="effect-sort-label"
+                    htmlFor="effect-sort"
+                    className="workshop-eyebrow block"
                   >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="border-amber-900/20 bg-stone-950 text-stone-50">
-                    {SORT_OPTIONS.map(([value, label]) => (
-                      <SelectItem
-                        key={value}
-                        value={value}
-                        className="focus:bg-amber-500/20 focus:text-amber-100"
-                      >
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                    Sort
+                  </label>
+                  <Select
+                    value={sort}
+                    disabled={tab === "reports"}
+                    onValueChange={(value) =>
+                      update(
+                        "sort",
+                        value === "newest" ? null : value,
+                      )
+                    }
+                  >
+                    <SelectTrigger
+                      id="effect-sort"
+                      aria-labelledby="effect-sort-label"
+                      size="sm"
+                      className="h-10 w-full border-stone-300 bg-background text-sm text-foreground focus-visible:ring-amber-500 dark:border-stone-700 dark:bg-stone-950/80"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="border-amber-900/20 bg-stone-950 text-stone-50">
+                      {SORT_OPTIONS.map(([value, label]) => (
+                        <SelectItem
+                          key={value}
+                          value={value}
+                          className="focus:bg-amber-500/20 focus:text-amber-100"
+                        >
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
-            <div
-              id="effect-result-count"
-              className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
-            >
-              <span className="font-medium text-foreground">
-                {browsingEffects
-                  ? EffectLibraryPresenter.countLabel(visibleResultCount)
-                  : tab === "reports"
-                    ? "Moderator reports"
-                    : "Sign in required"}
-              </span>
-              <span>
-                Lighting, atmosphere, magic, and table geometry only.
-              </span>
+              <div
+                id="effect-result-count"
+                className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+              >
+                <span className="font-medium text-foreground">
+                  {browsingEffects
+                    ? EffectLibraryPresenter.countLabel(visibleResultCount)
+                    : tab === "reports"
+                      ? "Moderator reports"
+                      : "Sign in required"}
+                </span>
+                <span>
+                  Lighting, atmosphere, magic, and table geometry only.
+                </span>
+              </div>
             </div>
           </section>
           <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
