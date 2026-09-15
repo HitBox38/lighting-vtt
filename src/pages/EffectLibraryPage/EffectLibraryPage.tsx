@@ -207,7 +207,7 @@ export function EffectLibraryPage() {
           </div>
           <section
             aria-labelledby="effect-browse-controls"
-            className="sticky top-0 z-30 -mx-4 mb-6 bg-background px-4 pt-2 pb-3 sm:-mx-6 sm:px-6"
+            className="sticky top-[-1rem] z-50 isolate -mx-4 bg-background px-4 pt-2 pb-6 shadow-[0_18px_28px_-26px_rgba(28,25,23,0.9)] sm:top-[-1.5rem] sm:-mx-6 sm:px-6"
           >
             <div className="rounded-2xl border border-amber-900/10 bg-stone-50 p-3 shadow-lg shadow-stone-950/5 dark:border-amber-300/10 dark:bg-stone-950">
               <h2 id="effect-browse-controls" className="sr-only">
