@@ -354,7 +354,7 @@ export function EffectLibraryPage() {
               <div className={EffectLibraryPresenter.cardGridClass}>
                 {basics.map((item) => (
                   <div key={catalogKey(item)} className="workshop-card flex h-full flex-col gap-2 p-2.5">
-                    <span className="relative isolate block aspect-[16/10] overflow-hidden rounded-md bg-stone-950 text-amber-300 ring-1 ring-stone-900/10">
+                    <span className="relative isolate block aspect-video overflow-hidden rounded-md bg-stone-950 text-amber-300 ring-1 ring-stone-900/10">
                       <span className="absolute inset-0 bg-[radial-gradient(circle_at_35%_30%,rgba(251,191,36,0.34),transparent_34%),linear-gradient(135deg,rgba(120,113,108,0.2),rgba(28,25,23,0.96))]" />
                       <EffectGlyph
                         item={item}

@@ -294,7 +294,6 @@ export default defineSchema({
   })
     .index("by_public_category", ["visibility", "publicCategory", "publishedAt"])
     .index("by_public_release", ["visibility", "publishedAt"])
-    .index("by_public_name", ["visibility", "name"])
     .index("by_public_category_and_name", [
       "visibility",
       "publicCategory",

@@ -76,7 +76,7 @@ export const browse = query({
         if (sort === "name") {
           return args.category
             ? ctx.db.query("effects").withIndex("by_public_category_and_name", q => q.eq("visibility", "public").eq("publicCategory", args.category)).order("asc").paginate(args.paginationOpts)
-            : ctx.db.query("effects").withIndex("by_public_name", q => q.eq("visibility", "public")).order("asc").paginate(args.paginationOpts);
+            : ctx.db.query("effects").withIndex("by_visibility_and_name", q => q.eq("visibility", "public")).order("asc").paginate(args.paginationOpts);
         }
         return args.category
           ? ctx.db.query("effects").withIndex("by_public_category", q => q.eq("visibility", "public").eq("publicCategory", args.category)).order("desc").paginate(args.paginationOpts)

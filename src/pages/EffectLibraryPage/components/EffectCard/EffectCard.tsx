@@ -61,7 +61,7 @@ function EffectThumbnail({
   onFailedUrl: (url: string) => void;
 }) {
   return (
-    <span className="relative isolate block aspect-[16/10] w-full overflow-hidden rounded-md bg-stone-950 text-amber-300 ring-1 ring-stone-900/10">
+    <span className="relative isolate block aspect-video w-full overflow-hidden rounded-md bg-stone-950 text-amber-300 ring-1 ring-stone-900/10">
       <span className="absolute inset-0 bg-[radial-gradient(circle_at_35%_28%,rgba(251,191,36,0.32),transparent_34%),linear-gradient(135deg,rgba(120,113,108,0.24),rgba(28,25,23,0.96))]" />
       {thumbnailUrl && thumbnailUrl !== failedUrl ? (
         <img
