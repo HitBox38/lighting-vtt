@@ -42,6 +42,14 @@ practices, especially provider retention, international transfers, and analytics
 consent requirements. Adding these pages does not implement a cookie consent
 flow or automatic deletion of application data when a Clerk account is deleted.
 
+## PixelFX experiment
+
+Run `bun run dev:pixelfx` for a local comparison bench with three baked pixel-art
+animations. It compares synchronized frames on dark and light backgrounds,
+with pixel scale, blend, pivot, and playback controls. See
+[the pilot decisions and authoring workflow](docs/pixelfx-pilot.md) for asset
+regeneration and evaluation criteria. The bench is outside the application build.
+
 ## Tech Stack
 
 - **Frontend**: React 19 with TypeScript 7

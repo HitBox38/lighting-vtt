@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.pixelfx.tsbuildinfo"
+  },
+  "include": ["tests/pixelfx-preview.ts", "tests/pixelfx/**/*.ts"]
+}

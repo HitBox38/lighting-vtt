@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="data:," />
+    <title>PixelFX material bench · Lighting VTT</title>
+    <link rel="stylesheet" href="./pixelfx/bench.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <div><p class="eyebrow">Lighting VTT / local experiment 01</p><h1>PixelFX material bench<span>.</span></h1></div>
+        <p class="scope">Three baked loops.<br />Two surfaces. One shared clock.</p>
+      </header>
+      <p class="intro">Inspect the glow, the pixels, and the perspective before putting them on a table. These animations do not illuminate a scene.</p>
+      <section class="controls" aria-label="Animation controls">
+        <label>Animation<select id="effect" disabled></select></label>
+        <label>Pixel scale<select id="scale"><option value="1">1× / native</option><option value="2" selected>2×</option><option value="4">4×</option></select></label>
+        <label>Blend<select id="blend"><option value="normal">Normal / alpha</option><option value="add">Additive</option></select></label>
+        <label>Speed<select id="speed"><option value="0.25">¼ speed</option><option value="0.5">½ speed</option><option value="1" selected>1× speed</option><option value="2">2× speed</option></select></label>
+        <label>Renderer<select id="renderer"><option value="webgl">WebGL</option><option value="webgpu">WebGPU</option></select></label>
+        <label class="checkbox"><input id="guides" type="checkbox" checked /> Pivot & bounds</label>
+      </section>
+      <div class="transport">
+        <button id="play" type="button" aria-pressed="false" disabled>Pause</button>
+        <button id="restart" type="button" disabled>Restart</button>
+        <label class="scrubber">Frame<input id="frame" type="range" min="0" max="0" value="0" disabled /></label>
+        <output id="frame-label" for="frame">—</output>
+      </div>
+      <p id="status" role="status">Preparing the bench…</p>
+      <p id="error" role="alert" hidden></p>
+      <section class="plates" aria-label="Synchronized background comparison">
+        <article><div class="plate-heading"><h2>01 / Dark stone</h2><span>Inspect glow & silhouette</span></div><div class="viewport" id="dark"></div></article>
+        <article><div class="plate-heading"><h2>02 / Light parchment</h2><span>Inspect halos & contrast</span></div><div class="viewport" id="light"></div></article>
+      </section>
+      <section class="readout" aria-label="Asset information"><p id="metadata">Reading the selected atlas…</p><p id="provenance"></p></section>
+      <footer>
+        <p>Nearest-neighbor sampling. Native canvas pixels; scroll at larger scales. The amber cross marks the exported pivot.</p>
+        <p>Normal blend is the primary check. Additive can wash out on light surfaces. Both plates are synthetic; assess perspective and representative maps separately.</p>
+        <a href="https://github.com/patch-gg/pixelfx">PixelFX by Patch</a><span> · </span><a id="license" href="./fixtures/pixelfx/LICENSE">MIT license</a><span> · </span><a id="notices" href="./fixtures/pixelfx/NOTICE.md">Notices</a>
+      </footer>
+    </main>
+    <script type="module" src="./pixelfx-preview.ts"></script>
+  </body>
+</html>

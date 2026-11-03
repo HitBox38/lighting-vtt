@@ -1,0 +1,46 @@
+{
+  "repository": "https://github.com/patch-gg/pixelfx",
+  "commit": "a84159688af3ca37a4be05a0d422b94451b2e24e",
+  "renderArgs": [
+    "tools/render.mjs",
+    "fire/campfire",
+    "arcane/portal",
+    "arcane/rune-circle",
+    "--sheet",
+    "--no-actor",
+    "--bg",
+    "none"
+  ],
+  "effects": [
+    {
+      "id": "fire/campfire",
+      "name": "Campfire",
+      "atlas": "fire/campfire/campfire.json",
+      "image": "fire/campfire/campfire.png",
+      "sha256": {
+        "atlas": "68bbf06379632014a0e35b184feb66f5d90b5be498c4a9ff2d4535709f18437a",
+        "image": "f21206bb721dbf765838fcfaaa3fcd6676168ef9c064615849a41b9467a922db"
+      }
+    },
+    {
+      "id": "arcane/portal",
+      "name": "Portal",
+      "atlas": "arcane/portal/portal.json",
+      "image": "arcane/portal/portal.png",
+      "sha256": {
+        "atlas": "3d169f33a9c1bbc480ef25b733e360ba14968a4cca83a9c65bcadd92fe49f604",
+        "image": "12118abcc9a9c548d20ab502bd0ebe071f13a9bd97a843e5401d631737b42774"
+      }
+    },
+    {
+      "id": "arcane/rune-circle",
+      "name": "Rune circle",
+      "atlas": "arcane/rune-circle/rune-circle.json",
+      "image": "arcane/rune-circle/rune-circle.png",
+      "sha256": {
+        "atlas": "048ba19dccb8e5d0e590e343e20f63e8a0d75762a5e104b007d217097a93eb9b",
+        "image": "d82c52650c48a5b5d2f8397923b43107d524cf938a1b827484317fff18f1b0b1"
+      }
+    }
+  ]
+}
