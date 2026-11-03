@@ -5,6 +5,11 @@
   "type": "module",
   "scripts": {
     "dev:frontend": "vite",
+    "dev:pixelfx": "vite --config tests/pixelfx/vite.config.ts --open /tests/pixelfx-preview.html",
+    "build:pixelfx": "vite build --config tests/pixelfx/vite.config.ts",
+    "bake:pixelfx": "node scripts/bake-pixelfx.mjs",
+    "test:pixelfx": "bun test tests/pixelfx.test.ts",
+    "typecheck:pixelfx": "tsc --noEmit -p tsconfig.pixelfx.json",
     "dev:backend": "bunx convex dev",
     "dev": "bun dev:backend && bun dev:frontend",
     "build": "tsc -b && vite build && bun scripts/upload-sourcemaps.ts",
